@@ -9,6 +9,7 @@ export default defineConfig({
   build: {
     outDir: 'dist/renderer',
     emptyOutDir: true,
+    assetsDir: './assets',
   },
   server: {
     port: 5173,

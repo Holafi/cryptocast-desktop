@@ -10,6 +10,8 @@ function createWindow() {
     height: 800,
     minWidth: 1000,
     minHeight: 700,
+    title: 'CryptoCast',
+    icon: path.join(__dirname, '../../assets/icon.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -17,8 +19,8 @@ function createWindow() {
     },
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#111827',
-      symbolColor: '#ffffff',
+      color: '#0F172A',
+      symbolColor: '#7C3AED',
     },
   });
 
@@ -38,7 +40,9 @@ function createWindow() {
 
 // 应用准备就绪
 app.whenReady().then(() => {
+  console.log('App is ready, setting up IPC handlers...');
   setupIPCHandlers();
+  console.log('IPC handlers set up, creating window...');
   createWindow();
 
   app.on('activate', () => {

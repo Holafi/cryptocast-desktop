@@ -1,9 +1,9 @@
 {
-  "name": "batch-airdrop-desktop",
+  "name": "cryptocast-desktop",
   "version": "1.0.0",
-  "description": "区块链批量发奖工具 - Electron桌面应用",
+  "description": "CryptoCast - Secure Batch Reward Distribution Platform",
   "main": "dist/main/index.js",
-  "author": "Your Name",
+  "author": "Viaweb3",
   "license": "MIT",
   "scripts": {
     "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
@@ -32,8 +32,9 @@
   "dependencies": {
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.0",
+    "@tailwindcss/postcss": "^4.1.17",
     "axios": "^1.7.9",
-    "better-sqlite3": "^12.4.1",
+    "better-sqlite3": "^11.6.0",
     "csv-parse": "^6.1.0",
     "csv-stringify": "^6.6.0",
     "electron-updater": "^6.3.9",
@@ -79,15 +80,18 @@
     "wait-on": "^9.0.3"
   },
   "build": {
-    "appId": "com.batch-airdrop.desktop",
-    "productName": "批量发奖工具",
+    "appId": "com.cryptocast.desktop",
+    "productName": "CryptoCast",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "assets/**/*"
     ],
+    "icon": "assets/icon.svg",
+    "npmRebuild": false,
     "mac": {
       "category": "public.app-category.finance",
       "target": [

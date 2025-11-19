@@ -1,0 +1,95 @@
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 背景渐变 -->
+    <radialGradient id="splashBg">
+      <stop offset="0%" style="stop-color:#1E3A8A;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#7C3AED;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:1" />
+    </radialGradient>
+
+    <!-- 发光效果 -->
+    <filter id="splashGlow">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- 动画效果定义 -->
+    <animate id="pulse" attributeName="r" values="5;8;5" dur="2s" repeatCount="indefinite"/>
+    <animate id="fadeIn" attributeName="opacity" values="0;1" dur="1s" begin="0s" fill="freeze"/>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="800" height="600" fill="url(#splashBg)"/>
+
+  <!-- 网格背景装饰 -->
+  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+    <circle cx="25" cy="25" r="0.5" fill="#FFFFFF" opacity="0.2"/>
+  </pattern>
+  <rect width="800" height="600" fill="url(#grid)" opacity="0.5"/>
+
+  <!-- 主Logo -->
+  <g transform="translate(400, 250)">
+    <!-- 动态信号波 -->
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#7C3AED" stroke-width="2" opacity="0.6">
+      <animate attributeName="r" values="40;120;40" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.8;0.1;0.8" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="0" cy="0" r="80" fill="none" stroke="#0891B2" stroke-width="1.5" opacity="0.5">
+      <animate attributeName="r" values="60;140;60" dur="3s" begin="1s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.7;0.1;0.7" dur="3s" begin="1s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="0" cy="0" r="100" fill="none" stroke="#10B981" stroke-width="1" opacity="0.4">
+      <animate attributeName="r" values="80;160;80" dur="3s" begin="2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.6;0.1;0.6" dur="3s" begin="2s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- 中央发射器 -->
+    <circle cx="0" cy="0" r="15" fill="#7C3AED" filter="url(#splashGlow)">
+      <animate attributeName="r" values="15;20;15" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="0" cy="0" r="10" fill="#FFFFFF" opacity="0.9"/>
+
+    <!-- 代币粒子动画 -->
+    <circle cx="0" cy="-30" r="3" fill="#10B981" opacity="0">
+      <animateTransform attributeName="transform" type="translate"
+                       values="0,0; 60,-80; 120,-60" dur="4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="0" cy="-30" r="2.5" fill="#0891B2" opacity="0">
+      <animateTransform attributeName="transform" type="translate"
+                       values="0,0; -70,-90; -140,-70" dur="4s" begin="1s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0" dur="4s" begin="1s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="0" cy="-30" r="2" fill="#7C3AED" opacity="0">
+      <animateTransform attributeName="transform" type="translate"
+                       values="0,0; 50,-100; 100,-80" dur="4s" begin="2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0" dur="4s" begin="2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- 品牌名称 -->
+  <text x="400" y="380" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="48" font-weight="700" fill="#FFFFFF" text-anchor="middle" opacity="0">
+    CryptoCast
+    <animate attributeName="opacity" values="0;1" dur="1s" begin="1s" fill="freeze"/>
+  </text>
+
+  <!-- 副标题 -->
+  <text x="400" y="420" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="18" font-weight="300" fill="#94A3B8" text-anchor="middle" opacity="0">
+    Secure Batch Reward Distribution
+    <animate attributeName="opacity" values="0;1" dur="1s" begin="1.5s" fill="freeze"/>
+  </text>
+
+  <!-- 加载状态指示器 -->
+  <g transform="translate(400, 480)" opacity="0">
+    <rect x="-40" y="-2" width="80" height="4" rx="2" fill="#1E3A8A"/>
+    <rect x="-40" y="-2" width="50" height="4" rx="2" fill="url(#textGradient)">
+      <animate attributeName="width" values="0;80;0" dur="3s" begin="2s" repeatCount="indefinite"/>
+    </rect>
+    <animate attributeName="opacity" values="0;1" dur="0.5s" begin="2s" fill="freeze"/>
+  </g>
+</svg>
