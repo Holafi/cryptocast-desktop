@@ -9,7 +9,11 @@ export interface ElectronAPI {
     onProgress: (callback: (data: ProgressData) => void) => void;
   };
   wallet: {
-    create: () => Promise<{ address: string; encryptedKey: string }>;
+    unlock: (password: string) => Promise<{ success: boolean; isLocked: boolean }>;
+    lock: () => Promise<{ success: boolean }>;
+    changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean }>;
+    isLocked: () => boolean;
+    create: (type?: string) => Promise<{ address: string; encryptedKey: string }>;
     exportPrivateKey: (encryptedKey: string) => Promise<string>;
     exportKeystore: (encryptedKey: string, password: string) => Promise<string>;
     getBalance: (address: string, chain: string, tokenAddress?: string) => Promise<BalanceData>;
@@ -34,7 +38,24 @@ export interface ElectronAPI {
   };
   file: {
     readCSV: (filePath: string) => Promise<any[]>;
-    exportReport: (campaignId: string) => Promise<{ success: boolean; filePath: string }>;
+    exportReport: (campaignId: string, format?: string) => Promise<{ success: boolean; filePath: string }>;
+  };
+  price: {
+    getPrice: (symbol: string) => Promise<{ symbol: string; price: number }>;
+    getPrices: (symbols: string[]) => Promise<Record<string, number>>;
+    getGasPrice: (network: string) => Promise<any>;
+    getSummary: () => Promise<any>;
+  };
+  gas: {
+    getInfo: (rpcUrl: string, network: string, tokenPrice?: number) => Promise<any>;
+    estimateBatch: (rpcUrl: string, network: string, recipientCount: number, tokenPrice?: number) => Promise<any>;
+  };
+  contract: {
+    deploy: (config: any) => Promise<any>;
+    batchTransfer: (contractAddress: string, rpcUrl: string, privateKey: string, recipients: string[], amounts: string[], tokenAddress: string) => Promise<{ success: boolean; data: any }>;
+    approveTokens: (rpcUrl: string, privateKey: string, tokenAddress: string, contractAddress: string, amount: string) => Promise<{ success: boolean; txHash: string }>;
+    checkApproval: (rpcUrl: string, privateKey: string, tokenAddress: string, contractAddress: string, requiredAmount: string) => Promise<{ approved: boolean }>;
+    getTokenInfo: (rpcUrl: string, tokenAddress: string) => Promise<{ symbol: string; name: string; decimals: number }>;
   };
 }
 
