@@ -17,19 +17,14 @@ export default function Layout({ children }: LayoutProps) {
   const [gasPrices, setGasPrices] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
-    // 初始化价格数据
     updatePrices();
-
-    // 设置定时更新
-    const interval = setInterval(updatePrices, 30000); // 30秒更新一次
-
+    const interval = setInterval(updatePrices, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const updatePrices = async () => {
     try {
       if (window.electronAPI?.price) {
-        // 获取主要代币价格
         const prices = await window.electronAPI.price.getPrices(['ETH', 'MATIC', 'SOL']);
         setPriceInfo({
           eth: prices.ETH || 0,
@@ -37,7 +32,6 @@ export default function Layout({ children }: LayoutProps) {
           sol: prices.SOL || 0
         });
 
-        // 获取Gas价格 - 使用新的gas服务
         try {
           const chains = await window.electronAPI.chain.getEVMChains(true);
           const ethChain = chains.find(c => c.name.toLowerCase().includes('ethereum'));
@@ -72,10 +66,10 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const navItems = [
-    { path: '/', label: '📊 仪表盘', icon: '📊' },
-    { path: '/campaign/create', label: '➕ 新建活动', icon: '➕' },
-    { path: '/history', label: '📜 历史', icon: '📜' },
-    { path: '/settings', label: '⚙️ 设置', icon: '⚙️' },
+    { path: '/', label: '仪表盘', icon: '📊' },
+    { path: '/campaign/create', label: '新建活动', icon: '➕' },
+    { path: '/history', label: '历史记录', icon: '📜' },
+    { path: '/settings', label: '系统设置', icon: '⚙️' },
   ];
 
   const formatPrice = (price: number) => {
@@ -92,69 +86,92 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-cryptocast-dark text-white">
+    <div className="flex h-screen bg-base-100 text-base-content">
       {/* 侧边栏 */}
-      <aside className="w-64 bg-cryptocast-secondary p-4">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-cryptocast-purple">CryptoCast</h1>
-          <p className="text-sm text-gray-400">v1.0.0</p>
+      <aside className="w-72 bg-base-200 border-r border-base-300 flex flex-col">
+        {/* Logo区域 */}
+        <div className="p-6 border-b border-base-300">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent mb-1">
+            CryptoCast
+          </h1>
+          <p className="text-xs text-base-content/60">仪表盘 v1.0.0</p>
         </div>
 
-        {/* 价格显示 */}
-        <div className="mb-6 p-3 bg-gray-700 rounded-lg">
-          <h3 className="text-sm font-semibold mb-3 text-gray-300">实时价格</h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-400">ETH:</span>
-              <span className="font-mono">{formatPrice(priceInfo.eth)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">MATIC:</span>
-              <span className="font-mono">{formatPrice(priceInfo.matic)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">SOL:</span>
-              <span className="font-mono">{formatPrice(priceInfo.sol)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Gas价格显示 */}
-        <div className="mb-6 p-3 bg-gray-700 rounded-lg">
-          <h3 className="text-sm font-semibold mb-3 text-gray-300">Gas价格</h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-400">Ethereum:</span>
-              <span className="font-mono text-yellow-400">{gasPrices.ethereum ? formatGasPrice(gasPrices.ethereum) : 'N/A'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Polygon:</span>
-              <span className="font-mono text-green-400">{gasPrices.polygon ? formatGasPrice(gasPrices.polygon) : 'N/A'}</span>
-            </div>
-          </div>
-        </div>
-
-        <nav className="space-y-2">
+        {/* 导航菜单 */}
+        <nav className="p-4 space-y-1">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`block px-4 py-3 rounded-lg transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
                 location.pathname === item.path
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-700'
-                }`}
+                  ? 'bg-primary text-primary-content shadow-lg'
+                  : 'text-base-content/70 hover:bg-base-300 hover:text-base-content'
+              }`}
             >
-              <span className="mr-2">{item.icon}</span>
-              {item.label}
+              <span className="text-xl">{item.icon}</span>
+              <span>{item.label}</span>
             </Link>
           ))}
         </nav>
+
+        {/* 价格和Gas信息 - 滚动区域 */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* 价格显示 */}
+          <div className="card bg-base-300 shadow-sm">
+            <div className="card-body p-4">
+              <h3 className="text-xs font-semibold mb-3 text-primary uppercase tracking-wide flex items-center gap-2">
+                <span>💰</span>
+                实时价格
+              </h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 bg-base-100 rounded-lg">
+                  <span className="text-base-content/70 text-sm font-medium">ETH</span>
+                  <span className="font-mono text-sm text-primary font-semibold">{formatPrice(priceInfo.eth)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-base-100 rounded-lg">
+                  <span className="text-base-content/70 text-sm font-medium">MATIC</span>
+                  <span className="font-mono text-sm text-secondary font-semibold">{formatPrice(priceInfo.matic)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-base-100 rounded-lg">
+                  <span className="text-base-content/70 text-sm font-medium">SOL</span>
+                  <span className="font-mono text-sm text-accent font-semibold">{formatPrice(priceInfo.sol)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Gas价格显示 */}
+          <div className="card bg-base-300 shadow-sm">
+            <div className="card-body p-4">
+              <h3 className="text-xs font-semibold mb-3 text-secondary uppercase tracking-wide flex items-center gap-2">
+                <span>⚡</span>
+                Gas价格
+              </h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 bg-base-100 rounded-lg">
+                  <span className="text-base-content/70 text-sm font-medium">Ethereum</span>
+                  <span className="font-mono text-sm text-warning font-semibold">
+                    {gasPrices.ethereum ? formatGasPrice(gasPrices.ethereum) : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-base-100 rounded-lg">
+                  <span className="text-base-content/70 text-sm font-medium">Polygon</span>
+                  <span className="font-mono text-sm text-success font-semibold">
+                    {gasPrices.polygon ? formatGasPrice(gasPrices.polygon) : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </aside>
 
       {/* 主内容区 */}
-      <main className="flex-1 overflow-auto p-8">
-        {children}
+      <main className="flex-1 overflow-y-auto bg-base-100">
+        <div className="max-w-7xl mx-auto p-8">
+          {children}
+        </div>
       </main>
     </div>
   );
