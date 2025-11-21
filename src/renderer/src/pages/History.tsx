@@ -35,6 +35,34 @@ export default function History() {
     page: 1,
     limit: 10,
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load campaigns on mount and set up auto-refresh
+  useEffect(() => {
+    loadData();
+
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadData = async (silent = false) => {
+    if (!silent) {
+      setIsRefreshing(true);
+    }
+    try {
+      await actions.loadCampaigns();
+    } catch (error) {
+      console.error('Failed to load campaigns:', error);
+    } finally {
+      if (!silent) {
+        setIsRefreshing(false);
+      }
+    }
+  };
 
   const chains: Record<string, ChainInfo> = {
     ethereum: { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', icon: '🔷', color: '#627eea' },
@@ -157,8 +185,8 @@ export default function History() {
     },
   ];
 
-  // 使用mock数据或真实数据
-  const displayCampaigns = state.campaigns.length > 0 ? state.campaigns : mockCampaigns;
+  // Use real data from state
+  const displayCampaigns = state.campaigns;
 
   const filteredCampaigns = useMemo(() => {
     let filtered = [...displayCampaigns];
@@ -292,13 +320,32 @@ export default function History() {
         <div className="flex items-center gap-3">
           <span className="text-3xl">📜</span>
           <h1 className="text-2xl font-bold">历史记录</h1>
+          {state.isLoading && (
+            <span className="loading loading-spinner loading-sm"></span>
+          )}
         </div>
-        <button
-          onClick={() => navigate('/')}
-          className="btn btn-ghost"
-        >
-          ← 返回仪表盘
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => loadData()}
+            disabled={isRefreshing}
+            className="btn btn-sm btn-ghost"
+          >
+            {isRefreshing ? (
+              <>
+                <span className="loading loading-spinner loading-xs"></span>
+                刷新中...
+              </>
+            ) : (
+              <>🔄 刷新</>
+            )}
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="btn btn-sm btn-ghost"
+          >
+            ← 返回仪表盘
+          </button>
+        </div>
       </div>
 
       {/* Statistical Overview */}
