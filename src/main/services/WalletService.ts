@@ -108,4 +108,49 @@ export class WalletService {
       }
     }
   }
+
+  /**
+   * Get wallet balance for EVM chains
+   */
+  async getEVMBalance(
+    address: string,
+    rpcUrl: string,
+    tokenAddress?: string
+  ): Promise<{ balance: string; symbol: string; decimals: number }> {
+    try {
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+      if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
+        // Native token balance
+        const balance = await provider.getBalance(address);
+        return {
+          balance: ethers.formatEther(balance),
+          symbol: 'ETH',
+          decimals: 18,
+        };
+      } else {
+        // ERC20 token balance
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          ['function balanceOf(address) view returns (uint256)', 'function symbol() view returns (string)', 'function decimals() view returns (uint8)'],
+          provider
+        );
+
+        const [balance, symbol, decimals] = await Promise.all([
+          tokenContract.balanceOf(address),
+          tokenContract.symbol(),
+          tokenContract.decimals(),
+        ]);
+
+        return {
+          balance: ethers.formatUnits(balance, decimals),
+          symbol,
+          decimals: Number(decimals),
+        };
+      }
+    } catch (error) {
+      console.error('Failed to get EVM balance:', error);
+      throw new Error('EVM balance query failed');
+    }
+  }
 }

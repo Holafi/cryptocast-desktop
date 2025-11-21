@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { DatabaseManager } from '../database/sqlite-schema';
 import { CampaignService } from '../services/CampaignService';
 import { WalletService } from '../services/WalletService';
+import { WalletManagementService } from '../services/WalletManagementService';
 import { BlockchainService } from '../services/BlockchainService';
 import { ChainService } from '../services/ChainService';
 import { FileService } from '../services/FileService';
@@ -11,6 +12,7 @@ import { ContractService } from '../services/ContractService';
 let databaseManager: DatabaseManager;
 let campaignService: CampaignService;
 let walletService: WalletService;
+let walletManagementService: WalletManagementService;
 let blockchainService: BlockchainService;
 let chainService: ChainService;
 let fileService: FileService;
@@ -30,6 +32,9 @@ export async function setupIPCHandlers() {
 
     console.log('Initializing wallet service...');
     walletService = new WalletService();
+
+    console.log('Initializing wallet management service...');
+    walletManagementService = new WalletManagementService(databaseManager);
 
     console.log('Initializing price service...');
     priceService = new PriceService(databaseManager);
@@ -201,6 +206,40 @@ export async function setupIPCHandlers() {
     } catch (error) {
       console.error('查询余额失败:', error);
       throw new Error(`查询余额失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  });
+
+  ipcMain.handle('wallet:list', async (_event, options) => {
+    try {
+      console.log('获取钱包列表:', options);
+      const wallets = await walletManagementService.listActivityWallets(options);
+      return wallets;
+    } catch (error) {
+      console.error('获取钱包列表失败:', error);
+      throw new Error(`获取钱包列表失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  });
+
+  ipcMain.handle('wallet:getBalances', async (_event, campaignId) => {
+    try {
+      console.log('获取钱包余额:', campaignId);
+      const balances = await walletManagementService.getWalletBalances(campaignId);
+      return balances;
+    } catch (error) {
+      console.error('获取钱包余额失败:', error);
+      throw new Error(`获取钱包余额失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  });
+
+  ipcMain.handle('wallet:refreshBalances', async (_event, campaignIds) => {
+    try {
+      console.log('批量刷新钱包余额:', campaignIds);
+      const results = await walletManagementService.refreshWalletBalances(campaignIds);
+      // Convert Map to object for IPC
+      return Object.fromEntries(results);
+    } catch (error) {
+      console.error('批量刷新钱包余额失败:', error);
+      throw new Error(`批量刷新钱包余额失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   });
 
