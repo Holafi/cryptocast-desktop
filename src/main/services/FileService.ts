@@ -325,12 +325,11 @@ export class FileService {
     try {
       const backupData = await this.generateReportData(campaignId);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `backup_campaign_${campaignId}_${timestamp}.json`;
-      const filePath = await this.exportJSONReport(backupData, fileName);
+      const fileName = `backup_campaign_${campaignId}_${timestamp}.csv`;
+      const filePath = await this.exportCSVReport(backupData, fileName);
       return filePath;
     } catch (error) {
       throw new Error(`Failed to create backup: ${error}`);
     }
   }
-
   }

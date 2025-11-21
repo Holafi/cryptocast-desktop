@@ -1,10 +1,6 @@
 /* Import CryptoCast Brand Styles */
 @import './brand.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* DaisyUI Configuration */
 @layer base {
   :root {
@@ -77,6 +73,66 @@
 
   .card:hover {
     @apply shadow-md border-primary/20;
+  }
+
+  /* Form controls - ensure borders are visible */
+  .input,
+  .select,
+  .textarea {
+    @apply border border-gray-300 bg-white;
+  }
+
+  .input:focus,
+  .select:focus,
+  .textarea:focus {
+    @apply ring-2 ring-primary/20 ring-offset-2 border-primary outline-none;
+  }
+
+  .input-bordered,
+  .select-bordered,
+  .textarea-bordered {
+    @apply border border-gray-300 bg-white;
+  }
+
+  /* Force border visibility with !important */
+  .input.input-bordered,
+  select.select-bordered,
+  textarea.textarea-bordered {
+    border: 1px solid #d1d5db !important;
+    background-color: #ffffff !important;
+  }
+
+  .input.input-bordered:focus,
+  select.select-bordered:focus,
+  textarea.textarea-bordered:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+  }
+
+  /* Ensure form labels are positioned above inputs */
+  .form-control {
+    @apply flex flex-col space-y-2;
+  }
+
+  .form-control .label {
+    @apply justify-start py-0 px-0;
+  }
+
+  .form-control .label-text {
+    @apply text-sm font-medium text-base-content;
+  }
+
+  /* Force vertical layout for all form controls */
+  .form-control > *,
+  .form-control > label,
+  .form-control > input,
+  .form-control > select,
+  .form-control > textarea {
+    @apply block;
+  }
+
+  .form-control > label {
+    @apply mb-2;
   }
 
   .badge {

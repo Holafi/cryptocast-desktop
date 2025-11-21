@@ -52,9 +52,10 @@ export class SettingsService {
     try {
       const settings = { ...DEFAULT_SETTINGS };
 
-      const rows = this.db.prepare('SELECT key, value FROM settings').all() as any[] || [];
+      const rows = this.db.prepare('SELECT key, value FROM settings').all();
+      const rowsArray = Array.isArray(rows) ? rows : [];
 
-      rows.forEach(row => {
+      rowsArray.forEach((row: any) => {
         const key = row.key as keyof AppSettings;
         let value: any = row.value;
 
@@ -185,13 +186,9 @@ export class SettingsService {
           return ['daily', 'weekly', 'monthly'].includes(value);
         case 'gasStrategy':
           return ['economic', 'standard', 'fast', 'custom'].includes(value);
-        case 'gasAlertThreshold':
-          return typeof value === 'number' && value >= 0;
         case 'rpcTimeout':
         case 'sessionTimeout':
           return typeof value === 'number' && value > 0;
-        case 'maxRetries':
-          return typeof value === 'number' && value >= 0 && value <= 10;
         case 'batchSize':
           return typeof value === 'number' && value > 0 && value <= 1000;
         case 'maxConcurrency':

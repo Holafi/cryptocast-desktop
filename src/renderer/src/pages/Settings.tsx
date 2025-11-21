@@ -57,7 +57,9 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
     }
   }, [chain]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
   if (!chain) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -66,9 +68,18 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
   };
 
   const handleTest = async () => {
+    if (isTesting) {
+      return;
+    }
+
     setIsTesting(true);
-    await onTest(chain.chainId);
-    setTimeout(() => setIsTesting(false), 2000);
+    try {
+      await onTest(chain.chainId);
+    } catch (error) {
+      console.error('测试失败:', error);
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const testResult = testResults[chain.chainId];
@@ -108,6 +119,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="input input-bordered"
+                    style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     required
                   />
                 </div>
@@ -121,6 +133,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
                     value={formData.chainId}
                     onChange={(e) => setFormData({ ...formData, chainId: parseInt(e.target.value) })}
                     className="input input-bordered"
+                    style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     required
                   />
                 </div>
@@ -135,6 +148,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
                   value={formData.rpcUrl}
                   onChange={(e) => setFormData({ ...formData, rpcUrl: e.target.value })}
                   className="input input-bordered"
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   placeholder="https://polygon.llamarpc.com"
                   required
                 />
@@ -152,6 +166,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
                   value={formData.rpcBackup}
                   onChange={(e) => setFormData({ ...formData, rpcBackup: e.target.value })}
                   className="input input-bordered"
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   placeholder="https://polygon-mainnet.infura.io/v3/YOUR_PROJECT_ID"
                 />
               </div>
@@ -165,6 +180,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
                   value={formData.explorerUrl}
                   onChange={(e) => setFormData({ ...formData, explorerUrl: e.target.value })}
                   className="input input-bordered"
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   placeholder="https://polygonscan.com"
                   required
                 />
@@ -180,6 +196,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
                     value={formData.symbol}
                     onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
                     className="input input-bordered"
+                    style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     placeholder="MATIC"
                     required
                   />
@@ -194,6 +211,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave, onTest, testResults }:
                     value={formData.decimals}
                     onChange={(e) => setFormData({ ...formData, decimals: parseInt(e.target.value) })}
                     className="input input-bordered"
+                    style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     min="0"
                     max="18"
                     required
@@ -512,15 +530,7 @@ export default function Settings() {
     }
   };
 
-  const handleToggleChain = async (chainId: number) => {
-    setSettings(prev => ({
-      ...prev,
-      chains: (prev.chains || []).map(chain =>
-        chain.chainId === chainId ? { ...chain, enabled: !chain.enabled } : chain
-      )
-    }));
-  };
-
+  
   return (
     <>
       <div className="p-6">
@@ -570,10 +580,6 @@ export default function Settings() {
                     <h2 className="card-title text-lg">{chain.name}</h2>
                     <div className="flex items-center gap-2">
                       <div className="badge badge-outline badge-sm">{chain.symbol}</div>
-                      <div className={`w-2 h-2 rounded-full ${chain.enabled ? 'bg-success' : 'bg-error'}`}></div>
-                      <span className="text-xs text-base-content/60">
-                        {chain.enabled ? '已启用' : '已禁用'}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -588,13 +594,6 @@ export default function Settings() {
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-base-content/60">类型</span>
-                    <div className="badge badge-sm">
-                      {chain.isCustom ? '自定义' : '官方'}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center">
                     <span className="text-sm text-base-content/60">精度</span>
                     <span className="text-sm font-medium">{chain.decimals}</span>
                   </div>
@@ -602,20 +601,12 @@ export default function Settings() {
 
                 {/* Actions */}
                 <div className="card-actions justify-end">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleToggleChain(chain.chainId)}
-                      className={`btn btn-sm ${chain.enabled ? 'btn-warning' : 'btn-success'}`}
-                    >
-                      {chain.enabled ? '🔒 禁用' : '🔓 启用'}
-                    </button>
-                    <button
-                      onClick={() => handleEditChain(chain)}
-                      className="btn btn-sm btn-outline"
-                    >
-                      ⚙️ 编辑
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleEditChain(chain)}
+                    className="btn btn-sm btn-outline"
+                  >
+                    ⚙️ 编辑
+                  </button>
                 </div>
               </div>
             </div>

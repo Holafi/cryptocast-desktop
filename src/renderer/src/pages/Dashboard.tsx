@@ -166,13 +166,12 @@ export default function Dashboard() {
             <div className="card-body p-4">
               <div className="card-actions justify-start">
                 <div className="avatar placeholder">
-                  <div className="bg-primary/10 text-neutral-content rounded-full w-12 h-12">
+                  <div className="bg-primary/10 text-primary rounded-full w-12 h-12">
                     <span className="text-lg">➕</span>
                   </div>
                 </div>
               </div>
               <h3 className="card-title text-base mb-2">新建活动</h3>
-              <p className="text-sm text-base-content/60">创建新的批量发奖任务</p>
             </div>
           </div>
 
@@ -183,13 +182,12 @@ export default function Dashboard() {
             <div className="card-body p-4">
               <div className="card-actions justify-start">
                 <div className="avatar placeholder">
-                  <div className="bg-secondary/10 text-neutral-content rounded-full w-12 h-12">
+                  <div className="bg-secondary/10 text-secondary rounded-full w-12 h-12">
                     <span className="text-lg">📊</span>
                   </div>
                 </div>
               </div>
               <h3 className="card-title text-base mb-2">查看历史</h3>
-              <p className="text-sm text-base-content/60">查看历史活动和统计</p>
             </div>
           </div>
 
@@ -200,13 +198,12 @@ export default function Dashboard() {
             <div className="card-body p-4">
               <div className="card-actions justify-start">
                 <div className="avatar placeholder">
-                  <div className="bg-accent/10 text-neutral-content rounded-full w-12 h-12">
+                  <div className="bg-accent/10 text-accent rounded-full w-12 h-12">
                     <span className="text-lg">💳</span>
                   </div>
                 </div>
               </div>
               <h3 className="card-title text-base mb-2">钱包管理</h3>
-              <p className="text-sm text-base-content/60">管理活动钱包和私钥</p>
             </div>
           </div>
         </div>
@@ -218,35 +215,50 @@ export default function Dashboard() {
           <span className="text-xl">🔗</span>
           <h2 className="text-lg font-bold">链活动分布</h2>
         </div>
-        <div className="flex flex-wrap gap-4">
-          <div className="stat bg-base-100 rounded-lg shadow-sm px-4 py-3 min-w-[120px]">
-            <div className="stat-title text-xs">Polygon</div>
-            <div className="stat-value text-lg">🟣 15</div>
-            <div className="stat-desc text-xs">30% 活动量</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20">
+            <div className="card-body p-3 text-center">
+              <div className="text-2xl mb-1">🟣</div>
+              <h3 className="card-title text-sm justify-center mb-1">Polygon</h3>
+              <p className="text-lg font-bold text-primary">15</p>
+              <p className="text-xs text-base-content/60">30% 活动量</p>
+            </div>
           </div>
 
-          <div className="stat bg-base-100 rounded-lg shadow-sm px-4 py-3 min-w-[120px]">
-            <div className="stat-title text-xs">Arbitrum</div>
-            <div className="stat-value text-lg">🔵 8</div>
-            <div className="stat-desc text-xs">16% 活动量</div>
+          <div className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20">
+            <div className="card-body p-3 text-center">
+              <div className="text-2xl mb-1">🔵</div>
+              <h3 className="card-title text-sm justify-center mb-1">Arbitrum</h3>
+              <p className="text-lg font-bold text-primary">8</p>
+              <p className="text-xs text-base-content/60">16% 活动量</p>
+            </div>
           </div>
 
-          <div className="stat bg-base-100 rounded-lg shadow-sm px-4 py-3 min-w-[120px]">
-            <div className="stat-title text-xs">Base</div>
-            <div className="stat-value text-lg">🟢 6</div>
-            <div className="stat-desc text-xs">12% 活动量</div>
+          <div className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20">
+            <div className="card-body p-3 text-center">
+              <div className="text-2xl mb-1">🟢</div>
+              <h3 className="card-title text-sm justify-center mb-1">Base</h3>
+              <p className="text-lg font-bold text-primary">6</p>
+              <p className="text-xs text-base-content/60">12% 活动量</p>
+            </div>
           </div>
 
-          <div className="stat bg-base-100 rounded-lg shadow-sm px-4 py-3 min-w-[120px]">
-            <div className="stat-title text-xs">Optimism</div>
-            <div className="stat-value text-lg">🔴 4</div>
-            <div className="stat-desc text-xs">8% 活动量</div>
+          <div className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20">
+            <div className="card-body p-3 text-center">
+              <div className="text-2xl mb-1">🔴</div>
+              <h3 className="card-title text-sm justify-center mb-1">Optimism</h3>
+              <p className="text-lg font-bold text-primary">4</p>
+              <p className="text-xs text-base-content/60">8% 活动量</p>
+            </div>
           </div>
 
-          <div className="stat bg-base-100 rounded-lg shadow-sm px-4 py-3 min-w-[120px]">
-            <div className="stat-title text-xs">Solana</div>
-            <div className="stat-value text-lg">🟡 3</div>
-            <div className="stat-desc text-xs">6% 活动量</div>
+          <div className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20">
+            <div className="card-body p-3 text-center">
+              <div className="text-2xl mb-1">🟡</div>
+              <h3 className="card-title text-sm justify-center mb-1">Solana</h3>
+              <p className="text-lg font-bold text-primary">3</p>
+              <p className="text-xs text-base-content/60">6% 活动量</p>
+            </div>
           </div>
         </div>
       </div>

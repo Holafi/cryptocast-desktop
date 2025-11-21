@@ -27,6 +27,7 @@ export default function CampaignCreate() {
   const [csvValidation, setCsvValidation] = useState<CSVValidationResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [csvData, setCsvData] = useState<any[]>([]);
+  const [tokenAddressError, setTokenAddressError] = useState<string>('');
 
   const availableChains = [
     { id: '1', name: 'Ethereum', symbol: 'ETH' },
@@ -58,6 +59,43 @@ export default function CampaignCreate() {
       ...prev,
       [name]: type === 'number' ? (value === '' ? '' : Number(value)) : value
     }));
+
+    // 实时校验代币合约地址
+    if (name === 'tokenAddress') {
+      if (value.trim()) {
+        // EVM地址：以0x开头，后面40个十六进制字符（总共42字符）
+        const isEVMAddress = /^0x[a-fA-F0-9]{40}$/i.test(value);
+        // Solana地址：Base58编码，44个字符
+        const isSolanaAddress = /^[1-9A-HJ-NP-Za-km-z]{44}$/.test(value);
+
+        console.log('校验:', {
+          value: value,
+          length: value.length,
+          isEVMAddress,
+          isSolanaAddress
+        });
+
+        if (!isEVMAddress && !isSolanaAddress) {
+          let errorMsg = '请输入有效的代币合约地址。';
+          if (value.startsWith('0x')) {
+            if (value.length !== 42) {
+              errorMsg += 'EVM地址应为42字符（以0x开头）';
+            } else {
+              errorMsg += 'EVM地址包含无效字符';
+            }
+          } else if (value.length < 43 || value.length > 44) {
+            errorMsg += 'Solana地址应为43-44字符';
+          } else {
+            errorMsg += '当前格式不被支持';
+          }
+          setTokenAddressError(errorMsg);
+        } else {
+          setTokenAddressError('');
+        }
+      } else {
+        setTokenAddressError('');
+      }
+    }
   };
 
   const handleCSVContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -149,8 +187,8 @@ export default function CampaignCreate() {
       alert('请输入代币合约地址');
       return false;
     }
-    if (!/^0x[a-fA-F0-9]{40}$/.test(formData.tokenAddress)) {
-      alert('请输入有效的代币合约地址');
+    if (tokenAddressError) {
+      alert(tokenAddressError);
       return false;
     }
     if (!csvContent.trim()) {
@@ -225,10 +263,10 @@ export default function CampaignCreate() {
           </div>
           <div className="collapse-content">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">活动名称 *</span>
-                </label>
+              <div>
+                <div className="mb-2">
+                  <span className="text-sm font-medium">活动名称 *</span>
+                </div>
                 <input
                   type="text"
                   name="name"
@@ -236,19 +274,21 @@ export default function CampaignCreate() {
                   onChange={handleInputChange}
                   placeholder="例如：2025年营销活动"
                   className="input input-bordered w-full"
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   required
                 />
               </div>
 
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">区块链网络 *</span>
-                </label>
+              <div>
+                <div className="mb-2">
+                  <span className="text-sm font-medium">区块链网络 *</span>
+                </div>
                 <select
                   name="chain"
                   value={formData.chain}
                   onChange={handleInputChange}
                   className="select select-bordered w-full"
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   required
                 >
                   {availableChains.map(chain => (
@@ -259,33 +299,37 @@ export default function CampaignCreate() {
                 </select>
               </div>
 
-              <div className="md:col-span-2 form-control">
-                <label className="label">
-                  <span className="label-text font-medium">代币合约地址 *</span>
-                </label>
+              <div className="md:col-span-2">
+                <div className="mb-2">
+                  <span className="text-sm font-medium">代币合约地址 *</span>
+                </div>
                 <input
                   type="text"
                   name="tokenAddress"
                   value={formData.tokenAddress}
                   onChange={handleInputChange}
-                  placeholder="0x..."
-                  className="input input-bordered w-full font-mono"
+                  placeholder="EVM: 0xA0b86a33E6447b4C4A0b2F9D6d2eEa6d1b7d94a2 或 Solana: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+                  className={`input input-bordered w-full font-mono ${tokenAddressError ? 'input-error' : ''}`}
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   required
                 />
-                <label className="label">
-                  <span className="label-text-alt">请输入 ERC20 代币合约地址</span>
-                </label>
+                {tokenAddressError && (
+                  <div className="mt-1">
+                    <span className="text-xs text-error">{tokenAddressError}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="md:col-span-2 form-control">
-                <label className="label">
-                  <span className="label-text font-medium">活动描述</span>
-                </label>
+              <div className="md:col-span-2">
+                <div className="mb-2">
+                  <span className="text-sm font-medium">活动描述</span>
+                </div>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  className="textarea textarea-bordered h-24"
+                  className="textarea textarea-bordered h-24 w-full"
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   placeholder="描述此活动的目的和详情..."
                 />
               </div>
@@ -303,23 +347,10 @@ export default function CampaignCreate() {
           <div className="collapse-content">
             <div className="space-y-6 mt-4">
               <div>
-                <label className="label">
-                  <span className="label-text font-medium">每批处理地址数量</span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[50, 100, 200, 500].map(size => (
-                    <input
-                      key={size}
-                      type="radio"
-                      name="batchSize"
-                      className="btn"
-                      aria-label={`${size} ${size === 50 ? '(推荐)' : ''}`}
-                      checked={formData.batchSize === size}
-                      onChange={() => setFormData(prev => ({ ...prev, batchSize: size }))}
-                    />
-                  ))}
+                <div className="mb-3">
+                  <span className="text-sm font-medium">每批处理地址数量</span>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-2">
+                <div className="flex flex-wrap gap-2">
                   {[50, 100, 200, 500].map(size => (
                     <button
                       key={size}
@@ -334,9 +365,9 @@ export default function CampaignCreate() {
               </div>
 
               <div>
-                <label className="label">
-                  <span className="label-text font-medium">批次发送间隔</span>
-                </label>
+                <div className="mb-3">
+                  <span className="text-sm font-medium">批次发送间隔</span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {[
                     { value: '15000', label: '15秒', recommended: true },
@@ -368,27 +399,26 @@ export default function CampaignCreate() {
             输入地址列表
           </div>
           <div className="collapse-content">
-            <div className={`grid grid-cols-1 gap-6 ${csvValidation ? 'lg:grid-cols-3' : ''}`}>
-              <div className={csvValidation ? 'lg:col-span-2' : ''}>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">CSV 内容 *</span>
-                  </label>
-                  <textarea
-                    value={csvContent}
-                    onChange={handleCSVContentChange}
-                    className="textarea textarea-bordered font-mono text-sm h-96 resize-none"
-                    placeholder="请粘贴CSV内容，格式：地址,金额&#10;&#10;示例（EVM地址）：&#10;0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,100.5&#10;0xdAC17F958D2ee523a2206206994597C13D831ec7,200&#10;&#10;示例（Solana地址）：&#10;7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU,50.25&#10;DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK,150"
-                    required
-                  />
+            <div className="space-y-6">
+              <div>
+                <div className="mb-2">
+                  <span className="text-sm font-medium">CSV 内容 *</span>
                 </div>
+                <textarea
+                  value={csvContent}
+                  onChange={handleCSVContentChange}
+                  className="textarea textarea-bordered font-mono text-sm h-96 resize-none w-full"
+                  style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
+                  placeholder="请粘贴CSV内容，格式：地址,金额&#10;&#10;示例（EVM地址）：&#10;0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,100.5&#10;0xdAC17F958D2ee523a2206206994597C13D831ec7,200&#10;&#10;示例（Solana地址）：&#10;7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU,50.25&#10;DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK,150"
+                  required
+                />
               </div>
 
               {csvValidation && (
-                <div className="lg:col-span-1">
-                  <label className="label">
-                    <span className="label-text font-medium">数据预览</span>
-                  </label>
+                <div>
+                  <div className="mb-2">
+                    <span className="text-sm font-medium">数据预览</span>
+                  </div>
                   {csvValidation && csvValidation.isValid ? (
                     <div className="bg-base-200 rounded-lg p-4 h-96 overflow-auto">
                       {/* 错误警告（如果有） */}
@@ -405,7 +435,7 @@ export default function CampaignCreate() {
                       )}
 
                       {/* 统计信息 */}
-                      <div className="stats stats-vertical shadow-sm bg-base-100">
+                      <div className="stats shadow-sm bg-base-100">
                         <div className="stat">
                           <div className="stat-title text-xs">有效地址数</div>
                           <div className="stat-value text-lg">{csvValidation.validRecords}</div>

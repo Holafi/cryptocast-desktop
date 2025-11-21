@@ -179,7 +179,17 @@ export class ChainService {
         throw new Error('Chain not found');
       }
 
-      const testResult = await this.testEVMLatencyByUrl(chain.rpc_url);
+      // 获取正确的RPC URL
+      const rpcUrl = chain.rpc_url || chain.rpcUrl;
+
+      if (!rpcUrl) {
+        console.error(`链 ${chainId} 没有配置RPC URL`);
+        throw new Error('Chain RPC URL not configured');
+      }
+
+      console.log(`测试RPC URL: ${rpcUrl}`);
+
+      const testResult = await this.testEVMLatencyByUrl(rpcUrl);
       if (!testResult.success || !testResult.latency || !testResult.blockNumber) {
         throw new Error(testResult.error || 'Test failed');
       }
@@ -193,10 +203,26 @@ export class ChainService {
 
   async testEVMLatencyByUrl(rpcUrl: string): Promise<RPCTestResult> {
     try {
+      console.log(`开始测试RPC: ${rpcUrl}`);
       const startTime = Date.now();
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const blockNumber = await provider.getBlockNumber();
+
+      // 创建带超时的Promise
+      const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
+        batchMaxCount: 1, // 禁用批处理
+        polling: false,   // 禁用轮询
+      });
+
+      // 设置10秒超时
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('RPC请求超时')), 10000);
+      });
+
+      const blockNumberPromise = provider.getBlockNumber();
+      const blockNumber = await Promise.race([blockNumberPromise, timeoutPromise]) as number;
+
       const latency = Date.now() - startTime;
+
+      console.log(`RPC测试成功: ${rpcUrl}, 延迟: ${latency}ms, 区块: ${blockNumber}`);
 
       return {
         success: true,
@@ -204,6 +230,7 @@ export class ChainService {
         blockNumber,
       };
     } catch (error) {
+      console.error(`RPC测试失败: ${rpcUrl}`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

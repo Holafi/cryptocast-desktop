@@ -95,7 +95,7 @@ interface CampaignContextType {
     estimateCampaign: (campaignData: Partial<Campaign>) => Promise<CampaignEstimate>;
     setFilters: (filters: Partial<CampaignState['filters']>) => void;
     setPagination: (pagination: Partial<CampaignState['pagination']>) => void;
-    exportReport: (campaignId: string, format?: string) => Promise<{ success: boolean; filePath?: string }>;
+    exportReport: (campaignId: string) => Promise<{ success: boolean; filePath?: string }>;
   };
 }
 
@@ -310,10 +310,10 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_PAGINATION', payload: pagination });
     },
 
-    exportReport: async (campaignId, format = 'csv') => {
+    exportReport: async (campaignId) => {
       try {
         if (window.electronAPI?.file) {
-          const result = await window.electronAPI.file.exportReport(campaignId, format);
+          const result = await window.electronAPI.file.exportReport(campaignId);
           return result;
         }
         return { success: false };

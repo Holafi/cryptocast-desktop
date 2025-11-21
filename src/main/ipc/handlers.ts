@@ -306,10 +306,10 @@ export async function setupIPCHandlers() {
     }
   });
 
-  ipcMain.handle('file:exportReport', async (_event, campaignId, format = 'csv') => {
+  ipcMain.handle('file:exportReport', async (_event, campaignId) => {
     try {
-      console.log('导出报告:', campaignId, format);
-      const result = await fileService.exportReport(campaignId, format as 'csv' | 'json' | 'pdf');
+      console.log('导出报告:', campaignId);
+      const result = await fileService.exportReport(campaignId, 'csv');
       return result;
     } catch (error) {
       console.error('导出报告失败:', error);

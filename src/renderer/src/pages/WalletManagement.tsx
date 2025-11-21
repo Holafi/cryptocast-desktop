@@ -543,8 +543,8 @@ export default function WalletManagement() {
                   </td>
                   <td>
                     <div className="flex items-center gap-2">
-                      <div className="mockup-code">
-                        <pre className="px-2 py-1 text-xs">{wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</pre>
+                      <div className="bg-base-200 px-2 py-1 rounded text-xs font-mono break-all max-w-xs">
+                        {wallet.address}
                       </div>
                       <button
                         onClick={() => {
@@ -564,11 +564,6 @@ export default function WalletManagement() {
                         <div key={index} className="flex items-center gap-2">
                           <div className="badge badge-outline badge-sm">{balance.tokenSymbol}</div>
                           <div className="text-sm font-medium">{formatNumber(balance.balance, 4)}</div>
-                          {balance.usdValue && (
-                            <div className="text-xs text-base-content/60">
-                              ≈ ${parseFloat(balance.usdValue).toFixed(0)}
-                            </div>
-                          )}
                         </div>
                       ))}
                       {wallet.balances.every(b => parseFloat(b.balance) === 0) && (

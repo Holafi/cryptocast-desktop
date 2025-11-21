@@ -63,8 +63,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 文件操作
   file: {
     readCSV: (filePath: string) => ipcRenderer.invoke('file:readCSV', filePath),
-    exportReport: (campaignId: string, format?: string) =>
-      ipcRenderer.invoke('file:exportReport', campaignId, format),
+    exportReport: (campaignId: string) =>
+      ipcRenderer.invoke('file:exportReport', campaignId),
   },
 
   // 价格服务

@@ -18,15 +18,17 @@ export default {
   plugins: [require('daisyui')],
   daisyui: {
     themes: [
+      "light",
+      "dark",
       {
         cryptocast: {
           "primary": "#7C3AED",
           "secondary": "#0891B2",
           "accent": "#10B981",
           "neutral": "#1E293B",
-          "base-100": "#0F172A",
-          "base-200": "#1E293B",
-          "base-300": "#334155",
+          "base-100": "#ffffff",
+          "base-200": "#f8fafc",
+          "base-300": "#e5e7eb",
           "info": "#3B82F6",
           "success": "#10B981",
           "warning": "#F59E0B",
