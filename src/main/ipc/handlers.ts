@@ -113,12 +113,11 @@ export async function setupIPCHandlers() {
     }
   });
 
-  ipcMain.handle('campaign:start', async (_event, id, password, batchSize) => {
+  ipcMain.handle('campaign:start', async (_event, id) => {
     try {
       console.log('[IPC] campaign:start called for campaign:', id);
 
-      // 注意：password参数保持但不再使用，私钥直接从数据库获取
-      const result = await campaignService.startCampaign(id, '', batchSize);
+      const result = await campaignService.startCampaign(id);
       console.log('[IPC] campaign:start success:', result);
       return result;
     } catch (error) {
@@ -493,52 +492,14 @@ export async function setupIPCHandlers() {
   });
 
   
-  // Gas info with buffer
-  ipcMain.handle('gas:getInfo', async (_event, rpcUrl, network, tokenPrice) => {
-    try {
-      const { GasService } = require('../services/GasService');
-      const gasService = new GasService();
-      const gasInfo = await gasService.getGasInfo(rpcUrl, network, tokenPrice);
-      return gasInfo;
-    } catch (error) {
-      console.error('获取Gas信息失败:', error);
-      throw new Error(`获取Gas信息失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
-
-  // Batch gas estimation
-  ipcMain.handle('gas:estimateBatch', async (_event, rpcUrl, network, recipientCount, tokenPrice) => {
-    try {
-      const { GasService } = require('../services/GasService');
-      const gasService = new GasService();
-      const estimate = await gasService.getBatchGasEstimate(rpcUrl, network, recipientCount, tokenPrice);
-      return estimate;
-    } catch (error) {
-      console.error('估算批量Gas费用失败:', error);
-      throw new Error(`估算批量Gas费用失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
-
   ipcMain.handle('price:getSummary', async (_event) => {
     try {
       console.log('获取价格汇总');
-      const summary = await priceService.getPriceSummary();
+      const summary = await priceService.getSummary();
       return summary;
     } catch (error) {
       console.error('获取价格汇总失败:', error);
       throw new Error(`获取价格汇总失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
-
-  // 合约服务相关 - 最简化版本
-  ipcMain.handle('contract:deploy', async (_event, config) => {
-    try {
-      console.log('部署合约:', config);
-      const contractInfo = await contractService.deployContract(config);
-      return contractInfo;
-    } catch (error) {
-      console.error('部署合约失败:', error);
-      throw new Error(`部署合约失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   });
 
@@ -619,41 +580,6 @@ export async function setupIPCHandlers() {
         throw new Error(`为活动部署合约失败: ${error instanceof Error ? error.message : '未知错误'}`);
       }
     });
-  });
-
-  // Token approval - 授权代币给合约使用
-  ipcMain.handle('contract:approveTokens', async (_event, rpcUrl, privateKey, tokenAddress, contractAddress, amount) => {
-    try {
-      console.log('授权代币:', tokenAddress);
-      const result = await contractService.approveTokens(rpcUrl, privateKey, tokenAddress, contractAddress, amount);
-      return { success: true, txHash: result };
-    } catch (error) {
-      console.error('授权代币失败:', error);
-      throw new Error(`授权代币失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
-
-  // Check approval
-  ipcMain.handle('contract:checkApproval', async (_event, rpcUrl, privateKey, tokenAddress, contractAddress, requiredAmount) => {
-    try {
-      const isApproved = await contractService.checkApproval(rpcUrl, privateKey, tokenAddress, contractAddress, requiredAmount);
-      return { approved: isApproved };
-    } catch (error) {
-      console.error('检查授权失败:', error);
-      throw new Error(`检查授权失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
-
-  // 直接批量转账 - 一个函数搞定所有功能
-  ipcMain.handle('contract:batchTransfer', async (_event, contractAddress, rpcUrl, privateKey, recipients, amounts, tokenAddress) => {
-    try {
-      console.log('执行批量转账:', contractAddress, recipients.length, '个地址');
-      const result = await contractService.batchTransfer(contractAddress, rpcUrl, privateKey, recipients, amounts, tokenAddress);
-      return { success: true, data: result };
-    } catch (error) {
-      console.error('批量转账失败:', error);
-      throw new Error(`批量转账失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
   });
 
   // 代币相关处理器

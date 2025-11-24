@@ -44,3 +44,7 @@ out/
 *.key
 .masterkey
 *.keystore
+
+# Foundry
+cache/
+lib/

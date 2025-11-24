@@ -49,8 +49,6 @@ export class CampaignExecutor {
    */
   async executeCampaign(
     campaignId: string,
-    password: string,
-    batchSize: number = 100,
     onProgress?: (progress: ExecutionProgress) => void
   ): Promise<void> {
     console.log(`[CampaignExecutor] Starting campaign execution for ${campaignId}`);
@@ -96,10 +94,17 @@ export class CampaignExecutor {
       }
 
       // Calculate batches
-      const totalBatches = Math.ceil(recipients.length / batchSize);
+      const totalBatches = Math.ceil(recipients.length / campaign.batchSize);
 
       // Update campaign status
       await this.updateCampaignStatus(campaignId, 'SENDING');
+
+      // Ensure unlimited approval for EVM chains before starting batches
+      if (!ChainUtils.isSolanaChain(campaign.chain)) {
+        console.log('[CampaignExecutor] Ensuring unlimited token approval for EVM chain...');
+        await this.ensureUnlimitedApproval(campaign, wallet);
+        console.log('[CampaignExecutor] Token approval confirmed.');
+      }
 
       // Process batches
       for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
@@ -110,8 +115,8 @@ export class CampaignExecutor {
           break;
         }
 
-        const start = batchIndex * batchSize;
-        const end = Math.min(start + batchSize, recipients.length);
+        const start = batchIndex * campaign.batchSize;
+        const end = Math.min(start + campaign.batchSize, recipients.length);
         const batch = recipients.slice(start, end);
 
         try {
@@ -237,53 +242,7 @@ export class CampaignExecutor {
           campaign.tokenAddress
         );
       } else {
-        // EVM批量转账流程
-        // Calculate total amount using ethers parseUnits to handle decimals
-        const { ethers } = await import('ethers');
-        const totalAmount = amounts.reduce((sum, amt) => {
-          return sum + ethers.parseUnits(amt.toString(), campaign.tokenDecimals);
-        }, 0n);
-
-        // Check if token approval is needed
-        const approvalNeeded = await this.contractService.checkApproval(
-          rpcUrl,
-          wallet.privateKey,
-          campaign.tokenAddress,
-          campaign.contractAddress,
-          totalAmount.toString()
-        );
-
-        if (!approvalNeeded) {
-          // Approve tokens
-          const approveTxHash = await this.contractService.approveTokens(
-            rpcUrl,
-            wallet.privateKey,
-            campaign.tokenAddress,
-            campaign.contractAddress,
-            amounts.reduce((sum, amt) => (BigInt(sum) + BigInt(amt)).toString(), '0')
-          );
-
-          // Record approval transaction
-          await this.recordTransaction(campaignId, {
-            txHash: approveTxHash,
-            txType: 'APPROVE_TOKENS',
-            fromAddress: campaign.walletAddress || '',
-            toAddress: campaign.contractAddress,
-            amount: amounts.reduce((sum, amt) => (BigInt(sum) + BigInt(amt)).toString(), '0'),
-            status: 'PENDING'
-          });
-
-          // Token approved
-          console.log(`Tokens approved for batch ${batchNumber}. Tx: ${approveTxHash}`);
-
-          // Wait for approval confirmation
-          await this.waitForConfirmation(campaign.chain, approveTxHash, rpcUrl);
-
-          // Update approval transaction status
-          await this.updateTransactionStatus(approveTxHash, 'CONFIRMED');
-        }
-
-        // Execute batch transfer using contract
+        // EVM batch transfer process
         result = await this.contractService.batchTransfer(
           campaign.contractAddress,
           rpcUrl,
@@ -351,9 +310,6 @@ export class CampaignExecutor {
         for (const recipient of recipients) {
           await this.updateRecipientStatus(campaignId, recipient.address, 'FAILED', errorMessage);
         }
-
-        this.addAuditLog(campaignId, 'BATCH_CONFIRMATION_FAILED',
-          `Batch ${batchNumber}/${totalBatches} ${confirmationResult.finalStatus}. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`);
       }
 
       // Update campaign gas costs
@@ -396,6 +352,58 @@ export class CampaignExecutor {
    */
   isExecuting(campaignId: string): boolean {
     return this.executionMap.get(campaignId) || false;
+  }
+
+  /**
+   * Ensure unlimited token approval for the campaign contract.
+   */
+  private async ensureUnlimitedApproval(campaign: any, wallet: any): Promise<void> {
+    const { ethers } = await import('ethers');
+    const rpcUrl = await this.getRpcUrlForChain(campaign.chain);
+
+    // Check for a near-unlimited allowance
+    const sufficientAllowance = await this.contractService.checkApproval(
+      rpcUrl,
+      wallet.privateKey,
+      campaign.tokenAddress,
+      campaign.contractAddress,
+      (ethers.MaxUint256 / 2n).toString() // Check for at least half of max
+    );
+
+    if (sufficientAllowance) {
+      console.log('[CampaignExecutor] Sufficient token allowance already exists.');
+      return;
+    }
+
+    console.log('[CampaignExecutor] Allowance is insufficient, proceeding with unlimited approval...');
+
+    // Approve MaxUint256
+    const approveTxHash = await this.contractService.approveTokens(
+      rpcUrl,
+      wallet.privateKey,
+      campaign.tokenAddress,
+      campaign.contractAddress,
+      ethers.MaxUint256.toString()
+    );
+
+    // Record approval transaction
+    await this.recordTransaction(campaign.id, {
+      txHash: approveTxHash,
+      txType: 'APPROVE_TOKENS',
+      fromAddress: campaign.walletAddress || '',
+      toAddress: campaign.contractAddress,
+      amount: ethers.MaxUint256.toString(),
+      status: 'PENDING'
+    });
+
+    console.log(`[CampaignExecutor] Unlimited token approval transaction sent. Tx: ${approveTxHash}`);
+
+    // Wait for approval confirmation
+    await this.waitForConfirmation(campaign.chain, approveTxHash, rpcUrl);
+
+    // Update approval transaction status
+    await this.updateTransactionStatus(approveTxHash, 'CONFIRMED');
+    console.log(`[CampaignExecutor] Unlimited token approval confirmed.`);
   }
 
   // Helper methods
@@ -493,15 +501,6 @@ export class CampaignExecutor {
     await this.db.prepare(
       'UPDATE campaigns SET gas_used = ? WHERE id = ?'
     ).run(newGasUsed, campaignId);
-  }
-
-  private addAuditLog(campaignId: string, action: string, details: string): void {
-    // TODO: audit_logs table not created yet - temporarily disabled
-    console.log(`[AUDIT] ${action}: ${details} for campaign ${campaignId}`);
-    // const now = new Date().toISOString();
-    // this.db.prepare(
-    //   'INSERT INTO audit_logs (campaign_id, action, details, created_at) VALUES (?, ?, ?, ?)'
-    // ).run(campaignId, action, details, now);
   }
 
   private async getRpcUrlForChain(chain: string): Promise<string> {

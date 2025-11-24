@@ -275,8 +275,6 @@ export class CampaignService {
 
   async startCampaign(
     id: string,
-    password: string,
-    batchSize?: number,
     onProgress?: (progress: any) => void
   ): Promise<{ success: boolean }> {
     try {
@@ -298,9 +296,9 @@ export class CampaignService {
 
       
       // Execute campaign in background (non-blocking)
-      this.executor.executeCampaign(id, password, batchSize, onProgress).catch(error => {
-        console.error('Campaign execution error:', error);
-      });
+    this.executor.executeCampaign(id, onProgress).catch(error => {
+      console.error(`[CampaignService] Execution failed for campaign ${id}:`, error);
+    });
 
       return { success: true };
     } catch (error) {

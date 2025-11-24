@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create: (data: any) => ipcRenderer.invoke('campaign:create', data),
     list: (filters?: any) => ipcRenderer.invoke('campaign:list', filters),
     getById: (id: string) => ipcRenderer.invoke('campaign:getById', id),
-    start: (id: string, password?: string, batchSize?: number) => ipcRenderer.invoke('campaign:start', id, password, batchSize),
+    start: (id: string) => ipcRenderer.invoke('campaign:start', id),
     pause: (id: string) => ipcRenderer.invoke('campaign:pause', id),
     resume: (id: string) => ipcRenderer.invoke('campaign:resume', id),
     getDetails: (id: string) => ipcRenderer.invoke('campaign:getDetails', id),
@@ -84,25 +84,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getPrice: (symbol: string) => ipcRenderer.invoke('price:getPrice', symbol),
     getPrices: (symbols: string[]) => ipcRenderer.invoke('price:getPrices', symbols),
     getSummary: () => ipcRenderer.invoke('price:getSummary'),
-  },
-
-  // Gas服务
-  gas: {
-    getInfo: (rpcUrl: string, network: string, tokenPrice?: number) => ipcRenderer.invoke('gas:getInfo', rpcUrl, network, tokenPrice),
-    estimateBatch: (rpcUrl: string, network: string, recipientCount: number, tokenPrice?: number) => ipcRenderer.invoke('gas:estimateBatch', rpcUrl, network, recipientCount, tokenPrice),
-  },
-
-  // 合约服务 - 最简化版本
-  contract: {
-    deploy: (config: any) => ipcRenderer.invoke('contract:deploy', config),
-    batchTransfer: (contractAddress: string, rpcUrl: string, privateKey: string, recipients: string[], amounts: string[], tokenAddress: string) =>
-      ipcRenderer.invoke('contract:batchTransfer', contractAddress, rpcUrl, privateKey, recipients, amounts, tokenAddress),
-    approveTokens: (rpcUrl: string, privateKey: string, tokenAddress: string, contractAddress: string, amount: string) =>
-      ipcRenderer.invoke('contract:approveTokens', rpcUrl, privateKey, tokenAddress, contractAddress, amount),
-    checkApproval: (rpcUrl: string, privateKey: string, tokenAddress: string, contractAddress: string, requiredAmount: string) =>
-      ipcRenderer.invoke('contract:checkApproval', rpcUrl, privateKey, tokenAddress, contractAddress, requiredAmount),
-    getTokenInfo: (rpcUrl: string, tokenAddress: string) =>
-      ipcRenderer.invoke('contract:getTokenInfo', rpcUrl, tokenAddress),
   },
 
   // 代币服务
