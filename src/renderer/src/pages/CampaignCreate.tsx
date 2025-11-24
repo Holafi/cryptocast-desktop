@@ -916,6 +916,7 @@ export default function CampaignCreate() {
             )}
           </div>
         )}
+        </div>
 
         {/* Submit Buttons */}
         <div className="flex justify-end gap-4">

@@ -11,7 +11,6 @@ export interface ElectronAPI {
   };
   wallet: {
     create: (type?: string) => Promise<{ address: string; privateKeyBase64: string }>;
-    exportPrivateKey: (privateKeyBase64: string) => Promise<string>;
     getBalance: (address: string, chain: string, tokenAddress?: string, tokenDecimals?: number) => Promise<BalanceData>;
   };
   chain: {
@@ -69,7 +68,7 @@ export interface Campaign {
   tokenAddress: string;
   tokenSymbol: string;
   tokenDecimals: number;
-  status: 'CREATED' | 'FUNDED' | 'READY' | 'SENDING' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status: 'CREATED' | 'FUNDED' | 'READY' | 'SENDING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
   totalRecipients: number;
   completedRecipients: number;
   failedRecipients: number;

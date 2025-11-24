@@ -90,7 +90,6 @@ interface CampaignContextType {
     getCampaign: (id: string) => Promise<Campaign | null>;
     startCampaign: (id: string) => Promise<void>;
     pauseCampaign: (id: string) => Promise<void>;
-    cancelCampaign: (id: string) => Promise<void>;
     validateCSV: (file: File) => Promise<CSVValidationResult>;
     estimateCampaign: (campaignData: Partial<Campaign>) => Promise<CampaignEstimate>;
     setFilters: (filters: Partial<CampaignState['filters']>) => void;
@@ -200,16 +199,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    cancelCampaign: async (id) => {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      try {
-        await actions.updateCampaign(id, { status: 'CANCELLED' });
-      } catch (error) {
-        dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to cancel campaign' });
-        throw error;
-      }
-    },
-
+    
     validateCSV: async (file) => {
       try {
         // Mock CSV validation for now

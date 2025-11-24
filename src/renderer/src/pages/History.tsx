@@ -239,8 +239,6 @@ export default function History() {
         return <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>🔄 发送中</div>;
       case 'PAUSED':
         return <div className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200`}>⏸️ 暂停</div>;
-      case 'CANCELLED':
-        return <div className={`${baseClasses} bg-gray-100 text-gray-600 border-gray-200`}>❌ 已取消</div>;
       case 'READY':
         return <div className={`${baseClasses} bg-orange-100 text-orange-800 border-orange-200`}>⚡ 就绪</div>;
       case 'FUNDED':

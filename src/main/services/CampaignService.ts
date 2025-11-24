@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './WalletService';
 import { CampaignExecutor } from './CampaignExecutor';
+import { ChainUtils } from '../utils/chain-utils';
+import { logger } from '../utils/logger';
 import { DatabaseManager } from '../database/sqlite-schema';
 
 export interface CampaignData {
@@ -53,28 +55,38 @@ export class CampaignService {
   private deploymentLocks: Map<string, Promise<any>> = new Map();
 
   constructor(databaseManager: DatabaseManager) {
+    logger.debug('[CampaignService] Initializing campaign service');
+
     this.db = databaseManager.getDatabase();
     this.databaseManager = databaseManager;
     this.walletService = new WalletService();
     this.executor = new CampaignExecutor(databaseManager);
+
+    logger.info('[CampaignService] Campaign service initialized', {
+      databaseManager: databaseManager.constructor.name
+    }, 'CAMPAIGN');
   }
 
   async createCampaign(data: CampaignData): Promise<Campaign> {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    console.log('🚀 [CampaignService] createCampaign STARTED - MODIFIED VERSION');
-    console.log('🚀 [CampaignService] ID:', id);
+    logger.campaign('[CampaignService] Creating new campaign', {
+      campaignId: id,
+      name: data.name,
+      chain: data.chain,
+      recipientsCount: data.recipients.length
+    });
 
     try {
       // 根据链类型创建钱包
       const wallet = this.createWalletForChain(data.chain);
 
-      console.log('🔑 [CampaignService] Wallet created:', {
+      logger.wallet('[CampaignService] Campaign wallet created', {
         address: wallet.address,
+        chain: data.chain,
         hasPrivateKey: !!wallet.privateKeyBase64,
-        privateKeyLength: wallet.privateKeyBase64?.length || 0,
-        chain: data.chain
+        privateKeyLength: wallet.privateKeyBase64?.length || 0
       });
 
       // Determine chain type and ID from the chain value
@@ -97,15 +109,12 @@ export class CampaignService {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
-      console.log('💾 [CampaignService] Inserting campaign data:', {
-        id,
+      logger.database('[CampaignService] Inserting campaign data into database', {
+        campaignId: id,
         name: data.name,
-        chain: data.chain,
         chainType,
         chainId,
         walletAddress: wallet.address,
-        privateKeyProvided: !!wallet.privateKeyBase64,
-        privateKeyLength: wallet.privateKeyBase64?.length || 0,
         recipientsCount: data.recipients.length
       });
 
@@ -130,7 +139,7 @@ export class CampaignService {
         now
       );
 
-      console.log('✅ [CampaignService] Campaign inserted successfully');
+      logger.database('[CampaignService] Campaign data inserted successfully', { campaignId: id });
 
       // 插入接收者
       const insertRecipient = this.db.prepare(`
@@ -150,7 +159,12 @@ export class CampaignService {
       }
       return campaign;
     } catch (error) {
-      console.error('Failed to create campaign:', error);
+      logger.error('[CampaignService] Campaign creation failed', error, {
+      campaignId: id,
+      name: data.name,
+      chain: data.chain
+    }, 'CAMPAIGN');
+
       throw new Error('Campaign creation failed');
     }
   }
@@ -268,7 +282,7 @@ export class CampaignService {
       }
 
       // Solana链不需要READY状态，可以直接从FUNDED开始
-      if (!this.isSolanaChain(campaign.chain)) {
+      if (!ChainUtils.isSolanaChain(campaign.chain)) {
         if (campaign.status !== 'READY' && campaign.status !== 'PAUSED') {
           throw new Error('Campaign is not ready to start. Please deploy the contract first.');
         }
@@ -584,33 +598,7 @@ export class CampaignService {
     }
   }
 
-  /**
-   * 取消活动
-   */
-  async cancelCampaign(id: string): Promise<{ success: boolean }> {
-    try {
-      const campaign = await this.getCampaignById(id);
-      if (!campaign) {
-        throw new Error('Campaign not found');
-      }
-
-      if (!['SENDING', 'PAUSED'].includes(campaign.status)) {
-        throw new Error('Only sending or paused campaigns can be canceled');
-      }
-
-      // 请求执行器停止执行
-      this.executor.cancelExecution(id);
-
-      // 更新状态为FAILED
-      await this.updateCampaignStatus(id, 'FAILED');
-
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to cancel campaign:', error);
-      throw new Error('Campaign cancel failed');
-    }
-  }
-
+  
   /**
    * 获取活动详细信息（包含统计数据）
    */
@@ -695,10 +683,4 @@ export class CampaignService {
     }
   }
 
-  /**
-   * 检查是否为Solana链
-   */
-  private isSolanaChain(chain: string): boolean {
-    return chain?.toLowerCase().includes('solana');
   }
-}

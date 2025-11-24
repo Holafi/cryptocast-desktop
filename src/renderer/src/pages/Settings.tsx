@@ -387,9 +387,7 @@ export default function Settings() {
     securitySettings: {
       autoBackup: true,
       backupInterval: 24,
-      encryptPrivateKeys: true,
       sessionTimeout: 30,
-      requirePassword: false,
     },
     notificationSettings: {
       emailNotifications: false,

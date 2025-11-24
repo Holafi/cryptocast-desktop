@@ -10,7 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     start: (id: string) => ipcRenderer.invoke('campaign:start', id),
     pause: (id: string) => ipcRenderer.invoke('campaign:pause', id),
     resume: (id: string) => ipcRenderer.invoke('campaign:resume', id),
-    cancel: (id: string) => ipcRenderer.invoke('campaign:cancel', id),
     getDetails: (id: string) => ipcRenderer.invoke('campaign:getDetails', id),
     getTransactions: (id: string, options?: any) => ipcRenderer.invoke('campaign:getTransactions', id, options),
     getRecipients: (id: string) => ipcRenderer.invoke('campaign:getRecipients', id),
@@ -36,16 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 钱包操作
   wallet: {
-    unlock: (password: string) => ipcRenderer.invoke('wallet:unlock', password),
-    lock: () => ipcRenderer.invoke('wallet:lock'),
-    changePassword: (oldPassword: string, newPassword: string) =>
-      ipcRenderer.invoke('wallet:changePassword', oldPassword, newPassword),
-    isLocked: () => false, // This will be updated after service initialization
     create: (type?: string) => ipcRenderer.invoke('wallet:create', type),
-    exportPrivateKey: (encryptedKey: string) =>
-      ipcRenderer.invoke('wallet:exportPrivateKey', encryptedKey),
-    exportKeystore: (encryptedKey: string, password: string) =>
-      ipcRenderer.invoke('wallet:exportKeystore', encryptedKey, password),
     getBalance: (address: string, chain: string, tokenAddress?: string) =>
       ipcRenderer.invoke('wallet:getBalance', address, chain, tokenAddress),
     list: (options?: any) => ipcRenderer.invoke('wallet:list', options),

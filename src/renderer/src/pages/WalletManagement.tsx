@@ -86,17 +86,17 @@ export default function WalletManagement() {
     }
 
     try {
-      if (window.electronAPI?.wallet) {
-        const privateKey = await window.electronAPI.wallet.exportPrivateKey(wallet.privateKeyBase64);
+      // 直接解码 Base64 私钥（不再通过 API）
+      const privateKeyBuffer = Buffer.from(wallet.privateKeyBase64 || '', 'base64');
+      const privateKeyHex = '0x' + privateKeyBuffer.toString('hex');
 
-        // 显示自定义私钥弹窗
-        setExportedWallet({
-          address: wallet.address,
-          privateKey: privateKey
-        });
-        setShowPrivateKeyModal(true);
-        setCopied(false);
-      }
+      // 显示自定义私钥弹窗
+      setExportedWallet({
+        address: wallet.address,
+        privateKey: privateKeyHex
+      });
+      setShowPrivateKeyModal(true);
+      setCopied(false);
     } catch (error) {
       console.error('Failed to export wallet:', error);
       alert('获取私钥失败，请重试');

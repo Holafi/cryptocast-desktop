@@ -10,6 +10,7 @@ import { PriceService } from '../services/PriceService';
 import { ContractService } from '../services/ContractService';
 import { CampaignEstimator } from '../services/CampaignEstimator';
 import { TokenService } from '../services/TokenService';
+import { SolanaService } from '../services/SolanaService';
 
 let databaseManager: DatabaseManager;
 let campaignService: CampaignService;
@@ -20,6 +21,7 @@ let chainService: ChainService;
 let fileService: FileService;
 let priceService: PriceService;
 let contractService: ContractService;
+let solanaService: SolanaService;
 let campaignEstimator: CampaignEstimator;
 let tokenService: TokenService;
 
@@ -44,7 +46,7 @@ export async function setupIPCHandlers() {
     priceService = new PriceService(databaseManager);
 
     console.log('Initializing blockchain service...');
-    blockchainService = new BlockchainService(priceService);
+    blockchainService = new BlockchainService(priceService, databaseManager);
 
     console.log('Initializing chain service...');
     chainService = new ChainService(databaseManager);
@@ -57,7 +59,7 @@ export async function setupIPCHandlers() {
     contractService = new ContractService();
 
     console.log('Initializing Solana service...');
-    const solanaService = new SolanaService();
+    solanaService = new SolanaService();
 
     console.log('Initializing campaign estimator...');
     campaignEstimator = new CampaignEstimator(databaseManager);
@@ -144,17 +146,7 @@ export async function setupIPCHandlers() {
     }
   });
 
-  ipcMain.handle('campaign:cancel', async (_event, id) => {
-    try {
-      console.log('取消活动:', id);
-      const result = await campaignService.cancelCampaign(id);
-      return result;
-    } catch (error) {
-      console.error('取消活动失败:', error);
-      throw new Error(`取消活动失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
-
+  
   ipcMain.handle('campaign:getDetails', async (_event, id) => {
     try {
       console.log('获取活动详情:', id);
@@ -254,17 +246,7 @@ export async function setupIPCHandlers() {
     }
   });
 
-  ipcMain.handle('wallet:exportPrivateKey', async (_event, privateKeyBase64) => {
-    try {
-      console.log('导出私钥');
-      const privateKey = walletService.exportPrivateKey(privateKeyBase64);
-      return privateKey;
-    } catch (error) {
-      console.error('导出私钥失败:', error);
-      throw new Error(`导出私钥失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
-
+  
   ipcMain.handle('wallet:getBalance', async (_event, address, chain, tokenAddress, tokenDecimals) => {
     try {
       console.log('查询余额:', address, chain, tokenAddress, tokenDecimals);

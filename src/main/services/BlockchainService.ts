@@ -1,6 +1,8 @@
 import { ethers } from 'ethers';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { PriceService } from './PriceService';
+import { ChainUtils } from '../utils/chain-utils';
+import type { DatabaseManager } from '../database/sqlite-schema';
 
 export interface BalanceData {
   native: string;
@@ -33,9 +35,11 @@ export interface TransactionData {
 
 export class BlockchainService {
   private priceService: PriceService | null = null;
+  private databaseManager: DatabaseManager | null = null;
 
-  constructor(priceService?: PriceService) {
+  constructor(priceService?: PriceService, databaseManager?: DatabaseManager) {
     this.priceService = priceService || null;
+    this.databaseManager = databaseManager || null;
   }
 
   async getBalance(
@@ -46,7 +50,7 @@ export class BlockchainService {
     rpcUrl?: string
   ): Promise<BalanceData> {
     try {
-      if (this.isSolanaChain(chain)) {
+      if (ChainUtils.isSolanaChain(chain)) {
         return await this.getSolanaBalance(address, tokenAddress, rpcUrl);
       } else {
         return await this.getEVMBalance(address, chain, tokenAddress, tokenDecimals, rpcUrl);
@@ -55,10 +59,6 @@ export class BlockchainService {
       console.error('Failed to get balance:', error);
       throw new Error('Balance retrieval failed');
     }
-  }
-
-  private isSolanaChain(chain: string): boolean {
-    return chain.toLowerCase().includes('solana');
   }
 
   private async getEVMBalance(
@@ -169,7 +169,7 @@ export class BlockchainService {
     rpcUrl?: string
   ): Promise<GasEstimate> {
     try {
-      if (this.isSolanaChain(chain)) {
+      if (ChainUtils.isSolanaChain(chain)) {
         return await this.estimateSolanaGas(chain, recipientCount || 1, rpcUrl);
       } else {
         return await this.estimatEVMGas(chain, fromAddress, toAddress, tokenAddress, recipientCount, rpcUrl);
@@ -307,7 +307,25 @@ export class BlockchainService {
   }
 
   private getDefaultRPC(chain: string): string {
+    // 尝试从数据库获取 RPC URL
+    try {
+      if (this.databaseManager) {
+        const db = this.databaseManager.getDatabase();
+        const chainData = db.prepare(
+          'SELECT rpc_url FROM evm_chains WHERE name = ? OR type = ?'
+        ).get(chain, chain.toLowerCase());
+
+        if (chainData && chainData.rpc_url) {
+          return chainData.rpc_url;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to get RPC URL from database:', error);
+    }
+
+    // Fallback RPC URLs
     const rpcMap: { [key: string]: string } = {
+      // 主网
       'ethereum': 'https://eth.llamarpc.com',
       'polygon': 'https://polygon.llamarpc.com',
       'arbitrum': 'https://arbitrum.llamarpc.com',
@@ -315,6 +333,9 @@ export class BlockchainService {
       'base': 'https://base.llamarpc.com',
       'bsc': 'https://bsc.llamarpc.com',
       'avalanche': 'https://avalanche.llamarpc.com',
+      // 测试网
+      'ethereum sepolia testnet': 'https://ethereum-sepolia-rpc.publicnode.com',
+      'sepolia': 'https://ethereum-sepolia-rpc.publicnode.com',
     };
 
     return rpcMap[chain.toLowerCase()] || rpcMap['ethereum'];
@@ -350,7 +371,7 @@ export class BlockchainService {
     rpcUrl?: string
   ): Promise<TransactionData> {
     try {
-      if (this.isSolanaChain(chain)) {
+      if (ChainUtils.isSolanaChain(chain)) {
         return await this.getSolanaTransactionStatus(txHash, rpcUrl);
       } else {
         return await this.getEVMTransactionStatus(txHash, rpcUrl);
@@ -423,16 +444,7 @@ export class BlockchainService {
 
   async validateAddress(address: string, chain: string): Promise<boolean> {
     try {
-      if (this.isSolanaChain(chain)) {
-        try {
-          new PublicKey(address);
-          return true;
-        } catch {
-          return false;
-        }
-      } else {
-        return ethers.isAddress(address);
-      }
+      return ChainUtils.isValidAddress(address, chain);
     } catch (error) {
       return false;
     }

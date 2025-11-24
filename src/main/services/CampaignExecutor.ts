@@ -3,6 +3,9 @@ import { WalletService } from './WalletService';
 import { GasService } from './GasService';
 import { BlockchainService } from './BlockchainService';
 import { SolanaService } from './SolanaService';
+import { ChainUtils } from '../utils/chain-utils';
+import { RetryUtils } from '../utils/retry-utils';
+import { TransactionUtils } from '../utils/transaction-utils';
 import type { DatabaseManager } from '../database/sqlite-schema';
 
 
@@ -104,15 +107,30 @@ export class CampaignExecutor {
         const batch = recipients.slice(start, end);
 
         try {
-          // Execute batch transfer
-          await this.executeBatch(
-            campaignId,
-            campaign,
-            batch,
-            wallet,
-            batchIndex + 1,
-            totalBatches
+          // Execute batch transfer with retry mechanism
+          const batchResult = await RetryUtils.executeWithRetry(
+            () => this.executeBatch(
+              campaignId,
+              campaign,
+              batch,
+              wallet,
+              batchIndex + 1,
+              totalBatches
+            ),
+            {
+              ...RetryUtils.BLOCKCHAIN_RETRY_OPTIONS,
+              maxAttempts: 3, // 批量操作减少重试次数
+              onRetry: (attempt, error, delay) => {
+                console.warn(`[Batch ${batchIndex + 1}/${totalBatches}] Retry attempt ${attempt} in ${delay}ms:`, error.message);
+                this.addAuditLog(campaignId, 'BATCH_RETRY',
+                  `Batch ${batchIndex + 1}/${totalBatches} retry ${attempt}: ${error.message}`);
+              }
+            }
           );
+
+          if (!batchResult.success) {
+            throw batchResult.error || new Error('Batch execution failed after retries');
+          }
 
           // Update progress
           const completedCount = this.getCompletedRecipientCount(campaignId);
@@ -133,7 +151,7 @@ export class CampaignExecutor {
           // Small delay between batches to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (error) {
-          console.error(`Batch ${batchIndex + 1} failed:`, error);
+          console.error(`Batch ${batchIndex + 1} failed permanently:`, error);
 
           // Mark batch recipients as failed
           batch.forEach(recipient => {
@@ -143,7 +161,7 @@ export class CampaignExecutor {
 
           // Continue with next batch instead of stopping entire campaign
           this.addAuditLog(campaignId, 'BATCH_FAILED',
-            `Batch ${batchIndex + 1}/${totalBatches} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            `Batch ${batchIndex + 1}/${totalBatches} failed permanently: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
 
@@ -196,7 +214,7 @@ export class CampaignExecutor {
 
       let result;
 
-      if (this.isSolanaChain(campaign.chain)) {
+      if (ChainUtils.isSolanaChain(campaign.chain)) {
         // Solana批量转账 - 直接转账，不需要授权和合约
         result = await this.solanaService.batchTransfer(
           rpcUrl,
@@ -247,16 +265,48 @@ export class CampaignExecutor {
       this.addAuditLog(campaignId, 'BATCH_SENT',
         `Batch ${batchNumber}/${totalBatches} sent. Tx: ${result.transactionHash}`);
 
-      // Wait for transaction confirmation
-      await this.waitForConfirmation(campaign.chain, result.transactionHash, rpcUrl);
+      // Wait for transaction confirmation with adaptive timeout
+      const confirmationOptions = {
+        adaptiveTimeout: true,
+        networkCongestionMultiplier: 1.2,
+        maxWaitTime: ChainUtils.isSolanaChain(campaign.chain) ? 60000 : 300000
+      };
 
-      // Update recipient statuses to COMPLETED
-      recipients.forEach(recipient => {
-        this.updateRecipientStatus(campaignId, recipient.address, 'COMPLETED', result.transactionHash);
-      });
+      const getStatus = ChainUtils.isSolanaChain(campaign.chain)
+        ? (txHash: string) => this.solanaService.getTransactionStatus(rpcUrl, txHash)
+        : (txHash: string) => this.blockchainService.getTransactionStatus(campaign.chain, txHash, rpcUrl);
+
+      const confirmationResult = await TransactionUtils.waitForTransactionConfirmation(
+        campaign.chain,
+        result.transactionHash,
+        getStatus,
+        confirmationOptions
+      );
+
+      if (confirmationResult.confirmed) {
+        // Update recipient statuses to COMPLETED
+        recipients.forEach(recipient => {
+          this.updateRecipientStatus(campaignId, recipient.address, 'COMPLETED', result.transactionHash);
+        });
+
+        this.addAuditLog(campaignId, 'BATCH_CONFIRMED',
+          `Batch ${batchNumber}/${totalBatches} confirmed. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`);
+      } else {
+        // Transaction failed or timeout
+        const errorMessage = confirmationResult.finalStatus === 'failed'
+          ? 'Transaction failed'
+          : 'Transaction confirmation timeout';
+
+        recipients.forEach(recipient => {
+          this.updateRecipientStatus(campaignId, recipient.address, 'FAILED', errorMessage);
+        });
+
+        this.addAuditLog(campaignId, 'BATCH_CONFIRMATION_FAILED',
+          `Batch ${batchNumber}/${totalBatches} ${confirmationResult.finalStatus}. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`);
+      }
 
       // Update campaign gas costs
-      if (this.isSolanaChain(campaign.chain)) {
+      if (ChainUtils.isSolanaChain(campaign.chain)) {
         // Solana gas费用以lamports为单位，需要转换为SOL
         this.updateCampaignGasCost(campaignId, parseInt(result.gasUsed));
       } else {
@@ -289,15 +339,7 @@ export class CampaignExecutor {
     console.log(`Resume requested for campaign ${campaignId}`);
   }
 
-  /**
-   * Cancel campaign execution
-   */
-  cancelExecution(campaignId: string): void {
-    this.executionMap.set(campaignId, false);
-    this.pauseMap.set(campaignId, true);
-    console.log(`Cancel requested for campaign ${campaignId}`);
-  }
-
+  
   /**
    * Check if campaign is currently executing
    */
@@ -373,7 +415,7 @@ export class CampaignExecutor {
   }
 
   private getRpcUrlForChain(chain: string): string {
-    if (this.isSolanaChain(chain)) {
+    if (ChainUtils.isSolanaChain(chain)) {
       const rpc = this.db.prepare(
         'SELECT endpoint FROM solana_rpcs WHERE is_active = 1 ORDER BY priority ASC LIMIT 1'
       ).get() as { endpoint: string } | undefined;
@@ -386,17 +428,13 @@ export class CampaignExecutor {
     }
   }
 
-  private isSolanaChain(chain: string): boolean {
-    return chain.toLowerCase().includes('solana');
-  }
-
   private async waitForConfirmation(
     chain: string,
     txHash: string,
     rpcUrl: string,
     maxAttempts: number = 60
   ): Promise<void> {
-    if (this.isSolanaChain(chain)) {
+    if (ChainUtils.isSolanaChain(chain)) {
       return await this.waitForSolanaConfirmation(txHash, rpcUrl);
     } else {
       return await this.waitForEVMConfirmation(txHash, rpcUrl, maxAttempts);

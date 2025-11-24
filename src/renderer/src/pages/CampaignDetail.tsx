@@ -64,6 +64,13 @@ export default function CampaignDetail() {
   const [exportedWallet, setExportedWallet] = useState<{ address: string; privateKey: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Contract deployment states
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deploymentProgress, setDeploymentProgress] = useState('');
+  const [deploymentError, setDeploymentError] = useState<string | null>(null);
+  const [showDeploymentModal, setShowDeploymentModal] = useState(false);
+  const [deploymentResult, setDeploymentResult] = useState<{ contractAddress: string; transactionHash: string } | null>(null);
+
   useEffect(() => {
     if (id) {
       loadCampaign();
@@ -206,19 +213,55 @@ export default function CampaignDetail() {
   const handleDeployContract = async () => {
     if (!campaign || !id) return;
 
-    const confirmed = confirm('确定要为此活动部署合约吗？此操作将消耗一定的gas费用。');
+    // 检查余额是否足够
+    const nativeBalance = parseFloat(walletBalances.native.current);
+    const tokenBalance = parseFloat(walletBalances.token.current);
+
+    if (nativeBalance < 0.01) { // 假设部署合约至少需要0.01 ETH
+      setDeploymentError('Gas余额不足，请确保钱包有足够的原生代币来支付部署费用');
+      setShowDeploymentModal(true);
+      return;
+    }
+
+    // 显示部署确认对话框
+    const confirmed = confirm(`确定要为此活动部署合约吗？
+
+部署合约将消耗 Gas 费用，预计费用：
+• Gas 余额: ${walletBalances.native.current} ETH
+• 代币余额: ${walletBalances.token.current} ${campaign.tokenSymbol}
+
+注意：部署后无法撤销，请确认所有信息正确。`);
     if (!confirmed) return;
+
+    // 开始部署流程
+    setShowDeploymentModal(true);
+    setDeploymentProgress('正在准备合约部署...');
+    setDeploymentError(null);
+    setIsDeploying(true);
 
     try {
       if (window.electronAPI?.campaign) {
+        setDeploymentProgress('正在部署合约，请稍候...');
+
         const result = await window.electronAPI.campaign.deployContract(id);
-        alert(`合约部署成功！合约地址: ${result.contractAddress}`);
-        await loadCampaign(); // Reload to get updated status
+
+        setDeploymentProgress('合约部署成功！');
+        setDeploymentResult(result);
+
+        // 刷新活动状态
+        setTimeout(async () => {
+          await loadCampaign();
+          await refreshBalances();
+        }, 1000);
+
       }
     } catch (error) {
       console.error('Failed to deploy contract:', error);
       const errorMessage = getSolanaSpecificErrorMessage(error);
-      alert('合约部署失败: ' + errorMessage);
+      setDeploymentError(errorMessage);
+      setDeploymentProgress('部署失败');
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -395,19 +438,26 @@ export default function CampaignDetail() {
     }
 
     try {
-      if (window.electronAPI?.wallet) {
-        const privateKey = await window.electronAPI.wallet.exportPrivateKey(campaign.walletPrivateKeyBase64);
-
-        // 显示自定义私钥弹窗
-        setExportedWallet({
-          address: campaign.walletAddress || '',
-          privateKey: privateKey
-        });
-        setShowPrivateKeyModal(true);
-        setCopied(false);
-      } else {
-        alert('钱包服务不可用');
+      // 使用浏览器兼容的 Base64 解码
+      const base64Data = campaign.walletPrivateKeyBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
       }
+
+      // 转换为十六进制
+      const privateKeyHex = '0x' + Array.from(bytes)
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+
+      // 显示自定义私钥弹窗
+      setExportedWallet({
+        address: campaign.walletAddress || '',
+        privateKey: privateKeyHex
+      });
+      setShowPrivateKeyModal(true);
+      setCopied(false);
     } catch (error) {
       console.error('Failed to export private key:', error);
       alert('导出私钥失败: ' + (error instanceof Error ? error.message : '未知错误'));
@@ -1174,6 +1224,135 @@ export default function CampaignDetail() {
             </div>
           </div>
           <div className="modal-backdrop" onClick={handleCloseModal}></div>
+        </div>
+      )}
+
+      {/* Contract Deployment Modal */}
+      {showDeploymentModal && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <span>🚀</span>
+                合约部署状态
+              </h3>
+              <button
+                onClick={() => setShowDeploymentModal(false)}
+                className="btn btn-sm btn-circle btn-ghost"
+                disabled={isDeploying}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Progress Section */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3">
+                {isDeploying && (
+                  <div className="loading loading-spinner loading-sm"></div>
+                )}
+                <div className={`text-sm ${isDeploying ? 'text-info' : deploymentError ? 'text-error' : 'text-success'}`}>
+                  {deploymentProgress}
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              {isDeploying && (
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                </div>
+              )}
+            </div>
+
+            {/* Error Section */}
+            {deploymentError && (
+              <div className="alert alert-error mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <h3 className="font-bold">部署失败</h3>
+                  <div className="text-sm mt-1">{deploymentError}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Success Section */}
+            {deploymentResult && (
+              <div className="alert alert-success mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <h3 className="font-bold">合约部署成功！</h3>
+                  <div className="text-sm mt-1">
+                    <div className="mb-1">
+                      <strong>合约地址:</strong>
+                      <div className="font-mono text-xs bg-success/10 p-1 rounded mt-1 break-all">
+                        {deploymentResult.contractAddress}
+                      </div>
+                    </div>
+                    <div>
+                      <strong>交易哈希:</strong>
+                      <div className="font-mono text-xs bg-success/10 p-1 rounded mt-1 break-all">
+                        {deploymentResult.transactionHash}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="modal-action">
+              {deploymentError && (
+                <button
+                  onClick={() => {
+                    setShowDeploymentModal(false);
+                    setDeploymentError(null);
+                  }}
+                  className="btn"
+                  disabled={isDeploying}
+                >
+                  关闭
+                </button>
+              )}
+
+              {deploymentResult && (
+                <>
+                  <button
+                    onClick={() => {
+                      // Copy contract address to clipboard
+                      navigator.clipboard.writeText(deploymentResult.contractAddress);
+                    }}
+                    className="btn btn-success"
+                  >
+                    📋 复制合约地址
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeploymentModal(false);
+                      setDeploymentResult(null);
+                    }}
+                    className="btn"
+                  >
+                    完成
+                  </button>
+                </>
+              )}
+
+              {!deploymentError && !deploymentResult && (
+                <button
+                  onClick={() => setShowDeploymentModal(false)}
+                  className="btn"
+                  disabled={isDeploying}
+                >
+                  取消
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => !isDeploying && setShowDeploymentModal(false)}></div>
         </div>
       )}
     </div>
