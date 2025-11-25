@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
 
   build:
@@ -66,6 +69,7 @@ jobs:
         retention-days: 30
 
     - name: Rename artifacts with version
+      shell: bash
       run: |
         find release/ -name "*" -type f | while read file; do
           new_name=$(echo "$file" | sed "s/CryptoCast-/CryptoCast-${VERSION}-/g")
