@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     estimate: (request: any) => ipcRenderer.invoke('campaign:estimate', request),
     deployContract: (id: string) => ipcRenderer.invoke('campaign:deployContract', id),
     retryFailedTransactions: (id: string) => ipcRenderer.invoke('campaign:retryFailedTransactions', id),
+    withdrawTokens: (campaignId: string, recipientAddress: string) => ipcRenderer.invoke('campaign:withdrawTokens', campaignId, recipientAddress),
+    withdrawNative: (campaignId: string, recipientAddress: string) => ipcRenderer.invoke('campaign:withdrawNative', campaignId, recipientAddress),
     onProgress: (callback: any) => {
       ipcRenderer.on('campaign:progress', (_event, data) => callback(data));
     },
@@ -40,6 +42,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('wallet:getBalance', address, chain, tokenAddress),
     list: (options?: any) => ipcRenderer.invoke('wallet:list', options),
     getBalances: (campaignId: string) => ipcRenderer.invoke('wallet:getBalances', campaignId),
+  },
+
+  // 区块链操作
+  blockchain: {
+    getBalance: (address: string, chain: string, tokenAddress?: string) =>
+      ipcRenderer.invoke('wallet:getBalance', address, chain, tokenAddress),
+    estimateGas: (chain: string, fromAddress: string, toAddress: string, tokenAddress: string, recipientCount: number) =>
+      ipcRenderer.invoke('blockchain:estimateGas', chain, fromAddress, toAddress, tokenAddress, recipientCount),
+    getTransactionStatus: (txHash: string, chain: string) =>
+      ipcRenderer.invoke('blockchain:getTransactionStatus', txHash, chain),
   },
 
   // 链管理

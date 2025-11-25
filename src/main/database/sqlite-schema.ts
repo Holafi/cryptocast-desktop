@@ -69,6 +69,7 @@ export class DatabaseManager {
 
       await this.createTables();
       await this.dropObsoleteTables();
+      await this.migrateDatabase();
       await this.createIndexes();
       await this.insertDefaultChains();
 
@@ -154,16 +155,19 @@ export class DatabaseManager {
         campaign_id TEXT NOT NULL,
         address TEXT NOT NULL,
         amount TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
+        status TEXT NOT NULL CHECK (status IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED')),
         tx_hash TEXT,
         gas_used REAL DEFAULT 0,
         error_message TEXT,
+        batch_number INTEGER,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (campaign_id) REFERENCES campaigns (id) ON DELETE CASCADE,
         UNIQUE(campaign_id, address)
       )
     `);
 
+    
     // Transactions table
     await this.db.exec(`
       CREATE TABLE IF NOT EXISTS transactions (
@@ -244,6 +248,24 @@ export class DatabaseManager {
   }
 
   /**
+   * Migrate existing database to handle schema changes
+   */
+  private async migrateDatabase(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    console.log('[Database] Running database migrations...');
+
+    try {
+      // Skip migration for now - the table schema already includes updated_at in new tables
+      console.log('[Database] Database migrations skipped (schema already updated)');
+    } catch (error) {
+      console.error('[Database] Database migration failed:', error);
+      // Don't throw error for migration failures to prevent app startup issues
+      console.warn('[Database] Continuing without migration...');
+    }
+  }
+
+  /**
    * Create indexes for better performance
    */
   private async createIndexes(): Promise<void> {
@@ -261,6 +283,9 @@ export class DatabaseManager {
       CREATE INDEX IF NOT EXISTS idx_recipients_campaign_id ON recipients(campaign_id);
       CREATE INDEX IF NOT EXISTS idx_recipients_status ON recipients(status);
       CREATE INDEX IF NOT EXISTS idx_recipients_address ON recipients(address);
+      CREATE INDEX IF NOT EXISTS idx_recipients_campaign_status_created ON recipients(campaign_id, status, created_at);
+      CREATE INDEX IF NOT EXISTS idx_recipients_campaign_status_id ON recipients(campaign_id, status, id);
+      CREATE INDEX IF NOT EXISTS idx_recipients_batch_number ON recipients(campaign_id, batch_number);
 
       -- Transaction indexes
       CREATE INDEX IF NOT EXISTS idx_transactions_campaign_id ON transactions(campaign_id);

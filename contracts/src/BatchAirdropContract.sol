@@ -1,29 +1,69 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+/**
+ * @title Minimal ERC20 Interface
+ * @dev Only includes the transferFrom function needed for batch transfers
+ */
+interface IERC20 {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+}
 
 /**
- * @title BatchAirdropContract
- * @dev This contract allows users to perform batch transfers of ERC20 tokens to multiple recipients in a single transaction.
+ * @title BatchAirdropContract - Gas Optimized
+ * @dev Ultra-lightweight batch transfer contract for ERC20 tokens
+ *
+ * Gas Optimizations:
+ * - No external dependencies (OpenZeppelin removed)
+ * - Uses calldata instead of memory for array parameters
+ * - Caches array length to avoid repeated SLOAD operations
+ * - Uses unchecked increment (safe because loop counter can't overflow)
+ * - Caches token contract reference to avoid repeated type conversions
+ * - Uses custom errors instead of require strings (saves ~50 gas per error)
+ *
+ * Security:
+ * - Atomic transactions: all transfers succeed or all fail (no partial success)
+ * - No reentrancy risk: only calls transferFrom with no state changes after
+ * - Reverts on any transfer failure (insufficient balance/allowance)
  */
-contract BatchAirdropContract is ReentrancyGuard {
+contract BatchAirdropContract {
+    /// @notice Thrown when recipients and amounts arrays have different lengths
+    error LengthMismatch();
+
+    /// @notice Thrown when a token transfer fails
+    error TransferFailed();
+
+    /**
+     * @notice Executes batch transfers of ERC20 tokens to multiple recipients
+     * @dev Caller must have approved this contract to spend tokens beforehand
+     * @param token The ERC20 token contract address
+     * @param recipients Array of recipient addresses
+     * @param amounts Array of token amounts (in token's smallest unit)
+     *
+     * Requirements:
+     * - recipients.length must equal amounts.length
+     * - Caller must have sufficient token balance
+     * - Caller must have approved sufficient allowance for this contract
+     *
+     * Effects:
+     * - Transfers tokens from msg.sender to each recipient
+     * - Reverts entirely if any single transfer fails (atomic operation)
+     */
     function batchTransfer(
         address token,
-        address[] memory recipients,
-        uint256[] memory amounts
-    ) external nonReentrant {
-        require(recipients.length == amounts.length, "len");
-        for (uint256 i = 0; i < recipients.length; i++) {
-            require(
-                IERC20(token).transferFrom(
-                    msg.sender,
-                    recipients[i],
-                    amounts[i]
-                ),
-                "out"
-            );
+        address[] calldata recipients,
+        uint256[] calldata amounts
+    ) external {
+        uint256 length = recipients.length;
+        if (length != amounts.length) revert LengthMismatch();
+
+        IERC20 tokenContract = IERC20(token);
+
+        for (uint256 i = 0; i < length; ) {
+            if (!tokenContract.transferFrom(msg.sender, recipients[i], amounts[i])) {
+                revert TransferFailed();
+            }
+            unchecked { ++i; }
         }
     }
 }

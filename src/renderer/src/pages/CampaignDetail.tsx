@@ -39,6 +39,8 @@ interface Recipient {
   status: 'success' | 'sending' | 'pending' | 'failed';
   txHash?: string;
   error?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export default function CampaignDetail() {
@@ -67,12 +69,31 @@ export default function CampaignDetail() {
   const [exportedWallet, setExportedWallet] = useState<{ address: string; privateKey: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Withdrawal states
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawType, setWithdrawType] = useState<'tokens' | 'native'>('tokens');
+  const [withdrawRecipient, setWithdrawRecipient] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  // Transaction filter states
+  const [showFailedOnly, setShowFailedOnly] = useState(false);
+
   // Contract deployment states
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentProgress, setDeploymentProgress] = useState('');
   const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [showDeploymentModal, setShowDeploymentModal] = useState(false);
   const [deploymentResult, setDeploymentResult] = useState<{ contractAddress: string; transactionHash: string } | null>(null);
+
+  // Utility function to get native token symbol from database
+  const getNativeTokenSymbol = (chainId: string): string => {
+    // Find the chain from loaded chains data
+    const chainIdNum = parseInt(chainId);
+    const chain = chains.find(c => c.chainId === chainIdNum);
+
+    // Return symbol from database or fallback to ETH
+    return chain?.symbol || "ETH";
+  };
 
   useEffect(() => {
     if (id) {
@@ -120,11 +141,13 @@ export default function CampaignDetail() {
             limit: 100,
           });
           if (txData && Array.isArray(txData)) {
-            setTransactions(txData.map((tx: any) => ({
+            // Filter to only include batch send transactions and number them sequentially
+            const batchTransactions = txData.filter((tx: any) => tx.txType === 'BATCH_SEND');
+            setTransactions(batchTransactions.map((tx: any, index: number) => ({
               id: tx.id.toString(),
-              batchNumber: tx.id,
+              batchNumber: index + 1, // Sequential batch number: first transaction = batch 1
               status: tx.status === 'CONFIRMED' ? 'success' : tx.status === 'PENDING' ? 'sending' : 'failed',
-              addressCount: 1,
+              addressCount: tx.recipientCount || 0,
               txHash: tx.txHash,
               gasUsed: tx.gasUsed?.toString(),
               createdAt: tx.createdAt,
@@ -150,6 +173,8 @@ export default function CampaignDetail() {
               status: r.status === 'SENT' ? 'success' : r.status === 'PENDING' ? 'pending' : r.status === 'FAILED' ? 'failed' : 'sending',
               txHash: r.txHash,
               error: r.errorMessage,
+              createdAt: r.createdAt,
+              updatedAt: r.updatedAt,
             }));
             setRecipients(mappedRecipients);
 
@@ -162,6 +187,15 @@ export default function CampaignDetail() {
         } catch (recipientsError) {
           console.error('Failed to load recipients:', recipientsError);
           // Continue even if recipients fail to load
+        }
+
+        // 刷新钱包余额 - 在加载完活动信息后立即刷新
+        try {
+          await refreshBalances();
+          console.log('Campaign loaded and balances refreshed successfully');
+        } catch (balanceError) {
+          console.warn('Failed to refresh balances after loading campaign:', balanceError);
+          // 不阻止页面加载，只是记录警告
         }
       }
     } catch (error) {
@@ -305,14 +339,40 @@ export default function CampaignDetail() {
       return;
     }
 
+    // 获取gas估算信息
+    let estimatedDeploymentCost = "0.001"; // 默认估算值
+
+    try {
+      // 获取当前链的gas价格估算
+      if (window.electronAPI?.blockchain && campaign.chain) {
+        const gasEstimate = await window.electronAPI.blockchain.estimateGas(
+          campaign.chain,
+          campaign.walletAddress,
+          "0x0000000000000000000000000000000000000000", // 合约地址估算
+          campaign.tokenAddress,
+          0 // 收件人数量为0，只估算部署
+        );
+
+        // 将估算的gas费用转换为原生代币 (假设约500K gas * 当前gas价格)
+        const gasLimit = 500000; // 合约部署的大概gas限制
+        const gasPriceGwei = parseFloat(gasEstimate.gasPrice) || 30; // 默认30 Gwei
+        const gasCostWei = gasLimit * gasPriceGwei * 1e9; // 转换为wei
+        estimatedDeploymentCost = (gasCostWei / 1e18).toFixed(6); // 转换为原生代币单位
+      }
+    } catch (gasError) {
+      console.warn('Failed to estimate deployment gas cost, using default:', gasError);
+    }
+
+    const nativeTokenSymbol = getNativeTokenSymbol(campaign.chain);
+
     // 显示部署确认对话框
     const confirmed = confirm(`确定要为此活动部署合约吗？
 
-部署合约将消耗 Gas 费用，预计费用：
-• Gas 余额: ${walletBalances.native.current} ETH
-• 代币余额: ${walletBalances.token.current} ${campaign.tokenSymbol}
+合约部署将消耗 ${nativeTokenSymbol} 作为 Gas 费用：
+• 当前余额: ${walletBalances.native.current} ${nativeTokenSymbol}
+• 预计部署费用: ~${estimatedDeploymentCost} ${nativeTokenSymbol} (基于当前网络gas价格)
 
-注意：部署后无法撤销，请确认所有信息正确。`);
+注意：部署后无法撤销，请确认链配置和代币地址正确。`);
     if (!confirmed) return;
 
     // 开始部署流程
@@ -407,9 +467,10 @@ export default function CampaignDetail() {
     return Math.ceil(items.length / itemsPerPage);
   };
 
-  const paginatedTransactions = getPaginatedItems(transactions, txCurrentPage);
+  const filteredTransactions = showFailedOnly ? transactions.filter(tx => tx.status === 'failed') : transactions;
+  const paginatedTransactions = getPaginatedItems(filteredTransactions, txCurrentPage);
   const paginatedRecipients = getPaginatedItems(recipients, recipientsCurrentPage);
-  const txTotalPages = getTotalPages(transactions);
+  const txTotalPages = getTotalPages(filteredTransactions);
   const recipientsTotalPages = getTotalPages(recipients);
 
   const formatPaginationInfo = (currentPage: number, items: T[]) => {
@@ -560,10 +621,130 @@ export default function CampaignDetail() {
     }
   };
 
+  // Withdrawal handlers
+  const handleOpenWithdrawModal = (type: 'tokens' | 'native') => {
+    if (!campaign?.walletPrivateKeyBase64) {
+      alert('该活动没有可用的私钥，无法进行资金回收');
+      return;
+    }
+    setWithdrawType(type);
+    setWithdrawRecipient('');
+    setShowWithdrawModal(true);
+  };
+
+  const handleWithdraw = async () => {
+    if (!campaign?.id || !withdrawRecipient) {
+      alert('请输入接收地址');
+      return;
+    }
+
+    setIsWithdrawing(true);
+    try {
+      let result;
+      if (withdrawType === 'tokens') {
+        result = await window.electronAPI.campaign.withdrawTokens(campaign.id, withdrawRecipient);
+        alert(`代币回收成功!\n交易哈希: ${result.txHash}\n回收数量: ${result.amount} ${campaign.tokenSymbol}`);
+      } else {
+        result = await window.electronAPI.campaign.withdrawNative(campaign.id, withdrawRecipient);
+        const nativeTokenSymbol = getNativeTokenSymbol(campaign.chain);
+        alert(`${nativeTokenSymbol} 原生代币回收成功!\n交易哈希: ${result.txHash}\n回收数量: ${result.amount} ${nativeTokenSymbol}`);
+      }
+      setShowWithdrawModal(false);
+      // Refresh balance
+      await refreshBalances();
+    } catch (error) {
+      console.error('Withdrawal failed:', error);
+      alert('资金回收失败: ' + (error instanceof Error ? error.message : '未知错误'));
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
   const handleCloseModal = () => {
     setShowPrivateKeyModal(false);
     setExportedWallet(null);
     setCopied(false);
+  };
+
+  // Helper function to get transaction explorer URL
+  const getTransactionUrl = (txHash: string): string => {
+    if (!campaign?.chain) return '#';
+
+    const chain = getChainByName(campaign.chain);
+    if (!chain?.explorerUrl) return '#';
+
+    // Ensure explorerUrl ends with /
+    const baseUrl = chain.explorerUrl.endsWith('/') ? chain.explorerUrl : chain.explorerUrl + '/';
+    return `${baseUrl}tx/${txHash}`;
+  };
+
+  // Transaction history handlers
+  const handleExportTransactions = () => {
+    const dataToExport = showFailedOnly ? transactions.filter(tx => tx.status === 'failed') : transactions;
+
+    const csvContent = [
+      ['批次', '状态', '地址数', '交易哈希', 'Gas消耗', '创建时间'].join(','),
+      ...dataToExport.map(tx => [
+        `#${tx.batchNumber}`,
+        tx.status === 'success' ? '成功' : tx.status === 'failed' ? '失败' : tx.status === 'sending' ? '发送中' : '待发送',
+        tx.addressCount,
+        tx.txHash || '',
+        tx.gasUsed || '',
+        formatDate(tx.createdAt)
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `transactions-${campaign?.name || 'export'}-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  const handleRefreshTransactions = async () => {
+    if (!id) return;
+    try {
+      const txData = await window.electronAPI.campaign.getTransactions(id, { limit: 100 });
+      if (txData && Array.isArray(txData)) {
+        const batchTransactions = txData.filter((tx: any) => tx.txType === 'BATCH_SEND');
+        setTransactions(batchTransactions.map((tx: any, index: number) => ({
+          id: tx.id.toString(),
+          batchNumber: index + 1,
+          status: tx.status === 'CONFIRMED' ? 'success' : tx.status === 'PENDING' ? 'sending' : 'failed',
+          addressCount: tx.recipientCount || 0,
+          txHash: tx.txHash,
+          gasUsed: tx.gasUsed?.toString(),
+          createdAt: tx.createdAt,
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to refresh transactions:', error);
+      alert('刷新交易记录失败: ' + (error instanceof Error ? error.message : '未知错误'));
+    }
+  };
+
+  const handleToggleFilter = () => {
+    setShowFailedOnly(!showFailedOnly);
+    setTxCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handleExportRecipients = () => {
+    const csvContent = [
+      ['接收地址', '金额', '状态', '交易哈希', '交易时间'].join(','),
+      ...recipients.map(recipient => [
+        recipient.address,
+        recipient.amount,
+        recipient.status === 'success' ? '成功' : recipient.status === 'failed' ? '失败' : recipient.status === 'sending' ? '发送中' : '待发送',
+        recipient.txHash || '',
+        recipient.updatedAt ? formatDate(recipient.updatedAt) : recipient.createdAt ? formatDate(recipient.createdAt) : ''
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `recipients-${campaign?.name || 'export'}-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
   };
 
   // Helper function to get chain by name or chainId using only database data
@@ -1066,6 +1247,24 @@ export default function CampaignDetail() {
                     >
                       🔑 导出私钥
                     </button>
+
+                    {/* Withdrawal buttons */}
+                    <div className="divider my-3"></div>
+                    <div className="text-sm text-base-content/60 mb-2">资金回收</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleOpenWithdrawModal('tokens')}
+                        className="btn btn-warning btn-sm"
+                      >
+                        💰 回收代币
+                      </button>
+                      <button
+                        onClick={() => handleOpenWithdrawModal('native')}
+                        className="btn btn-warning btn-sm"
+                      >
+                        💎 回收原生币
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -1102,69 +1301,93 @@ export default function CampaignDetail() {
               交易记录
             </h2>
             <div className="flex gap-2">
-              <button className="btn btn-ghost btn-sm">📥 导出</button>
-              <button className="btn btn-ghost btn-sm">🔄 刷新</button>
-              <button className="btn btn-ghost btn-sm">❌ 仅失败</button>
+              <button onClick={handleExportTransactions} className="btn btn-ghost btn-sm">📥 导出</button>
+              <button onClick={handleRefreshTransactions} className="btn btn-ghost btn-sm">🔄 刷新</button>
+              <button
+                onClick={handleToggleFilter}
+                className={`btn btn-sm ${showFailedOnly ? 'btn-error' : 'btn-ghost'}`}
+              >
+                {showFailedOnly ? '✓ 仅失败' : '❌ 仅失败'}
+              </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="table table-zebra">
+            <table className="table">
               <thead>
-                <tr>
-                  <th>批次</th>
-                  <th>状态</th>
-                  <th>地址数</th>
-                  <th>交易哈希</th>
-                  <th>Gas消耗</th>
-                  <th className="text-center">操作</th>
+                <tr className="border-b border-base-300">
+                  <th className="bg-base-200">批次</th>
+                  <th className="bg-base-200">状态</th>
+                  <th className="bg-base-200">地址数</th>
+                  <th className="bg-base-200">交易哈希</th>
+                  <th className="bg-base-200">Gas消耗</th>
+                  <th className="bg-base-200">交易时间</th>
+                  <th className="bg-base-200 text-center">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedTransactions.map((tx) => (
-                  <tr key={tx.id} className="hover">
-                    <td>
-                      <div className="font-bold">#{tx.batchNumber}</div>
-                      <div className="text-xs text-base-content/60">{formatDate(tx.createdAt)}</div>
+                  <tr key={tx.id} className="hover border-b border-base-200">
+                    <td className="py-4">
+                      <div className="font-bold text-base">#{tx.batchNumber}</div>
                     </td>
-                    <td>
+                    <td className="py-4">
                       {tx.status === 'success' && <div className="badge badge-success gap-1">✅ 成功</div>}
                       {tx.status === 'sending' && <div className="badge badge-info gap-1">🔄 发送中</div>}
                       {tx.status === 'pending' && <div className="badge badge-warning gap-1">⏳ 待发送</div>}
                       {tx.status === 'failed' && <div className="badge badge-error gap-1">❌ 失败</div>}
                     </td>
-                    <td>
+                    <td className="py-4">
                       <div className="font-medium">{tx.addressCount}</div>
                     </td>
-                    <td>
+                    <td className="py-4 max-w-xs">
                       {tx.txHash ? (
                         <a
-                          href={`https://polygonscan.com/tx/${tx.txHash}`}
+                          href={getTransactionUrl(tx.txHash)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="link link-primary link-hover text-sm font-mono"
+                          className="link link-primary link-hover text-sm font-mono truncate block"
                         >
-                          {tx.txHash}
+                          {tx.txHash.slice(0, 10)}...{tx.txHash.slice(-8)}
                         </a>
                       ) : (
                         <span className="text-base-content/40">-</span>
                       )}
                     </td>
-                    <td>
+                    <td className="py-4">
                       {tx.gasUsed ? (
                         <span className="text-sm">{tx.gasUsed}</span>
                       ) : (
                         <span className="text-base-content/40">-</span>
                       )}
                     </td>
-                    <td className="text-center">
-                      <div className="dropdown dropdown-end">
-                        <button tabIndex={0} className="btn btn-ghost btn-xs">⋮</button>
-                        <ul tabIndex={0} className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-32 z-[1]">
-                          <li><a>查看详情</a></li>
-                          <li><a>重新发送</a></li>
-                          {tx.status === 'failed' && <li><a>查看错误</a></li>}
-                        </ul>
+                    <td className="py-4">
+                      <div className="text-sm text-base-content/70 whitespace-nowrap">{formatDate(tx.createdAt)}</div>
+                    </td>
+                    <td className="py-4 text-center">
+                      <div className="flex gap-2 justify-center">
+                        {tx.txHash && (
+                          <a
+                            href={getTransactionUrl(tx.txHash)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-ghost btn-sm"
+                            title="在区块浏览器查看"
+                          >
+                            🔍
+                          </a>
+                        )}
+                        {tx.status === 'failed' && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            title="重新发送"
+                            onClick={() => {
+                              alert('重新发送功能待实现');
+                            }}
+                          >
+                            🔄
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1191,50 +1414,57 @@ export default function CampaignDetail() {
               接收地址列表
             </h2>
             <div className="flex gap-2">
-              <button className="btn btn-primary btn-sm">📥 导出CSV</button>
+              <button onClick={handleExportRecipients} className="btn btn-primary btn-sm">📥 导出CSV</button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="table table-zebra">
+            <table className="table">
               <thead>
-                <tr>
-                  <th>地址</th>
-                  <th>金额</th>
-                  <th>状态</th>
-                  <th>交易哈希</th>
+                <tr className="border-b border-base-300">
+                  <th className="bg-base-200">地址</th>
+                  <th className="bg-base-200">金额</th>
+                  <th className="bg-base-200">状态</th>
+                  <th className="bg-base-200">交易哈希</th>
+                  <th className="bg-base-200">交易时间</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedRecipients.map((recipient, index) => (
-                  <tr key={`${recipient.address}-${index}`} className="hover">
-                    <td className="min-w-[400px]">
-                      <div className="font-mono text-sm bg-base-200 px-2 py-1 rounded whitespace-normal break-all">
+                  <tr key={`${recipient.address}-${index}`} className="hover border-b border-base-200">
+                    <td className="py-4 max-w-md">
+                      <div className="font-mono text-sm bg-base-200 px-3 py-2 rounded whitespace-normal break-all">
                         {recipient.address}
                       </div>
                     </td>
-                    <td>
+                    <td className="py-4">
                       <div className="font-medium">{recipient.amount}</div>
                     </td>
-                    <td>
+                    <td className="py-4">
                       {recipient.status === 'success' && <div className="badge badge-success gap-1">✅</div>}
                       {recipient.status === 'sending' && <div className="badge badge-info gap-1">🔄</div>}
                       {recipient.status === 'pending' && <div className="badge badge-warning gap-1">⏳</div>}
                       {recipient.status === 'failed' && <div className="badge badge-error gap-1">❌</div>}
                     </td>
-                    <td>
+                    <td className="py-4 max-w-xs">
                       {recipient.txHash ? (
                         <a
-                          href={`https://polygonscan.com/tx/${recipient.txHash}`}
+                          href={getTransactionUrl(recipient.txHash)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="link link-primary link-hover text-sm font-mono"
+                          className="link link-primary link-hover text-sm font-mono truncate block"
                         >
-                          {recipient.txHash}
+                          {recipient.txHash.slice(0, 10)}...{recipient.txHash.slice(-8)}
                         </a>
                       ) : (
                         <span className="text-base-content/40">-</span>
                       )}
+                    </td>
+                    <td className="py-4">
+                      <div className="text-sm text-base-content/70 whitespace-nowrap">
+                        {recipient.updatedAt ? formatDate(recipient.updatedAt) :
+                         recipient.createdAt ? formatDate(recipient.createdAt) : '-'}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1462,6 +1692,73 @@ export default function CampaignDetail() {
             </div>
           </div>
           <div className="modal-backdrop" onClick={() => !isDeploying && setShowDeploymentModal(false)}></div>
+        </div>
+      )}
+
+      {/* Withdrawal Modal */}
+      {showWithdrawModal && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg mb-4">
+              {withdrawType === 'tokens' ? '💰 回收剩余代币' : '💎 回收剩余原生代币'}
+            </h3>
+
+            {/* Warning */}
+            <div className="alert alert-warning mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="text-sm">
+                {withdrawType === 'tokens'
+                  ? `将钱包中的所有剩余 ${campaign?.tokenSymbol} 代币转移到指定地址`
+                  : '将钱包中的剩余原生代币转移到指定地址（会保留gas费用）'}
+              </span>
+            </div>
+
+            {/* Current Balance */}
+            <div className="bg-base-200 p-3 rounded-lg mb-4">
+              <div className="text-sm text-base-content/60">当前余额</div>
+              <div className="text-lg font-bold">
+                {withdrawType === 'tokens'
+                  ? `${parseFloat(walletBalances.token.current).toFixed(4)} ${campaign?.tokenSymbol}`
+                  : `${parseFloat(walletBalances.native.current).toFixed(6)} ${getNativeTokenSymbol(campaign.chain)}`}
+              </div>
+            </div>
+
+            {/* Recipient Address Input */}
+            <div className="form-control w-full mb-4">
+              <label className="label">
+                <span className="label-text font-medium">接收地址</span>
+              </label>
+              <input
+                type="text"
+                placeholder="请输入接收地址"
+                className="input input-bordered w-full"
+                value={withdrawRecipient}
+                onChange={(e) => setWithdrawRecipient(e.target.value)}
+                disabled={isWithdrawing}
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="modal-action">
+              <button
+                onClick={() => setShowWithdrawModal(false)}
+                className="btn"
+                disabled={isWithdrawing}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleWithdraw}
+                className="btn btn-warning"
+                disabled={isWithdrawing || !withdrawRecipient}
+              >
+                {isWithdrawing ? '处理中...' : '确认回收'}
+              </button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => !isWithdrawing && setShowWithdrawModal(false)}></div>
         </div>
       )}
     </div>

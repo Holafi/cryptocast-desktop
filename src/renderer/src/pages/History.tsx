@@ -311,6 +311,15 @@ export default function History() {
     return num.toFixed(decimals);
   };
 
+  // Calculate average success rate
+  const averageSuccessRate = useMemo(() => {
+    const totalRecipients = displayCampaigns.reduce((sum, c) => sum + (c.totalRecipients || 0), 0);
+    const completedRecipients = displayCampaigns.reduce((sum, c) => sum + (c.completedRecipients || 0), 0);
+
+    if (totalRecipients === 0) return 0;
+    return (completedRecipients / totalRecipients) * 100;
+  }, [displayCampaigns]);
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -357,11 +366,13 @@ export default function History() {
             ✅
           </div>
           <div className="stat-title">平均成功率</div>
-          <div className="stat-value text-success">98.5%</div>
+          <div className="stat-value text-success">{averageSuccessRate.toFixed(1)}%</div>
           <div className="stat-desc">
             <div className="flex items-center gap-2">
-              <progress className="progress progress-success w-20" value="98.5" max="100"></progress>
-              <span className="text-xs text-success">优秀</span>
+              <progress className="progress progress-success w-20" value={averageSuccessRate} max="100"></progress>
+              <span className="text-xs text-success">
+                {averageSuccessRate >= 95 ? '优秀' : averageSuccessRate >= 80 ? '良好' : averageSuccessRate >= 60 ? '一般' : '待改进'}
+              </span>
             </div>
           </div>
         </div>

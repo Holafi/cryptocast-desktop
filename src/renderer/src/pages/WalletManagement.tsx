@@ -86,9 +86,17 @@ export default function WalletManagement() {
     }
 
     try {
-      // 直接解码 Base64 私钥（不再通过 API）
-      const privateKeyBuffer = Buffer.from(wallet.privateKeyBase64 || '', 'base64');
-      const privateKeyHex = '0x' + privateKeyBuffer.toString('hex');
+      // 使用浏览器原生 API 解码 Base64 私钥
+      const base64String = wallet.privateKeyBase64 || '';
+      // 解码 Base64 到二进制字符串
+      const binaryString = atob(base64String);
+      // 转换为十六进制
+      let hexString = '';
+      for (let i = 0; i < binaryString.length; i++) {
+        const hex = binaryString.charCodeAt(i).toString(16).padStart(2, '0');
+        hexString += hex;
+      }
+      const privateKeyHex = '0x' + hexString;
 
       // 显示自定义私钥弹窗
       setExportedWallet({
@@ -124,17 +132,29 @@ export default function WalletManagement() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <div className="badge badge-info gap-1">🔄 进行中</div>;
-      case 'pending':
-        return <div className="badge badge-warning gap-1">⏳ 待充值</div>;
-      case 'completed':
+    const upperStatus = status.toUpperCase();
+    switch (upperStatus) {
+      case 'CREATED':
+        return <div className="badge badge-warning gap-1">📝 已创建</div>;
+      case 'FUNDED':
+        return <div className="badge badge-info gap-1">💰 已充值</div>;
+      case 'READY':
+        return <div className="badge badge-primary gap-1">✅ 准备就绪</div>;
+      case 'SENDING':
+        return <div className="badge badge-info gap-1">🔄 发送中</div>;
+      case 'PAUSED':
+        return <div className="badge badge-warning gap-1">⏸️ 已暂停</div>;
+      case 'COMPLETED':
         return <div className="badge badge-success gap-1">✅ 已完成</div>;
-      case 'failed':
+      case 'FAILED':
         return <div className="badge badge-error gap-1">❌ 已失败</div>;
+      // Fallback for lowercase values
+      case 'ACTIVE':
+        return <div className="badge badge-info gap-1">🔄 进行中</div>;
+      case 'PENDING':
+        return <div className="badge badge-warning gap-1">⏳ 待充值</div>;
       default:
-        return <div className="badge badge-neutral gap-1">📋 未知</div>;
+        return <div className="badge badge-neutral gap-1">📋 {status}</div>;
     }
   };
 
@@ -226,7 +246,10 @@ export default function WalletManagement() {
           </div>
           <div className="stat-title">活跃钱包</div>
           <div className="stat-value text-success">
-            {wallets.filter(w => w.status === 'active').length}
+            {wallets.filter(w => {
+              const status = w.status.toUpperCase();
+              return status === 'SENDING' || status === 'FUNDED' || status === 'READY' || status === 'ACTIVE';
+            }).length}
           </div>
           <div className="stat-desc text-success">正在进行中</div>
         </div>

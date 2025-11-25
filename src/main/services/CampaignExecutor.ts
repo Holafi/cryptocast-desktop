@@ -7,6 +7,9 @@ import { ChainUtils } from '../utils/chain-utils';
 import { RetryUtils } from '../utils/retry-utils';
 import { TransactionUtils } from '../utils/transaction-utils';
 import type { DatabaseManager } from '../database/sqlite-schema';
+import type { DatabaseAdapter } from '../database/db-adapter';
+import BigNumber from 'bignumber.js';
+import { ethers } from 'ethers';
 
 
 export interface ExecutionProgress {
@@ -26,7 +29,7 @@ export interface Recipient {
 }
 
 export class CampaignExecutor {
-  private db: any;
+  private db: DatabaseAdapter;
   private contractService: ContractService;
   private walletService: WalletService;
   private gasService: GasService;
@@ -55,9 +58,7 @@ export class CampaignExecutor {
 
     // Check if already executing
     if (this.executionMap.get(campaignId)) {
-      const error = new Error('Campaign is already executing');
-      console.error('[CampaignExecutor] Campaign already executing:', error);
-      throw error;
+      throw new Error('Campaign is already executing');
     }
 
     try {
@@ -65,12 +66,10 @@ export class CampaignExecutor {
       this.pauseMap.set(campaignId, false);
 
       // Get campaign details
-      console.log('[CampaignExecutor] Fetching campaign details...');
       const campaign = await this.getCampaign(campaignId);
       if (!campaign) {
         throw new Error('Campaign not found');
       }
-      console.log(`[CampaignExecutor] Campaign found: ${campaign.name}, Status: ${campaign.status}, Chain: ${campaign.chain}`);
 
       // Validate campaign status
       if (campaign.status !== 'READY' && campaign.status !== 'PAUSED') {
@@ -78,13 +77,11 @@ export class CampaignExecutor {
       }
 
       // Decode private key from base64
-      console.log('[CampaignExecutor] Decoding private key...');
       if (!campaign.walletPrivateKeyBase64) {
         throw new Error('Campaign wallet private key missing');
       }
       const privateKey = this.walletService.exportPrivateKey(campaign.walletPrivateKeyBase64);
       const wallet = { privateKey };
-      console.log('[CampaignExecutor] Private key decoded successfully');
 
       // Get pending recipients
       const recipients = await this.getPendingRecipients(campaignId);
@@ -101,49 +98,67 @@ export class CampaignExecutor {
 
       // Ensure unlimited approval for EVM chains before starting batches
       if (!ChainUtils.isSolanaChain(campaign.chain)) {
-        console.log('[CampaignExecutor] Ensuring unlimited token approval for EVM chain...');
         await this.ensureUnlimitedApproval(campaign, wallet);
-        console.log('[CampaignExecutor] Token approval confirmed.');
       }
 
-      // Process batches
-      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      // Process batches using pre-allocated batches
+      let batchNumber = 1;
+      while (true) {
         // Check for pause request
         if (this.pauseMap.get(campaignId)) {
           await this.updateCampaignStatus(campaignId, 'PAUSED');
-          // Campaign paused at batch ${batchIndex + 1}/${totalBatches}
+          console.log(`[CampaignExecutor] Campaign paused at batch ${batchNumber}`);
           break;
         }
 
-        const start = batchIndex * campaign.batchSize;
-        const end = Math.min(start + campaign.batchSize, recipients.length);
-        const batch = recipients.slice(start, end);
+        // Get next batch
+        const batchData = await this.getNextBatchRecipients(campaignId);
+        if (!batchData) {
+          console.log(`[CampaignExecutor] No more batches to process. Completed all batches.`);
+          break;
+        }
+
+        const { recipients: batch } = batchData;
+
+        // Pre-batch balance check for EVM chains
+        if (!ChainUtils.isSolanaChain(campaign.chain)) {
+          try {
+            const rpcUrl = await this.getRpcUrlForChain(campaign.chain);
+            const provider = new ethers.JsonRpcProvider(rpcUrl);
+            const walletInstance = new ethers.Wallet(wallet.privateKey, provider);
+
+            // Check native balance for gas
+            const nativeBalance = await provider.getBalance(walletInstance.address);
+            console.log(`[Batch ${batchNumber}] Native balance: ${ethers.formatEther(nativeBalance)} ETH`);
+
+            // Early warning if balance is running low
+            if (nativeBalance < ethers.parseEther("0.001")) { // Less than 0.001 ETH
+              console.warn(`[Batch ${batchNumber}] ⚠️ Low native balance warning: ${ethers.formatEther(nativeBalance)} ETH remaining`);
+            }
+          } catch (balanceError) {
+            console.warn(`[Batch ${batchNumber}] Balance check failed:`, balanceError);
+          }
+        }
 
         try {
-          // Execute batch transfer with retry mechanism
-          const batchResult = await RetryUtils.executeWithRetry(
-            () => this.executeBatch(
-              campaignId,
-              campaign,
-              batch,
-              wallet,
-              batchIndex + 1,
-              totalBatches
-            ),
-            {
-              ...RetryUtils.BLOCKCHAIN_RETRY_OPTIONS,
-              maxAttempts: 3, // 批量操作减少重试次数
-              onRetry: (attempt, error, delay) => {
-                console.warn(`[Batch ${batchIndex + 1}/${totalBatches}] Retry attempt ${attempt} in ${delay}ms:`, error.message);
-                // Retrying batch
-                console.log(`Retrying batch ${batchIndex + 1}/${totalBatches} attempt ${attempt}: ${error.message}`);
-              }
-            }
+          // Execute batch transfer directly without retry to avoid duplicate transactions
+          // For financial operations, we prefer safety over automatic retry
+          console.log(`[Batch ${batchNumber}] Executing pre-allocated batch of ${batch.length} recipients...`);
+
+          const result = await this.executeBatch(
+            campaignId,
+            campaign,
+            batch,
+            wallet,
+            batchNumber,
+            totalBatches
           );
 
-          if (!batchResult.success) {
-            throw batchResult.error || new Error('Batch execution failed after retries');
-          }
+          // 批量更新接收者状态为 SENT，并设置交易哈希
+          await this.updateRecipientStatusesTransaction(
+            campaignId,
+            batch.map(r => ({ address: r.address, status: 'SENT', txHash: result.txHash }))
+          );
 
           // Update progress
           const completedCount = await this.getCompletedRecipientCount(campaignId);
@@ -156,25 +171,102 @@ export class CampaignExecutor {
               completedRecipients: completedCount,
               failedRecipients: failedCount,
               status: 'EXECUTING',
-              currentBatch: batchIndex + 1,
+              currentBatch: batchNumber,
               totalBatches,
             });
           }
 
+          batchNumber++; // Increment for next iteration
+
           // Small delay between batches to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (error) {
-          console.error(`Batch ${batchIndex + 1} failed permanently:`, error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
 
-          // Mark batch recipients as failed
-          for (const recipient of batch) {
-            await this.updateRecipientStatus(campaignId, recipient.address, 'FAILED',
-              error instanceof Error ? error.message : 'Unknown error');
+          console.error(`❌ [Batch ${batchNumber}] Failed permanently:`, {
+            error: errorMessage,
+            stack: errorStack,
+            batchSize: batch.length,
+            campaignId,
+            chain: campaign.chain
+          });
+
+          // 批量更新接收者状态为 FAILED
+          await this.updateRecipientStatusesTransaction(
+            campaignId,
+            batch.map(r => ({ address: r.address, status: 'FAILED', txHash: undefined }))
+          );
+
+          // Enhanced error categorization for financial operations
+          let errorCategory = 'UNKNOWN_ERROR';
+          let isRetryableManually = false;
+          let suggestedAction = '';
+
+          if (errorMessage.includes('insufficient funds')) {
+            errorCategory = 'INSUFFICIENT_BALANCE';
+            suggestedAction = 'STOP_CAMPAIGN'; // Stop immediately to prevent fund loss
+          } else if (errorMessage.includes('gas')) {
+            errorCategory = 'GAS_ERROR';
+            isRetryableManually = true;
+            suggestedAction = 'ADJUST_GAS';
+          } else if (errorMessage.includes('nonce')) {
+            errorCategory = 'NONCE_ERROR';
+            isRetryableManually = true;
+            suggestedAction = 'CHECK_NONCE';
+          } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+            errorCategory = 'NETWORK_ERROR';
+            isRetryableManually = true;
+            suggestedAction = 'WAIT_AND_RETRY';
+          } else if (errorMessage.includes('revert')) {
+            errorCategory = 'CONTRACT_REVERT';
+            suggestedAction = 'CHECK_CONTRACT'; // Might need contract investigation
           }
 
-          // Continue with next batch instead of stopping entire campaign
-          // Batch failed
-          console.log(`Batch ${batchIndex + 1}/${totalBatches} failed permanently: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          // 批量更新接收者状态已在上面的事务中完成
+
+          // Increment batch number even on error
+          batchNumber++;
+
+          // Provide specific guidance based on error type
+          console.error(`❌ [Batch ${batchNumber - 1}] Failed with ${errorCategory}: ${errorMessage}`);
+
+          switch (suggestedAction) {
+            case 'STOP_CAMPAIGN':
+              console.error(`🛑 [Batch ${batchNumber - 1}] CRITICAL: Insufficient funds detected.`);
+              console.error(`💡 Recommendation: Add more funds to wallet before retrying failed batches`);
+              console.error(`💡 Use the "Retry Failed Transactions" feature after adding funds`);
+              break;
+            case 'ADJUST_GAS':
+              console.error(`⚙️ [Batch ${batchNumber - 1}] Gas-related error detected.`);
+              console.error(`💡 Recommendation: Wait for gas prices to decrease or manually retry with higher gas`);
+              break;
+            case 'CHECK_NONCE':
+              console.error(`🔢 [Batch ${batchNumber - 1}] Nonce issue detected.`);
+              console.error(`💡 Recommendation: Wait a few minutes and manually retry this batch`);
+              break;
+            case 'WAIT_AND_RETRY':
+              console.error(`🌐 [Batch ${batchNumber - 1}] Network issue detected.`);
+              console.error(`💡 Recommendation: Wait for network stability and manually retry this batch`);
+              break;
+            case 'CHECK_CONTRACT':
+              console.error(`📋 [Batch ${batchNumber - 1}] Contract execution failed.`);
+              console.error(`💡 Recommendation: Verify contract state and token balances`);
+              break;
+            default:
+              console.error(`❓ [Batch ${batchNumber - 1}] Unknown error. Manual investigation required`);
+          }
+
+          // For critical errors, consider stopping the campaign
+          if (suggestedAction === 'STOP_CAMPAIGN') {
+            console.error(`🚨 [Batch ${batchNumber - 1}] Campaign execution stopped due to critical error`);
+            await this.updateCampaignStatus(campaignId, 'PAUSED');
+            console.log(`💡 Campaign has been paused. Fix the issue and use "Resume Campaign" to continue`);
+            break; // Exit the batch processing loop
+          }
+
+          // For other errors, continue to next batch
+          console.log(`⚠️ [Batch ${batchNumber - 1}] Continuing to next batch. Manual retry recommended for failed batch.`);
         }
       }
 
@@ -222,8 +314,10 @@ export class CampaignExecutor {
     wallet: any,
     batchNumber: number,
     totalBatches: number
-  ): Promise<void> {
-    const addresses = recipients.map(r => r.address);
+  ): Promise<{ txHash: string; gasUsed: number }> {
+    // Normalize addresses using ethers.getAddress() to ensure proper checksum
+    // Convert to lowercase first to avoid checksum validation errors
+    const addresses = recipients.map(r => ethers.getAddress(r.address.toLowerCase()));
     const amounts = recipients.map(r => r.amount);
 
     try {
@@ -254,12 +348,17 @@ export class CampaignExecutor {
       }
 
       // Record batch transfer transaction
+      // Calculate total amount using BigNumber to avoid precision loss
+      const totalAmount = amounts.reduce((sum, amt) => {
+        return sum.plus(new BigNumber(amt || '0'));
+      }, new BigNumber(0)).toString();
+
       await this.recordTransaction(campaignId, {
         txHash: result.transactionHash,
         txType: 'BATCH_SEND',
         fromAddress: campaign.walletAddress || '',
         toAddress: campaign.contractAddress,
-        amount: amounts.reduce((sum, amt) => (BigInt(sum) + BigInt(amt)).toString(), '0'),
+        amount: totalAmount,
         gasUsed: parseFloat(result.gasUsed || '0'),
         status: 'PENDING'
       });
@@ -276,7 +375,7 @@ export class CampaignExecutor {
 
       const getStatus = ChainUtils.isSolanaChain(campaign.chain)
         ? (txHash: string) => this.solanaService.getTransactionStatus(rpcUrl, txHash)
-        : (txHash: string) => this.blockchainService.getTransactionStatus(campaign.chain, txHash, rpcUrl);
+        : (txHash: string) => this.blockchainService.getTransactionStatus(txHash, campaign.chain, rpcUrl);
 
       const confirmationResult = await TransactionUtils.waitForTransactionConfirmation(
         campaign.chain,
@@ -294,22 +393,14 @@ export class CampaignExecutor {
       );
 
       if (confirmationResult.confirmed) {
-        // Update recipient statuses to COMPLETED
-        for (const recipient of recipients) {
-          await this.updateRecipientStatus(campaignId, recipient.address, 'COMPLETED', result.transactionHash);
-        }
-
-        // Batch confirmed
+        // Batch confirmed - recipient status will be updated in the main execution loop
         console.log(`Batch ${batchNumber}/${totalBatches} confirmed. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`);
       } else {
-        // Transaction failed or timeout
+        // Transaction failed or timeout - recipient status will be updated in the main execution loop
         const errorMessage = confirmationResult.finalStatus === 'failed'
           ? 'Transaction failed'
           : 'Transaction confirmation timeout';
-
-        for (const recipient of recipients) {
-          await this.updateRecipientStatus(campaignId, recipient.address, 'FAILED', errorMessage);
-        }
+        console.error(`Batch ${batchNumber}/${totalBatches} failed: ${errorMessage}`);
       }
 
       // Update campaign gas costs
@@ -323,6 +414,12 @@ export class CampaignExecutor {
 
       // Batch confirmed
       console.log(`Batch ${batchNumber}/${totalBatches} confirmed. Gas used: ${result.gasUsed}`);
+
+      // Return transaction information for batch status tracking
+      return {
+        txHash: result.transactionHash,
+        gasUsed: parseFloat(result.gasUsed || '0')
+      };
 
     } catch (error) {
       console.error('Batch execution failed:', error);
@@ -341,9 +438,34 @@ export class CampaignExecutor {
   /**
    * Resume paused campaign execution
    */
-  resumeExecution(campaignId: string): void {
+  async resumeExecution(campaignId: string): Promise<void> {
     this.pauseMap.set(campaignId, false);
     console.log(`Resume requested for campaign ${campaignId}`);
+
+    // Check if campaign is actually paused and has pending recipients
+    const campaign = await this.getCampaign(campaignId);
+    if (!campaign) {
+      console.error(`Campaign ${campaignId} not found for resume`);
+      return;
+    }
+
+    if (campaign.status !== 'PAUSED') {
+      console.warn(`Campaign ${campaignId} is not paused (status: ${campaign.status}), cannot resume`);
+      return;
+    }
+
+    const pendingRecipients = await this.getPendingRecipients(campaignId);
+    if (pendingRecipients.length === 0) {
+      console.log(`Campaign ${campaignId} has no pending recipients, marking as completed`);
+      await this.updateCampaignStatus(campaignId, 'COMPLETED');
+      return;
+    }
+
+    console.log(`Resuming campaign ${campaignId} with ${pendingRecipients.length} pending recipients`);
+
+    // Re-execute the campaign with remaining recipients
+    // This will continue from where it left off since we only get pending recipients
+    await this.executeCampaign(campaignId);
   }
 
   
@@ -358,7 +480,6 @@ export class CampaignExecutor {
    * Ensure unlimited token approval for the campaign contract.
    */
   private async ensureUnlimitedApproval(campaign: any, wallet: any): Promise<void> {
-    const { ethers } = await import('ethers');
     const rpcUrl = await this.getRpcUrlForChain(campaign.chain);
 
     // Check for a near-unlimited allowance
@@ -371,11 +492,8 @@ export class CampaignExecutor {
     );
 
     if (sufficientAllowance) {
-      console.log('[CampaignExecutor] Sufficient token allowance already exists.');
       return;
     }
-
-    console.log('[CampaignExecutor] Allowance is insufficient, proceeding with unlimited approval...');
 
     // Approve MaxUint256
     const approveTxHash = await this.contractService.approveTokens(
@@ -385,6 +503,11 @@ export class CampaignExecutor {
       campaign.contractAddress,
       ethers.MaxUint256.toString()
     );
+
+    // If approval already exists, skip transaction recording and confirmation
+    if (approveTxHash === 'already-approved') {
+      return;
+    }
 
     // Record approval transaction
     await this.recordTransaction(campaign.id, {
@@ -396,34 +519,20 @@ export class CampaignExecutor {
       status: 'PENDING'
     });
 
-    console.log(`[CampaignExecutor] Unlimited token approval transaction sent. Tx: ${approveTxHash}`);
-
     // Wait for approval confirmation
     await this.waitForConfirmation(campaign.chain, approveTxHash, rpcUrl);
 
     // Update approval transaction status
     await this.updateTransactionStatus(approveTxHash, 'CONFIRMED');
-    console.log(`[CampaignExecutor] Unlimited token approval confirmed.`);
   }
 
   // Helper methods
   private async getCampaign(campaignId: string): Promise<any> {
-    console.log('[CampaignExecutor] getCampaign called for:', campaignId);
     const row = await this.db.prepare('SELECT * FROM campaigns WHERE id = ?').get(campaignId);
-    console.log('[CampaignExecutor] Database row:', row ? 'FOUND' : 'NOT FOUND');
 
     if (!row) {
-      console.log('[CampaignExecutor] Campaign not found in database');
       return null;
     }
-
-    console.log('[CampaignExecutor] Raw row data:', {
-      id: row.id,
-      name: row.name,
-      status: row.status,
-      chain_type: row.chain_type,
-      chain_id: row.chain_id
-    });
 
     // Map database fields (snake_case) to application fields (camelCase)
     const mapped = {
@@ -437,28 +546,80 @@ export class CampaignExecutor {
       walletPrivateKeyBase64: row.wallet_private_key_base64,
       contractAddress: row.contract_address,
       batchSize: row.batch_size || 100,
-      sendInterval: row.send_interval || 2000
+      sendInterval: row.send_interval || 2000,
+      gasUsed: row.total_gas_used || 0
     };
-
-    console.log('[CampaignExecutor] Mapped campaign:', {
-      name: mapped.name,
-      status: mapped.status,
-      chain: mapped.chain
-    });
 
     return mapped;
   }
 
   private async getPendingRecipients(campaignId: string): Promise<Recipient[]> {
-    return await this.db.prepare(
-      'SELECT address, amount, status FROM recipients WHERE campaign_id = ? AND status = ?'
-    ).all(campaignId, 'PENDING') as Recipient[];
+    // 只查询PENDING记录，不锁定它们
+    // 锁定操作应该在getNextBatchRecipients中进行
+    const pendingRecipients = await this.db.prepare(`
+      SELECT id, address, amount, created_at
+      FROM recipients
+      WHERE campaign_id = ? AND status = 'PENDING'
+      ORDER BY batch_number, id
+    `).all(campaignId) as Recipient[];
+
+    return pendingRecipients;
+  }
+
+  /**
+   * 获取下一个批次的接收者
+   */
+  private async getNextBatchRecipients(campaignId: string): Promise<{
+    batchNumber: number;
+    recipients: Recipient[];
+  } | null> {
+    return await this.db.transaction(async (tx) => {
+      // 恢复可能卡住的PROCESSING记录（超过5分钟）
+      await tx.prepare(`
+        UPDATE recipients
+        SET status = 'PENDING', updated_at = datetime('now')
+        WHERE campaign_id = ? AND status = 'PROCESSING'
+        AND datetime(updated_at) < datetime('now', '-5 minutes')
+      `).run(campaignId);
+
+      // 获取最小的批次号
+      const batchInfo = await tx.prepare(`
+        SELECT MIN(batch_number) as next_batch_number
+        FROM recipients
+        WHERE campaign_id = ? AND status = 'PENDING'
+      `).get(campaignId) as any;
+
+      if (!batchInfo || !batchInfo.next_batch_number) {
+        return null;
+      }
+
+      const nextBatchNumber = batchInfo.next_batch_number;
+
+      // 原子性地获取并锁定该批次的所有PENDING记录
+      const lockedRecipients = await tx.prepare(`
+        UPDATE recipients
+        SET status = 'PROCESSING', updated_at = datetime('now')
+        WHERE campaign_id = ? AND batch_number = ? AND status = 'PENDING'
+        RETURNING id, address, amount, created_at
+      `).all(campaignId, nextBatchNumber) as Recipient[];
+
+      if (lockedRecipients.length === 0) {
+        return null;
+      }
+
+      console.log(`[CampaignExecutor] Retrieved batch ${nextBatchNumber} with ${lockedRecipients.length} recipients`);
+
+      return {
+        batchNumber: nextBatchNumber,
+        recipients: lockedRecipients
+      };
+    });
   }
 
   private async getCompletedRecipientCount(campaignId: string): Promise<number> {
     const result = await this.db.prepare(
       'SELECT COUNT(*) as count FROM recipients WHERE campaign_id = ? AND status = ?'
-    ).get(campaignId, 'COMPLETED') as { count: number };
+    ).get(campaignId, 'SENT') as { count: number };
     return result.count;
   }
 
@@ -494,12 +655,50 @@ export class CampaignExecutor {
     ).run(status, txHash || null, campaignId, address);
   }
 
+  private async updateRecipientStatusesTransaction(
+    campaignId: string,
+    updates: Array<{ address: string; status: string; txHash?: string }>
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      for (const update of updates) {
+        await tx.prepare(
+          'UPDATE recipients SET status = ?, tx_hash = ?, updated_at = datetime("now") WHERE campaign_id = ? AND address = ? AND status = "PROCESSING"'
+        ).run(update.status, update.txHash || null, campaignId, update.address);
+      }
+
+      // Update campaigns table with real-time counts
+      const counts = await tx.prepare(`
+        SELECT
+          COUNT(CASE WHEN status = 'SENT' THEN 1 END) as completed,
+          COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed
+        FROM recipients
+        WHERE campaign_id = ?
+      `).get(campaignId) as any;
+
+      if (counts) {
+        await tx.prepare(
+          'UPDATE campaigns SET completed_recipients = ?, failed_recipients = ?, updated_at = datetime("now") WHERE id = ?'
+        ).run(counts.completed || 0, counts.failed || 0, campaignId);
+      }
+    });
+  }
+
+  private async recoverStuckProcessingRecords(campaignId: string): Promise<void> {
+    // 恢复卡住的PROCESSING记录
+    await this.db.prepare(`
+      UPDATE recipients
+      SET status = 'PENDING', updated_at = datetime('now')
+      WHERE campaign_id = ? AND status = 'PROCESSING'
+      AND datetime(updated_at) < datetime('now', '-10 minutes')
+    `).run(campaignId);
+  }
+
   private async updateCampaignGasCost(campaignId: string, gasUsed: string): Promise<void> {
     const campaign = await this.getCampaign(campaignId);
-    const newGasUsed = Number(campaign.gas_used || 0) + Number(gasUsed);
+    const newGasUsed = Number(campaign.gasUsed || 0) + Number(gasUsed);
 
     await this.db.prepare(
-      'UPDATE campaigns SET gas_used = ? WHERE id = ?'
+      'UPDATE campaigns SET total_gas_used = ? WHERE id = ?'
     ).run(newGasUsed, campaignId);
   }
 
@@ -600,7 +799,7 @@ export class CampaignExecutor {
   ): Promise<void> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const status = await this.blockchainService.getTransactionStatus('ethereum', txHash, rpcUrl);
+        const status = await this.blockchainService.getTransactionStatus(txHash, 'ethereum', rpcUrl);
 
         if (status.status === 'confirmed') {
           return;

@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, LAMPORTS_PER_SOL, Keypair, Transaction, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createTransferInstruction, getAccount } from '@solana/spl-token';
 import { PriceService } from './PriceService';
 import { ChainUtils } from '../utils/chain-utils';
 import type { DatabaseManager } from '../database/sqlite-schema';
@@ -150,9 +151,6 @@ export class BlockchainService {
     let tokenBalance: string | undefined;
     if (tokenAddress) {
       try {
-        // 导入 SPL Token 程序
-        const { TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
-
         // 获取 token mint 地址
         const mintPublicKey = new PublicKey(tokenAddress);
 
@@ -529,5 +527,182 @@ export class BlockchainService {
     }
 
     throw new Error('Transaction confirmation timeout');
+  }
+
+  /**
+   * Withdraw all remaining SPL tokens from a Solana wallet
+   */
+  async withdrawRemainingSPLTokens(
+    rpcUrl: string,
+    privateKey: string,
+    recipientAddress: string,
+    tokenMintAddress: string
+  ): Promise<{
+    txHash: string;
+    amount: string;
+  }> {
+    try {
+      const connection = new Connection(rpcUrl, 'confirmed');
+
+      // Create keypair from private key
+      const privateKeyBytes = Buffer.from(privateKey, 'hex');
+      const wallet = Keypair.fromSecretKey(privateKeyBytes);
+      const walletPublicKey = wallet.publicKey;
+
+      // Get token mint
+      const mintPublicKey = new PublicKey(tokenMintAddress);
+      const recipientPublicKey = new PublicKey(recipientAddress);
+
+      // Get source token account (sender's associated token account)
+      const sourceTokenAccount = await getAssociatedTokenAddress(
+        mintPublicKey,
+        walletPublicKey
+      );
+
+      // Get destination token account (recipient's associated token account)
+      const destinationTokenAccount = await getAssociatedTokenAddress(
+        mintPublicKey,
+        recipientPublicKey
+      );
+
+      // Get token account info to read balance
+      const tokenAccountInfo = await getAccount(connection, sourceTokenAccount);
+      const balance = tokenAccountInfo.amount;
+
+      if (balance === BigInt(0)) {
+        throw new Error('No SPL tokens to withdraw');
+      }
+
+      // Get token decimals
+      const mintInfo = await connection.getParsedAccountInfo(mintPublicKey);
+      const decimals = (mintInfo.value?.data as any)?.parsed?.info?.decimals || 9;
+
+      // Create transfer instruction
+      const transaction = new Transaction().add(
+        createTransferInstruction(
+          sourceTokenAccount,
+          destinationTokenAccount,
+          walletPublicKey,
+          balance
+        )
+      );
+
+      // Send and confirm transaction
+      const signature = await sendAndConfirmTransaction(
+        connection,
+        transaction,
+        [wallet],
+        {
+          commitment: 'confirmed'
+        }
+      );
+
+      // Convert amount to human-readable format
+      const amountFormatted = (Number(balance) / Math.pow(10, decimals)).toString();
+
+      console.log(`[BlockchainService] Withdrew ${amountFormatted} SPL tokens, tx: ${signature}`);
+
+      return {
+        txHash: signature,
+        amount: amountFormatted
+      };
+    } catch (error) {
+      console.error('[BlockchainService] Failed to withdraw SPL tokens:', error);
+      throw new Error(`Failed to withdraw SPL tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Withdraw remaining SOL from a Solana wallet
+   * Preserves enough SOL to cover transaction fee (1.5x buffer)
+   */
+  async withdrawRemainingSOL(
+    rpcUrl: string,
+    privateKey: string,
+    recipientAddress: string
+  ): Promise<{
+    txHash: string;
+    amount: string;
+  }> {
+    try {
+      const connection = new Connection(rpcUrl, 'confirmed');
+
+      // Create keypair from private key
+      const privateKeyBytes = Buffer.from(privateKey, 'hex');
+      const wallet = Keypair.fromSecretKey(privateKeyBytes);
+      const walletPublicKey = wallet.publicKey;
+
+      // Get current balance
+      const balance = await connection.getBalance(walletPublicKey);
+
+      if (balance === 0) {
+        throw new Error('No SOL to withdraw');
+      }
+
+      // Get recent blockhash and fee calculator
+      const { blockhash } = await connection.getLatestBlockhash();
+
+      // Create a dummy transaction to estimate fee
+      const recipientPublicKey = new PublicKey(recipientAddress);
+      const dummyTransaction = new Transaction({
+        feePayer: walletPublicKey,
+        blockhash,
+        lastValidBlockHeight: 0
+      }).add(
+        SystemProgram.transfer({
+          fromPubkey: walletPublicKey,
+          toPubkey: recipientPublicKey,
+          lamports: 1
+        })
+      );
+
+      // Get fee for transaction (typically 5000 lamports)
+      const fee = await connection.getFeeForMessage(
+        dummyTransaction.compileMessage(),
+        'confirmed'
+      );
+
+      const estimatedFee = fee.value || 5000;
+
+      // Calculate amount to send with 1.5x fee buffer
+      const feeBuffer = Math.ceil(estimatedFee * 1.5);
+      const amountToSend = balance - feeBuffer;
+
+      if (amountToSend <= 0) {
+        throw new Error('Insufficient SOL balance to cover transaction fee');
+      }
+
+      // Create the actual transfer transaction
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: walletPublicKey,
+          toPubkey: recipientPublicKey,
+          lamports: amountToSend
+        })
+      );
+
+      // Send and confirm transaction
+      const signature = await sendAndConfirmTransaction(
+        connection,
+        transaction,
+        [wallet],
+        {
+          commitment: 'confirmed'
+        }
+      );
+
+      // Convert lamports to SOL
+      const amountInSOL = (amountToSend / LAMPORTS_PER_SOL).toString();
+
+      console.log(`[BlockchainService] Withdrew ${amountInSOL} SOL, tx: ${signature}`);
+
+      return {
+        txHash: signature,
+        amount: amountInSOL
+      };
+    } catch (error) {
+      console.error('[BlockchainService] Failed to withdraw SOL:', error);
+      throw new Error(`Failed to withdraw SOL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }

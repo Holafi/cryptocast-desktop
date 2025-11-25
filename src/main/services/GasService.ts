@@ -150,8 +150,20 @@ export class GasService {
       const feeData = await provider.getFeeData();
 
       // Calculate gas limit for batch transfer
-      const baseGas = 80000;      // Base gas for contract call
-      const perRecipientGas = 12000; // Gas per recipient
+      // Industry best practice: Use RPC's eth_estimateGas when possible,
+      // fall back to conservative estimates for compatibility
+      //
+      // Standard ERC20 batch transfer gas breakdown:
+      // - Base transaction: 21,000 gas
+      // - Contract call overhead (including ReentrancyGuard): ~50,000 gas
+      // - Per recipient ERC20 transferFrom: ~65,000 gas (worst case with storage writes)
+      //
+      // Note: Actual usage varies by token implementation:
+      // - Standard ERC20 with storage updates: ~65,000 per recipient
+      // - Optimized tokens (cached storage): ~25,000 per recipient
+      // - Test tokens (minimal logic): ~15,000 per recipient
+      const baseGas = 80000;       // Base: 21k transaction + 50k contract overhead + buffer
+      const perRecipientGas = 65000; // Conservative: Standard ERC20 transferFrom (worst case)
       const totalGasLimit = (baseGas + (perRecipientGas * recipientCount)).toString();
 
       let gasPrice = '0';

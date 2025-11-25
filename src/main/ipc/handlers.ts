@@ -491,17 +491,18 @@ export async function setupIPCHandlers() {
     }
   });
 
-  
-  ipcMain.handle('price:getSummary', async (_event) => {
-    try {
-      console.log('获取价格汇总');
-      const summary = await priceService.getSummary();
-      return summary;
-    } catch (error) {
-      console.error('获取价格汇总失败:', error);
-      throw new Error(`获取价格汇总失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  });
+
+  // Temporarily commented out - getSummary method not implemented in PriceService
+  // ipcMain.handle('price:getSummary', async (_event) => {
+  //   try {
+  //     console.log('获取价格汇总');
+  //     const summary = await priceService.getSummary();
+  //     return summary;
+  //   } catch (error) {
+  //     console.error('获取价格汇总失败:', error);
+  //     throw new Error(`获取价格汇总失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  //   }
+  // });
 
   // 重试失败的交易
   ipcMain.handle('campaign:retryFailedTransactions', async (_event, campaignId) => {
@@ -613,6 +614,111 @@ export async function setupIPCHandlers() {
     } catch (error) {
       console.error('批量获取代币信息失败:', error);
       throw new Error(`批量获取代币信息失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  });
+
+  // Withdraw remaining tokens from campaign wallet
+  ipcMain.handle('campaign:withdrawTokens', async (_event, campaignId: string, recipientAddress: string) => {
+    try {
+      console.log('回收剩余代币:', { campaignId, recipientAddress });
+
+      // Get campaign details
+      const campaign = await campaignService.getCampaignById(campaignId);
+      if (!campaign) {
+        throw new Error('Campaign not found');
+      }
+
+      if (!campaign.walletPrivateKeyBase64) {
+        throw new Error('活动钱包信息缺失');
+      }
+
+      // Decode private key
+      const privateKey = walletService.exportPrivateKey(campaign.walletPrivateKeyBase64);
+
+      // Get chain config
+      const chain = await chainService.getChainById(parseInt(campaign.chain));
+      if (!chain) {
+        throw new Error('Chain not found');
+      }
+
+      let result;
+
+      // Check if it's a Solana chain
+      if (chain.type === 'solana' || chain.name.toLowerCase().includes('solana')) {
+        // Withdraw SPL tokens
+        result = await blockchainService.withdrawRemainingSPLTokens(
+          chain.rpcUrl,
+          privateKey,
+          recipientAddress,
+          campaign.tokenAddress
+        );
+      } else {
+        // Withdraw ERC20 tokens
+        result = await contractService.withdrawRemainingTokens(
+          chain.rpcUrl,
+          privateKey,
+          recipientAddress,
+          campaign.tokenAddress
+        );
+      }
+
+      console.log('代币回收成功:', result);
+      return result;
+    } catch (error) {
+      console.error('回收代币失败:', error);
+      throw new Error(`回收代币失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  });
+
+  // Withdraw remaining native token (ETH/BNB/MATIC/SOL/etc) from campaign wallet
+  ipcMain.handle('campaign:withdrawNative', async (_event, campaignId: string, recipientAddress: string) => {
+    try {
+      console.log('回收剩余原生代币:', { campaignId, recipientAddress });
+
+      // Get campaign details
+      const campaign = await campaignService.getCampaignById(campaignId);
+      if (!campaign) {
+        throw new Error('Campaign not found');
+      }
+
+      if (!campaign.walletPrivateKeyBase64) {
+        throw new Error('活动钱包信息缺失');
+      }
+
+      // Decode private key
+      const privateKey = walletService.exportPrivateKey(campaign.walletPrivateKeyBase64);
+
+      // Get chain config
+      const chain = await chainService.getChainById(parseInt(campaign.chain));
+      if (!chain) {
+        throw new Error('Chain not found');
+      }
+
+      let result;
+
+      // Check if it's a Solana chain
+      if (chain.type === 'solana' || chain.name.toLowerCase().includes('solana')) {
+        // Withdraw SOL
+        result = await blockchainService.withdrawRemainingSOL(
+          chain.rpcUrl,
+          privateKey,
+          recipientAddress
+        );
+        console.log(`${chain.name} 原生代币回收成功:`, result);
+      } else {
+        // Withdraw native token (ETH/BNB/MATIC/AVAX/etc)
+        result = await contractService.withdrawRemainingETH(
+          chain.rpcUrl,
+          privateKey,
+          recipientAddress
+        );
+        console.log(`${chain.name} 原生代币回收成功:`, result);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('回收原生代币失败:', error);
+      throw new Error(`回收原生代币失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   });
 

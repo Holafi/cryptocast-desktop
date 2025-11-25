@@ -68,6 +68,21 @@ export class DatabaseAdapter {
   }
 
   /**
+   * Run operations in a transaction
+   */
+  async transaction<T>(fn: (tx: DatabaseAdapter) => Promise<T>): Promise<T> {
+    await this.db.run('BEGIN TRANSACTION');
+    try {
+      const result = await fn(this);
+      await this.db.run('COMMIT');
+      return result;
+    } catch (error) {
+      await this.db.run('ROLLBACK');
+      throw error;
+    }
+  }
+
+  /**
    * Close database
    */
   close() {

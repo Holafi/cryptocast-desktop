@@ -4,6 +4,7 @@ import { CampaignExecutor } from './CampaignExecutor';
 import { ChainUtils } from '../utils/chain-utils';
 import { logger } from '../utils/logger';
 import { DatabaseManager } from '../database/sqlite-schema';
+import type { DatabaseAdapter } from '../database/db-adapter';
 
 export interface CampaignData {
   name: string;
@@ -48,7 +49,7 @@ export interface Campaign {
 }
 
 export class CampaignService {
-  private db: any;
+  private db: DatabaseAdapter;
   private walletService: WalletService;
   private executor: CampaignExecutor;
   private databaseManager: DatabaseManager;
@@ -141,18 +142,24 @@ export class CampaignService {
 
       logger.database('[CampaignService] Campaign data inserted successfully', { campaignId: id });
 
-      // 插入接收者
-      const insertRecipient = this.db.prepare(`
-        INSERT INTO recipients (
-          campaign_id, address, amount, status, created_at
-        ) VALUES (?, ?, ?, 'PENDING', ?)
-      `);
+      // 在事务中插入接收者并分配批次号
+      await this.db.transaction(async (tx) => {
+        // 插入接收者并设置批次号
+        const insertRecipient = tx.prepare(`
+          INSERT INTO recipients (
+            campaign_id, address, amount, status, batch_number, created_at
+          ) VALUES (?, ?, ?, 'PENDING', ?, ?)
+        `);
 
-      for (const recipient of data.recipients) {
-        await insertRecipient.run(id, recipient.address, recipient.amount, now);
-      }
+        for (let i = 0; i < data.recipients.length; i++) {
+          const recipient = data.recipients[i];
+          const batchNumber = Math.floor(i / (data.batchSize || 100)) + 1;
+          await insertRecipient.run(id, recipient.address, recipient.amount, batchNumber, now);
+        }
 
-      
+        console.log(`[CampaignService] Assigned batch numbers to ${data.recipients.length} recipients with batch size ${data.batchSize || 100}`);
+      });
+
       const campaign = await this.getCampaignById(id);
       if (!campaign) {
         throw new Error('Campaign creation failed - campaign not found');
@@ -518,6 +525,7 @@ export class CampaignService {
     status: string;
     blockNumber?: number;
     blockHash?: string;
+    recipientCount?: number;
     createdAt: string;
     confirmedAt?: string;
   }>> {
@@ -528,9 +536,14 @@ export class CampaignService {
       }
 
       let query = `
-        SELECT * FROM transactions
-        WHERE campaign_id = ?
-        ORDER BY created_at DESC
+        SELECT
+          t.*,
+          COUNT(DISTINCT r.id) as recipient_count
+        FROM transactions t
+        LEFT JOIN recipients r ON r.tx_hash = t.tx_hash AND r.campaign_id = t.campaign_id
+        WHERE t.campaign_id = ?
+        GROUP BY t.id
+        ORDER BY t.created_at ASC
       `;
       const params: any[] = [campaignId];
 
@@ -564,6 +577,7 @@ export class CampaignService {
         status: row.status,
         blockNumber: row.block_number,
         blockHash: row.block_hash,
+        recipientCount: row.recipient_count || 0,
         createdAt: row.created_at,
         confirmedAt: row.confirmed_at,
       }));
@@ -666,7 +680,7 @@ export class CampaignService {
       await this.updateCampaignStatus(id, 'SENDING');
 
       // 请求执行器恢复执行
-      this.executor.resumeExecution(id);
+      await this.executor.resumeExecution(id);
 
       return { success: true };
     } catch (error) {
