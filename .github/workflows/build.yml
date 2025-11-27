@@ -136,10 +136,17 @@ jobs:
     - name: Prepare release files
       run: |
         mkdir -p release-files
-        # Move all files from subdirectories to a flat structure
-        find artifacts/ -type f -exec cp {} release-files/ \;
+        # Only copy final installer files (dmg and exe)
+        find artifacts/ -type f \( -name "*.dmg" -o -name "*.exe" \) -exec cp {} release-files/ \;
         echo "Release files prepared:"
         ls -lh release-files/
+
+        # Verify we have the expected files
+        file_count=$(ls -1 release-files/ | wc -l)
+        if [ "$file_count" -eq 0 ]; then
+          echo "Error: No installer files found!"
+          exit 1
+        fi
 
     - name: Create release
       uses: softprops/action-gh-release@v1
