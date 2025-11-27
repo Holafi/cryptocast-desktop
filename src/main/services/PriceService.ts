@@ -1,5 +1,11 @@
 import axios from 'axios';
+import { Logger } from '../utils/logger';
+import type { DatabaseManager } from '../database/sqlite-schema';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DatabaseInstance = any;
+
+const logger = Logger.getInstance().child('PriceService');
 
 export interface PriceData {
   symbol: string;
@@ -21,7 +27,7 @@ export interface NetworkConfig {
 }
 
 export class PriceService {
-  private db: any;
+  private db: DatabaseInstance;
   private priceCache: Map<string, PriceData> = new Map();
   private updateInterval: NodeJS.Timeout | null = null;
 
@@ -37,7 +43,7 @@ export class PriceService {
     { name: 'solana', chainId: 0, currency: 'USD', nativeTokenSymbol: 'SOL', coingeckoId: 'solana' },
   ];
 
-  constructor(database: any) {
+  constructor(database: DatabaseManager) {
     this.db = database.getDatabase();
     this.initializePriceTables();
     this.startPriceUpdates();
@@ -68,13 +74,13 @@ export class PriceService {
       try {
         await this.updateAllPrices();
       } catch (error) {
-        console.error('[PriceService] Price update failed:', error);
+        logger.error('Price update failed', error as Error);
         // If scheduled update fails, try fallback after 30 seconds
         setTimeout(async () => {
           try {
             await this.updateAllPrices();
           } catch (retryError) {
-            console.error('[PriceService] Retry price update also failed:', retryError);
+            logger.error('Retry price update also failed', retryError as Error);
           }
         }, 30000);
       }
@@ -85,7 +91,7 @@ export class PriceService {
       try {
         await this.updateAllPrices();
       } catch (error) {
-        console.error('[PriceService] Delayed initial price update failed:', error);
+        logger.error('Delayed initial price update failed', error as Error);
       }
     }, 3000); // Reduced from 5000 to 3000 for faster initial prices
   }
@@ -125,7 +131,7 @@ export class PriceService {
         }
       });
     } catch (error) {
-      console.error('[PriceService] Failed to fetch prices from CoinGecko:', error);
+      logger.error('Failed to fetch prices from CoinGecko', error as Error);
       // Fallback to cached prices
     }
   }
@@ -135,7 +141,7 @@ export class PriceService {
     try {
       // Double-check price validity before database insertion
       if (typeof priceData.price !== 'number' || priceData.price < 0 || !isFinite(priceData.price)) {
-        console.warn(`Invalid price value for ${priceData.symbol}:`, priceData.price);
+        logger.warn('Invalid price value', { symbol: priceData.symbol, price: priceData.price });
         return;
       }
 
@@ -154,7 +160,7 @@ export class PriceService {
         priceData.lastUpdated
       );
     } catch (error) {
-      console.error('Failed to save price to database:', error);
+      logger.error('Failed to save price to database', error as Error, { symbol: priceData.symbol });
     }
   }
 
@@ -166,7 +172,7 @@ export class PriceService {
       try {
         await this.updateSinglePrice(symbol);
       } catch (error) {
-        console.warn(`⚠️ [PriceService] Failed to refresh price for ${symbol}:`, error);
+        logger.warn('Failed to refresh price', { symbol, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
@@ -193,7 +199,7 @@ export class PriceService {
         return result.price;
       }
     } catch (error) {
-      console.error('Failed to get price from database:', error);
+      logger.error('Failed to get price from database', error as Error, { symbol });
     }
 
     // Final fallback with hardcoded prices for major tokens
@@ -248,7 +254,7 @@ export class PriceService {
         throw new Error(`Invalid price data received: ${JSON.stringify(coinData)}`);
       }
     } catch (error) {
-      console.error(`❌ [PriceService] Failed to update ${symbol} price:`, error);
+      logger.error('Failed to update price', error as Error, { symbol });
       throw error;
     }
   }
@@ -289,7 +295,7 @@ export class PriceService {
       }
       return null;
     } catch (error) {
-      console.error('Failed to get price data from database:', error);
+      logger.error('Failed to get price data from database', error as Error, { symbol });
       return null;
     }
   }
@@ -316,7 +322,7 @@ export class PriceService {
       }
       return 0;
     } catch (error) {
-      console.error('Failed to get token price:', error);
+      logger.error('Failed to get token price', error as Error, { tokenAddress, network });
       return 0;
     }
   }
@@ -333,7 +339,7 @@ export class PriceService {
 
       return results;
     } catch (error) {
-      console.error('Failed to get price history:', error);
+      logger.error('Failed to get price history', error as Error, { symbol, hours });
       return [];
     }
   }
@@ -346,7 +352,7 @@ export class PriceService {
       const gasCostEth = Number(gasCostWei) / 1e18;
       return gasCostEth * ethPrice;
     } catch (error) {
-      console.error('Failed to calculate gas cost:', error);
+      logger.error('Failed to calculate gas cost', error as Error);
       return 0;
     }
   }
@@ -365,7 +371,7 @@ export class PriceService {
       const amountNumber = parseFloat(amount);
       return amountNumber * price;
     } catch (error) {
-      console.error('Failed to convert to USD:', error);
+      logger.error('Failed to convert to USD', error as Error, { amount, tokenSymbol });
       return 0;
     }
   }
@@ -376,7 +382,7 @@ export class PriceService {
       if (price === 0) return 0;
       return usdAmount / price;
     } catch (error) {
-      console.error('Failed to convert from USD:', error);
+      logger.error('Failed to convert from USD', error as Error, { usdAmount, tokenSymbol });
       return 0;
     }
   }
@@ -410,7 +416,7 @@ export class PriceService {
         Date.now()
       );
     } catch (error) {
-      console.error('Failed to save historical price:', error);
+      logger.error('Failed to save historical price', error as Error, { symbol, price });
       throw new Error(`Failed to save historical price: ${error}`);
     }
   }
@@ -434,7 +440,7 @@ export class PriceService {
         timestamp: new Date(r.timestamp).toISOString()
       }));
     } catch (error) {
-      console.error('Failed to get historical prices:', error);
+      logger.error('Failed to get historical prices', error as Error, { symbol, days });
       return [];
     }
   }
@@ -469,7 +475,7 @@ export class PriceService {
   async exportPriceData(symbols: string[], days: number = 30): Promise<string> {
     try {
       const since = Math.floor(Date.now() / 1000) - (days * 24 * 3600);
-      const exportData: any[] = [];
+      const exportData: Array<{ symbol: string; price: number; change_24h: number; change_percent_24h: number; timestamp: number }> = [];
 
       for (const symbol of symbols) {
         const results = this.db.prepare(`
@@ -484,7 +490,7 @@ export class PriceService {
 
       return JSON.stringify(exportData, null, 2);
     } catch (error) {
-      console.error('Failed to export price data:', error);
+      logger.error('Failed to export price data', error as Error, { symbolCount: symbols.length, days });
       return '[]';
     }
   }

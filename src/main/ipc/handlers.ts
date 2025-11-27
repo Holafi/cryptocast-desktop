@@ -12,6 +12,17 @@ import { CampaignEstimator } from '../services/CampaignEstimator';
 import { TokenService } from '../services/TokenService';
 import { SolanaService } from '../services/SolanaService';
 import { KeyUtils } from '../utils/keyUtils';
+import { Logger } from '../utils/logger';
+import type {
+  CreateCampaignRequest,
+  CampaignFilters,
+  EstimateRequest,
+  WalletListOptions,
+  EVMChainData,
+  SolanaRPCData
+} from '../types/ipc';
+
+const logger = Logger.getInstance().child('IPCHandlers');
 
 let databaseManager: DatabaseManager;
 let campaignService: CampaignService;
@@ -28,6 +39,8 @@ let tokenService: TokenService;
 
 export async function setupIPCHandlers() {
   try {
+    logger.info('Initializing IPC handlers and services');
+
     databaseManager = new DatabaseManager();
     await databaseManager.initialize();
 
@@ -43,56 +56,59 @@ export async function setupIPCHandlers() {
     solanaService = new SolanaService();
     campaignEstimator = new CampaignEstimator(databaseManager);
     tokenService = new TokenService(chainService);
+
+    logger.info('All services initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize services:', error);
+    logger.error('Failed to initialize services', error as Error);
     throw error;
   }
 
-  ipcMain.handle('campaign:create', async (_event, data) => {
+  ipcMain.handle('campaign:create', async (_event, data: CreateCampaignRequest) => {
     try {
+      logger.debug('Creating campaign', { name: data.name, chain: data.chain });
       const campaign = await campaignService.createCampaign(data);
+      logger.info('Campaign created successfully', { campaignId: campaign });
       return campaign;
     } catch (error) {
-      console.error('❌ 创建活动失败:', error);
+      logger.error('Failed to create campaign', error as Error, { data });
       throw new Error(`创建活动失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   });
 
-  ipcMain.handle('campaign:list', async (_event, filters) => {
+  ipcMain.handle('campaign:list', async (_event, filters?: CampaignFilters) => {
     try {
-      console.log('[IPC] campaign:list called with filters:', filters);
+      logger.debug('Listing campaigns', { filters });
       if (!campaignService) {
         throw new Error('CampaignService not initialized');
       }
       const campaigns = await campaignService.listCampaigns(filters);
-      console.log('[IPC] campaign:list success, returning', campaigns.length, 'campaigns');
+      logger.debug('Campaigns listed', { count: campaigns.length });
       return campaigns;
     } catch (error) {
-      console.error('[IPC] campaign:list failed:', error);
+      logger.error('Failed to list campaigns', error as Error, { filters });
       throw new Error(`获取活动列表失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   });
 
-  ipcMain.handle('campaign:getById', async (_event, id) => {
+  ipcMain.handle('campaign:getById', async (_event, id: string) => {
     try {
-      console.log('获取活动详情:', id);
+      logger.debug('Getting campaign by ID', { campaignId: id });
       const campaign = await campaignService.getCampaignById(id);
       return campaign;
     } catch (error) {
-      console.error('获取活动详情失败:', error);
+      logger.error('Failed to get campaign', error as Error, { campaignId: id });
       throw new Error(`获取活动详情失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   });
 
-  ipcMain.handle('campaign:start', async (_event, id) => {
+  ipcMain.handle('campaign:start', async (_event, id: string) => {
     try {
-      console.log('[IPC] campaign:start called for campaign:', id);
-
+      logger.info('Starting campaign', { campaignId: id });
       const result = await campaignService.startCampaign(id);
-      console.log('[IPC] campaign:start success:', result);
+      logger.info('Campaign started successfully', { campaignId: id });
       return result;
     } catch (error) {
-      console.error('[IPC] campaign:start failed:', error);
+      logger.error('Failed to start campaign', error as Error, { campaignId: id });
       throw new Error(`开始活动失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   });

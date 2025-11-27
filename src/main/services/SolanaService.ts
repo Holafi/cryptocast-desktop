@@ -21,6 +21,9 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
 import BigNumber from 'bignumber.js';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('SolanaService');
 
 export interface SolanaBatchTransferResult {
   transactionHash: string;
@@ -114,7 +117,10 @@ export class SolanaService {
 
       // 检测 Token Program
       const programId = await this.detectTokenProgram(connection, tokenMint);
-      console.log(`Token Program: ${programId.equals(TOKEN_2022_PROGRAM_ID) ? 'Token-2022' : 'Token Program v1'}`);
+      logger.debug(`[SolanaService] Token Program detected`, {
+        programType: programId.equals(TOKEN_2022_PROGRAM_ID) ? 'Token-2022' : 'Token Program v1',
+        tokenAddress
+      });
 
       const tokenInfo = await connection.getParsedAccountInfo(tokenMint);
 
@@ -132,7 +138,7 @@ export class SolanaService {
         programId
       };
     } catch (error) {
-      console.error('Failed to get token info:', error);
+      logger.error('[SolanaService] Failed to get token info', error as Error, { tokenAddress, rpcUrl });
       throw new Error(`获取代币信息失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
@@ -164,7 +170,7 @@ export class SolanaService {
         }
       }
     } catch (error) {
-      console.error('Failed to get balance:', error);
+      logger.error('[SolanaService] Failed to get balance', error as Error, { walletPublicKey, tokenAddress });
       return '0';
     }
   }
@@ -192,9 +198,12 @@ export class SolanaService {
       // 获取代币信息
       const tokenInfo = await this.getTokenInfo(rpcUrl, tokenAddress);
 
-      console.log(`开始批量转账: 总计 ${recipients.length} 个地址`);
-      console.log(`代币类型: ${tokenInfo.isNativeSOL ? 'SOL' : 'SPL'}`);
-      console.log(`Token Program: ${tokenInfo.programId.equals(TOKEN_2022_PROGRAM_ID) ? 'Token-2022' : 'Token v1'}`);
+      logger.info('[SolanaService] Starting batch transfer', {
+        recipientCount: recipients.length,
+        tokenType: tokenInfo.isNativeSOL ? 'SOL' : 'SPL',
+        programType: tokenInfo.programId.equals(TOKEN_2022_PROGRAM_ID) ? 'Token-2022' : 'Token v1',
+        batchSize
+      });
 
       // ========== Step 1: 本地计算所有 ATA ==========
       const { ataList, skipped } = await this.calculateATAs(
@@ -216,7 +225,7 @@ export class SolanaService {
         // ========== Step 2: 批量查询 ATA 是否存在 ==========
         const missingATAs = await this.checkMissingATAs(connection, ataList);
 
-        console.log(`缺失 ATA 数量: ${missingATAs.length}`);
+        logger.debug('[SolanaService] Missing ATAs detected', { missingCount: missingATAs.length });
 
         // ========== Step 3: 批量创建缺失的 ATA ==========
         if (missingATAs.length > 0) {
@@ -250,7 +259,10 @@ export class SolanaService {
         details: allDetails
       };
     } catch (error) {
-      console.error('Solana batch transfer failed:', error);
+      logger.error('[SolanaService] Solana batch transfer failed', error as Error, {
+        recipientCount: recipients.length,
+        tokenAddress
+      });
       const errorMsg = error instanceof Error ? (error.message || error.toString()) : String(error);
       throw new Error(`Solana批量转账失败: ${errorMsg}`);
     }
@@ -268,13 +280,17 @@ export class SolanaService {
     ataList: ATAInfo[];
     skipped: Array<{ address: string; amount: string; error: string }>;
   }> {
-    console.log('📋 本地计算所有 ATA...');
+    logger.debug('[SolanaService] Calculating all ATAs locally', { recipientCount: recipients.length });
 
     const ataList: ATAInfo[] = [];
     const skipped: Array<{ address: string; amount: string; error: string }> = [];
 
     for (let i = 0; i < recipients.length; i++) {
-      console.log(`[ATA ${i + 1}/${recipients.length}] Processing address: ${recipients[i]}`);
+      logger.debug(`[SolanaService] Processing ATA calculation`, {
+        index: i + 1,
+        total: recipients.length,
+        address: recipients[i]
+      });
 
       try {
         const owner = new PublicKey(recipients[i]);
@@ -306,7 +322,10 @@ export class SolanaService {
       } catch (error) {
         // Skip addresses that cause errors (e.g., off-curve addresses that cannot have ATAs)
         const errorName = error instanceof Error ? error.name : 'Unknown';
-        console.warn(`⚠️ Skipping address ${recipients[i]}: ${errorName}`);
+        logger.warn('[SolanaService] Skipping invalid address', {
+          address: recipients[i],
+          error: errorName
+        });
         skipped.push({
           address: recipients[i],
           amount: amounts[i],
@@ -315,7 +334,10 @@ export class SolanaService {
       }
     }
 
-    console.log(`✅ 计算完成: ${ataList.length} 个有效地址 (${skipped.length} 个跳过)`);
+    logger.debug('[SolanaService] ATA calculation completed', {
+      validCount: ataList.length,
+      skippedCount: skipped.length
+    });
     return { ataList, skipped };
   }
 
@@ -326,7 +348,7 @@ export class SolanaService {
     connection: Connection,
     ataList: ATAInfo[]
   ): Promise<ATAInfo[]> {
-    console.log('🔍 批量查询 ATA 是否存在...');
+    logger.debug('[SolanaService] Checking for missing ATAs', { ataCount: ataList.length });
 
     const ataAddresses = ataList.map(item => item.ata);
     const accountInfos = await connection.getMultipleAccountsInfo(ataAddresses);
@@ -338,7 +360,7 @@ export class SolanaService {
       }
     });
 
-    console.log(`✅ 查询完成: ${missing.length} 个 ATA 需要创建`);
+    logger.debug('[SolanaService] ATA check completed', { missingCount: missing.length });
     return missing;
   }
 
@@ -354,14 +376,14 @@ export class SolanaService {
     tokenInfo: SolanaTokenInfo,
     userBatchSize: number
   ): Promise<void> {
-    console.log('🏗️  批量创建 ATA...');
+    logger.info('[SolanaService] Starting batch ATA creation', { ataCount: missingATAs.length });
 
     const tokenMint = new PublicKey(tokenInfo.address);
     // ATA创建和转账使用统一的批量大小
     // 简化配置：ATA创建和转账都使用用户设置的 batchSize
     const CREATE_BATCH_SIZE = userBatchSize;
 
-    console.log(`创建 ATA 批次大小: ${CREATE_BATCH_SIZE}`);
+    logger.debug('[SolanaService] ATA creation batch size', { batchSize: CREATE_BATCH_SIZE });
 
     // 分批创建
     for (let i = 0; i < missingATAs.length; i += CREATE_BATCH_SIZE) {
@@ -386,10 +408,16 @@ export class SolanaService {
           maxRetries: 3
         });
 
-        console.log(`✅ 创建 ATA 批次 ${Math.floor(i / CREATE_BATCH_SIZE) + 1}: ${signature}`);
-        console.log(`   创建了 ${batch.length} 个 ATA`);
+        logger.info('[SolanaService] ATA batch created successfully', {
+          batchNumber: Math.floor(i / CREATE_BATCH_SIZE) + 1,
+          signature,
+          ataCount: batch.length
+        });
       } catch (error) {
-        console.error(`❌ 创建 ATA 批次失败:`, error);
+        logger.error('[SolanaService] ATA batch creation failed', error as Error, {
+          batchNumber: Math.floor(i / CREATE_BATCH_SIZE) + 1,
+          ataCount: batch.length
+        });
         throw error;
       }
 
@@ -399,7 +427,7 @@ export class SolanaService {
       }
     }
 
-    console.log(`✅ ATA 创建完成: 共创建 ${missingATAs.length} 个`);
+    logger.info('[SolanaService] All ATAs created successfully', { totalCreated: missingATAs.length });
   }
 
   /**
@@ -416,7 +444,10 @@ export class SolanaService {
     totalGasUsed: number;
     details: Array<{ address: string; amount: string; status: 'success' | 'failed'; error?: string }>;
   }> {
-    console.log(`💸 批量发送代币 (每批 ${batchSize} 个)...`);
+    logger.info('[SolanaService] Starting batch token transfer', {
+      batchSize,
+      totalRecipients: ataList.length
+    });
 
     const transactionHashes: string[] = [];
     const details: Array<{ address: string; amount: string; status: 'success' | 'failed'; error?: string }> = [];
@@ -440,7 +471,11 @@ export class SolanaService {
       const batch = ataList.slice(i, Math.min(i + batchSize, ataList.length));
       const batchNumber = Math.floor(i / batchSize) + 1;
 
-      console.log(`📦 处理批次 ${batchNumber}: 地址 ${i + 1}-${Math.min(i + batchSize, ataList.length)}`);
+      logger.debug('[SolanaService] Processing transfer batch', {
+        batchNumber,
+        startIndex: i + 1,
+        endIndex: Math.min(i + batchSize, ataList.length)
+      });
 
       try {
         const tx = new Transaction();
@@ -515,10 +550,14 @@ export class SolanaService {
           });
         });
 
-        console.log(`✅ 批次 ${batchNumber} 完成: ${signature} (Gas: ${gasUsed} lamports)`);
+        logger.info('[SolanaService] Transfer batch completed successfully', {
+          batchNumber,
+          signature,
+          gasUsed
+        });
 
       } catch (error) {
-        console.error(`❌ 批次 ${batchNumber} 失败:`, error);
+        logger.error('[SolanaService] Transfer batch failed', error as Error, { batchNumber });
 
         // 标记整个批次为失败
         batch.forEach(item => {
@@ -537,7 +576,10 @@ export class SolanaService {
       }
     }
 
-    console.log(`✅ 发送完成: ${transactionHashes.length} 个交易, 总 Gas: ${totalGasUsed} lamports`);
+    logger.info('[SolanaService] All transfers completed', {
+      transactionCount: transactionHashes.length,
+      totalGasUsed
+    });
 
     return {
       transactionHashes,
@@ -593,7 +635,12 @@ export class SolanaService {
           confirmations
         };
       } catch (error) {
-        console.error(`Failed to get transaction status (attempt ${attempt + 1}/${maxRetries}):`, error);
+        logger.warn('[SolanaService] Failed to get transaction status', {
+          attempt: attempt + 1,
+          maxRetries,
+          transactionHash,
+          error: error instanceof Error ? error.message : String(error)
+        });
 
         if (attempt === maxRetries - 1) {
           // 最后一次尝试失败，返回错误
@@ -639,7 +686,7 @@ export class SolanaService {
 
       return Math.ceil(estimatedFee);
     } catch (error) {
-      console.error('Failed to estimate fee:', error);
+      logger.error('[SolanaService] Failed to estimate fee', error as Error, { recipientCount, isSPLToken });
       return DEFAULTS.SOLANA_FEES.spl_account_creation_fee;
     }
   }

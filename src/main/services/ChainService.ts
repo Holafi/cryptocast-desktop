@@ -1,5 +1,8 @@
 import { ethers } from 'ethers';
 import { Connection } from '@solana/web3.js';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('ChainService');
 
 export interface Chain {
   id?: number;
@@ -44,18 +47,18 @@ export class ChainService {
   // 统一获取所有链的方法
   async getAllChains(): Promise<Chain[]> {
     try {
-      console.log('🔍 [ChainService] getAllChains: Starting to fetch chains from database');
+      logger.debug('[ChainService] getAllChains: Starting to fetch chains from database');
       const query = 'SELECT * FROM chains ORDER BY type, name';
 
       const chains = await this.db.prepare(query).all() as any[];
-      console.log(`🔍 [ChainService] getAllChains: Retrieved ${chains.length} chains from database`);
+      logger.debug('[ChainService] getAllChains: Retrieved chains from database', { count: chains.length });
 
       const mappedChains = chains.map(this.mapRowToChain);
-      console.log(`🔍 [ChainService] getAllChains: Mapped ${mappedChains.length} chains to Chain format`);
+      logger.debug('[ChainService] getAllChains: Mapped chains to Chain format', { count: mappedChains.length });
 
       return mappedChains;
     } catch (error) {
-      console.error('Failed to get chains:', error);
+      logger.error('[ChainService] Failed to get chains', error as Error);
       throw new Error('Chains retrieval failed');
     }
   }
@@ -63,24 +66,29 @@ export class ChainService {
   // 获取EVM链（向后兼容）
   async getEVMChains(): Promise<EVMChain[]> {
     try {
-      console.log('🔍 [ChainService] getEVMChains: Starting to fetch EVM chains from database');
+      logger.debug('[ChainService] getEVMChains: Starting to fetch EVM chains from database');
       const query = 'SELECT * FROM chains WHERE type = ? ORDER BY name';
       const params: any[] = ['evm'];
 
       const chains = await this.db.prepare(query).all(...params) as any[];
-      console.log(`🔍 [ChainService] getEVMChains: Retrieved ${chains.length} EVM chains from database`);
+      logger.debug('[ChainService] getEVMChains: Retrieved EVM chains from database', { count: chains.length });
 
       const mappedChains = chains.map(this.mapRowToChain) as EVMChain[];
-      console.log(`🔍 [ChainService] getEVMChains: Mapped ${mappedChains.length} chains to EVMChain format`);
+      logger.debug('[ChainService] getEVMChains: Mapped chains to EVMChain format', { count: mappedChains.length });
 
       // Log each chain's color data
       mappedChains.forEach((chain, index) => {
-        console.log(`🔍 [ChainService] Chain ${index}: ${chain.name} -> color: ${chain.color}, badgeColor: ${chain.badgeColor}`);
+        logger.debug('[ChainService] Chain details', {
+          index,
+          name: chain.name,
+          color: chain.color,
+          badgeColor: chain.badgeColor
+        });
       });
 
       return mappedChains;
     } catch (error) {
-      console.error('Failed to get EVM chains:', error);
+      logger.error('[ChainService] Failed to get EVM chains', error as Error);
       throw new Error('EVM chains retrieval failed');
     }
   }
@@ -122,7 +130,7 @@ export class ChainService {
 
       return result.lastInsertRowid as number;
     } catch (error) {
-      console.error('Failed to add EVM chain:', error);
+      logger.error('[ChainService] Failed to add EVM chain', error as Error, { chainId: chainData.chainId, name: chainData.name });
       throw new Error('EVM chain addition failed');
     }
   }
@@ -183,7 +191,7 @@ export class ChainService {
 
       updateChain.run(...params);
     } catch (error) {
-      console.error('Failed to update EVM chain:', error);
+      logger.error('[ChainService] Failed to update EVM chain', error as Error, { chainId, updates });
       throw new Error('EVM chain update failed');
     }
   }
@@ -198,14 +206,14 @@ export class ChainService {
 
       await this.db.prepare('DELETE FROM evm_chains WHERE id = ?').run(chainId);
     } catch (error) {
-      console.error('Failed to delete EVM chain:', error);
+      logger.error('[ChainService] Failed to delete EVM chain', error as Error, { chainId });
       throw new Error('EVM chain deletion failed');
     }
   }
 
   async testEVMLatency(rpcUrl: string): Promise<{ latency: number; blockNumber: number }> {
     try {
-      console.log(`测试RPC URL: ${rpcUrl}`);
+      logger.debug('[ChainService] Testing RPC URL', { rpcUrl });
 
       const testResult = await this.testEVMLatencyByUrl(rpcUrl);
       if (!testResult.success || !testResult.latency || !testResult.blockNumber) {
@@ -214,14 +222,14 @@ export class ChainService {
 
       return { latency: testResult.latency, blockNumber: testResult.blockNumber };
     } catch (error) {
-      console.error('Failed to test EVM latency:', error);
+      logger.error('[ChainService] Failed to test EVM latency', error as Error, { rpcUrl });
       throw new Error('EVM latency test failed');
     }
   }
 
   async testEVMLatencyByUrl(rpcUrl: string): Promise<RPCTestResult> {
     try {
-      console.log(`开始测试RPC: ${rpcUrl}`);
+      logger.debug('[ChainService] Starting RPC test', { rpcUrl });
       const startTime = Date.now();
 
       // 创建带超时的Promise
@@ -240,7 +248,7 @@ export class ChainService {
 
       const latency = Date.now() - startTime;
 
-      console.log(`RPC测试成功: ${rpcUrl}, 延迟: ${latency}ms, 区块: ${blockNumber}`);
+      logger.info('[ChainService] RPC test successful', { rpcUrl, latency, blockNumber });
 
       return {
         success: true,
@@ -248,7 +256,7 @@ export class ChainService {
         blockNumber,
       };
     } catch (error) {
-      console.error(`RPC测试失败: ${rpcUrl}`, error);
+      logger.error('[ChainService] RPC test failed', error as Error, { rpcUrl });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -259,19 +267,19 @@ export class ChainService {
   // 获取Solana链（新的统一方法）
   async getSolanaChains(): Promise<SolanaChain[]> {
     try {
-      console.log('🔍 [ChainService] getSolanaChains: Starting to fetch Solana chains from database');
+      logger.debug('[ChainService] getSolanaChains: Starting to fetch Solana chains from database');
       const query = 'SELECT * FROM chains WHERE type = ? ORDER BY name';
       const params: any[] = ['solana'];
 
       const chains = await this.db.prepare(query).all(...params) as any[];
-      console.log(`🔍 [ChainService] getSolanaChains: Retrieved ${chains.length} Solana chains from database`);
+      logger.debug('[ChainService] getSolanaChains: Retrieved Solana chains from database', { count: chains.length });
 
       const mappedChains = chains.map(this.mapRowToChain) as SolanaChain[];
-      console.log(`🔍 [ChainService] getSolanaChains: Mapped ${mappedChains.length} chains to SolanaChain format`);
+      logger.debug('[ChainService] getSolanaChains: Mapped chains to SolanaChain format', { count: mappedChains.length });
 
       return mappedChains;
     } catch (error) {
-      console.error('Failed to get Solana chains:', error);
+      logger.error('[ChainService] Failed to get Solana chains', error as Error);
       throw new Error('Solana chains retrieval failed');
     }
   }
@@ -291,7 +299,7 @@ export class ChainService {
     try {
       await this.db.prepare('UPDATE chains SET chain_id = ? WHERE id = ? AND type = ?').run(priority, id, 'solana');
     } catch (error) {
-      console.error('Failed to update Solana RPC priority:', error);
+      logger.error('[ChainService] Failed to update Solana RPC priority', error as Error, { id, priority });
       throw new Error('Solana RPC priority update failed');
     }
   }
@@ -300,7 +308,7 @@ export class ChainService {
     try {
       await this.db.prepare('DELETE FROM chains WHERE id = ? AND type = ?').run(id, 'solana');
     } catch (error) {
-      console.error('Failed to delete Solana RPC:', error);
+      logger.error('[ChainService] Failed to delete Solana RPC', error as Error, { id });
       throw new Error('Solana RPC deletion failed');
     }
   }
@@ -333,14 +341,15 @@ export class ChainService {
   // 新的统一映射方法
   private mapRowToChain(row: any): Chain {
     // Debug: Log the complete raw row data from database
-    console.log(`🔍 [ChainService] mapRowToChain: Raw database row data:`);
-    console.log(`🔍 [ChainService]   - id: ${row.id}`);
-    console.log(`🔍 [ChainService]   - type: ${row.type}`);
-    console.log(`🔍 [ChainService]   - name: ${row.name}`);
-    console.log(`🔍 [ChainService]   - chain_id: ${row.chain_id}`);
-    console.log(`🔍 [ChainService]   - rpc_url: ${row.rpc_url}`);
-    console.log(`🔍 [ChainService]   - color: ${row.color}`);
-    console.log(`🔍 [ChainService]   - badge_color: ${row.badge_color}`);
+    logger.debug('[ChainService] mapRowToChain: Raw database row data', {
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      chainId: row.chain_id,
+      rpcUrl: row.rpc_url,
+      color: row.color,
+      badgeColor: row.badge_color
+    });
 
     const color = row.color || '#3B82F6';
     const badgeColor = row.badge_color || 'badge-primary';
@@ -395,7 +404,7 @@ export class ChainService {
       const row = await this.db.prepare('SELECT * FROM chains WHERE chain_id = ?').get(chainId) as any;
       return row ? this.mapRowToChain(row) : null;
     } catch (error) {
-      console.error('Failed to get chain by chain ID:', error);
+      logger.error('[ChainService] Failed to get chain by chain ID', error as Error, { chainId });
       return null;
     }
   }
@@ -405,7 +414,7 @@ export class ChainService {
       const row = await this.db.prepare('SELECT * FROM chains WHERE chain_id = ? AND type = ?').get(chainId, 'evm') as any;
       return row ? this.mapRowToChain(row) as EVMChain : null;
     } catch (error) {
-      console.error('Failed to get EVM chain by chain ID:', error);
+      logger.error('[ChainService] Failed to get EVM chain by chain ID', error as Error, { chainId });
       return null;
     }
   }

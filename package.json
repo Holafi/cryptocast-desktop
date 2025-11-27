@@ -1,6 +1,6 @@
 {
   "name": "cryptocast-desktop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "CryptoCast - Secure Batch Reward Distribution Platform",
   "main": "dist/main/index.js",
   "author": "Viaweb3",
@@ -47,7 +47,8 @@
     "react-router-dom": "^7.1.1",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "winston": "^3.18.3"
   },
   "devDependencies": {
     "@headlessui/react": "^2.2.1",

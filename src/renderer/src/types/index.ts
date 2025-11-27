@@ -223,10 +223,8 @@ export interface SolanaRPC {
   name: string;
   rpcUrl: string;
   wsUrl?: string;
-  priority: number;
   latency?: number;
   uptime24h?: number;
-  enabled: boolean;
 }
 
 
@@ -308,7 +306,6 @@ export interface ChainConfigurationForm {
   gasLimit: number;
   batchSize: number;
   sendInterval: number;
-  enabled: boolean;
   isCustom: boolean;
 }
 

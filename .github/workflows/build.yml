@@ -28,6 +28,10 @@ jobs:
             platform: darwin
             arch: arm64
             build-script: build:mac-arm
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            build-script: build:linux
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -44,6 +48,12 @@ jobs:
       with:
         python-version: '3.x'
 
+    - name: Install Linux build dependencies
+      if: matrix.platform == 'linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libgtk-3-dev libnotify-dev libnss3 libxtst6 xvfb libgbm-dev libasound2
+
     - name: Install dependencies
       run: npm ci
       env:
@@ -53,6 +63,7 @@ jobs:
       run: npm rebuild
 
     - name: Extract version from tag
+      shell: bash
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
     - name: Build application
@@ -60,15 +71,55 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Verify build artifacts
+      shell: bash
+      run: |
+        if [ ! -d "release" ]; then
+          echo "Error: release directory not found"
+          exit 1
+        fi
+
+        echo "Build artifacts created:"
+        find release/ -type f -ls
+
+        # Count the number of artifacts
+        artifact_count=$(find release/ -type f | wc -l)
+        echo "Total artifacts: $artifact_count"
+
+        if [ "$artifact_count" -eq 0 ]; then
+          echo "Error: No build artifacts found"
+          exit 1
+        fi
+
+        echo "Build verification successful"
+
     - name: Rename artifacts with version
       shell: bash
       run: |
-        find release/ -name "*" -type f | while read file; do
-          new_name=$(echo "$file" | sed "s/CryptoCast-/CryptoCast-${VERSION}-/g")
-          if [ "$file" != "$new_name" ]; then
-            mv "$file" "$new_name"
+        if [ ! -d "release" ]; then
+          echo "Error: release directory not found"
+          exit 1
+        fi
+
+        echo "Renaming artifacts in release directory..."
+        find release/ -type f -name "*CryptoCast*" | while read -r file; do
+          filename=$(basename "$file")
+          dirname=$(dirname "$file")
+
+          # Only rename if the version is not already in the filename
+          if [[ ! "$filename" =~ CryptoCast-${VERSION} ]]; then
+            new_name=$(echo "$filename" | sed "s/CryptoCast-/CryptoCast-${VERSION}-/g")
+            if [ "$filename" != "$new_name" ]; then
+              echo "Renaming: $filename -> $new_name"
+              mv "$file" "$dirname/$new_name"
+            fi
+          else
+            echo "Skipping (already versioned): $filename"
           fi
         done
+
+        echo "Listing renamed artifacts:"
+        find release/ -type f
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -87,10 +138,23 @@ jobs:
       with:
         path: artifacts
 
+    - name: List downloaded artifacts
+      run: |
+        echo "Downloaded artifacts:"
+        find artifacts/ -type f -ls
+
+    - name: Prepare release files
+      run: |
+        mkdir -p release-files
+        # Move all files from subdirectories to a flat structure
+        find artifacts/ -type f -exec cp {} release-files/ \;
+        echo "Release files prepared:"
+        ls -lh release-files/
+
     - name: Create release
       uses: softprops/action-gh-release@v1
       with:
-        files: artifacts/**/*
+        files: release-files/*
         name: Release ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
         body: |

@@ -2,9 +2,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './WalletService';
 import { CampaignExecutor } from './CampaignExecutor';
 import { ChainUtils } from '../utils/chain-utils';
-import { logger } from '../utils/logger';
+import { Logger } from '../utils/logger';
 import { DatabaseManager } from '../database/sqlite-schema';
 import type { DatabaseAdapter } from '../database/db-adapter';
+
+const logger = Logger.getInstance().child('CampaignService');
 
 export interface CampaignData {
   name: string;
@@ -65,14 +67,14 @@ export class CampaignService {
 
     logger.info('[CampaignService] Campaign service initialized', {
       databaseManager: databaseManager.constructor.name
-    }, 'CAMPAIGN');
+    });
   }
 
   async createCampaign(data: CampaignData): Promise<Campaign> {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    logger.campaign('[CampaignService] Creating new campaign', {
+    logger.info('[CampaignService] Creating new campaign', {
       campaignId: id,
       name: data.name,
       chain: data.chain,
@@ -88,7 +90,7 @@ export class CampaignService {
       // 根据链类型创建钱包
       const wallet = this.createWalletForChain(chainType);
 
-      logger.wallet('[CampaignService] Campaign wallet created', {
+      logger.debug('[CampaignService] Campaign wallet created', {
         address: wallet.address,
         chain: data.chain,
         chainType,
@@ -104,7 +106,7 @@ export class CampaignService {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
-      logger.database('[CampaignService] Inserting campaign data into database', {
+      logger.debug('[CampaignService] Inserting campaign data into database', {
         campaignId: id,
         name: data.name,
         chainType,
@@ -133,7 +135,7 @@ export class CampaignService {
         now
       );
 
-      logger.database('[CampaignService] Campaign data inserted successfully', { campaignId: id });
+      logger.debug('[CampaignService] Campaign data inserted successfully', { campaignId: id });
 
       // 在事务中插入接收者并分配批次号
       await this.db.transaction(async (tx) => {
@@ -162,7 +164,7 @@ export class CampaignService {
       campaignId: id,
       name: data.name,
       chain: data.chain
-    }, 'CAMPAIGN');
+    });
 
       throw new Error('Campaign creation failed');
     }
@@ -214,7 +216,7 @@ export class CampaignService {
       const campaigns = await this.db.prepare(query).all(...params) as any[] || [];
       return campaigns.map(this.mapRowToCampaign);
     } catch (error) {
-      console.error('Failed to list campaigns:', error);
+      logger.error('[CampaignService] Failed to list campaigns', error as Error, { filters });
       throw new Error('Campaign listing failed');
     }
   }
@@ -224,7 +226,7 @@ export class CampaignService {
       const row = await this.db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id) as any;
       return row ? this.mapRowToCampaign(row) : null;
     } catch (error) {
-      console.error('Failed to get campaign by ID:', error);
+      logger.error('[CampaignService] Failed to get campaign by ID', error as Error, { id });
       throw new Error('Campaign retrieval failed');
     }
   }
@@ -267,7 +269,7 @@ export class CampaignService {
         'UPDATE campaigns SET status = ?, updated_at = ? WHERE id = ?'
       ).run(status, now, id);
     } catch (error) {
-      console.error('Failed to update campaign status:', error);
+      logger.error('[CampaignService] Failed to update campaign status', error as Error, { id, status });
       throw new Error('Campaign status update failed');
     }
   }
@@ -294,12 +296,12 @@ export class CampaignService {
       
       // Execute campaign in background (non-blocking)
     this.executor.executeCampaign(id, onProgress).catch(error => {
-      console.error(`[CampaignService] Execution failed for campaign ${id}:`, error);
+      logger.error('Campaign execution failed', error as Error, { id });
     });
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to start campaign:', error);
+      logger.error('[CampaignService] Failed to start campaign', error as Error, { id });
       throw new Error('Campaign start failed');
     }
   }
@@ -318,10 +320,10 @@ export class CampaignService {
       // Request executor to pause
       this.executor.pauseExecution(id);
 
-      
+
       return { success: true };
     } catch (error) {
-      console.error('Failed to pause campaign:', error);
+      logger.error('[CampaignService] Failed to pause campaign', error as Error, { id });
       throw new Error('Campaign pause failed');
     }
   }
@@ -333,7 +335,7 @@ export class CampaignService {
         'UPDATE campaigns SET completed_recipients = ?, updated_at = ? WHERE id = ?'
       ).run(completedCount, now, id);
     } catch (error) {
-      console.error('Failed to update campaign progress:', error);
+      logger.error('[CampaignService] Failed to update campaign progress', error as Error, { id, completedCount });
       throw new Error('Campaign progress update failed');
     }
   }
@@ -378,7 +380,7 @@ export class CampaignService {
         throw new Error('Campaign status changed during deployment or already deployed, please retry');
       }
     } catch (error) {
-      console.error('Failed to update campaign contract:', error);
+      logger.error('[CampaignService] Failed to update campaign contract', error as Error, { id, contractAddress });
       throw error;
     }
   }
@@ -418,7 +420,7 @@ export class CampaignService {
   }>> {
     try {
       if (!campaignId || campaignId === 'undefined') {
-        console.warn('getCampaignRecipients: Invalid campaignId provided:', campaignId);
+        logger.warn('Invalid campaignId provided', { campaignId });
         return [];
       }
 
@@ -427,7 +429,7 @@ export class CampaignService {
       `).all(campaignId) as any[] || [];
 
       if (!Array.isArray(recipients)) {
-        console.warn('getCampaignRecipients: Database did not return an array, got:', typeof recipients, recipients);
+        logger.warn('Database did not return an array', { type: typeof recipients, recipients });
         return [];
       }
 
@@ -443,7 +445,7 @@ export class CampaignService {
         updatedAt: row.updated_at,
       }));
     } catch (error) {
-      console.error('Failed to get campaign recipients:', error);
+      logger.error('[CampaignService] Failed to get campaign recipients', error as Error, { campaignId });
       return []; // Return empty array instead of throwing error
     }
   }
@@ -472,7 +474,7 @@ export class CampaignService {
         }
       }
     } catch (error) {
-      console.error('Failed to update recipient status:', error);
+      logger.error('[CampaignService] Failed to update recipient status', error as Error, { campaignId, address, status });
       throw new Error('Recipient status update failed');
     }
   }
@@ -488,7 +490,7 @@ export class CampaignService {
       // 删除活动
       await this.db.prepare('DELETE FROM campaigns WHERE id = ?').run(id);
     } catch (error) {
-      console.error('Failed to delete campaign:', error);
+      logger.error('[CampaignService] Failed to delete campaign', error as Error, { id });
       throw new Error('Campaign deletion failed');
     }
   }
@@ -521,7 +523,7 @@ export class CampaignService {
   }>> {
     try {
       if (!campaignId || campaignId === 'undefined') {
-        console.warn('getCampaignTransactions: Invalid campaignId provided:', campaignId);
+        logger.warn('Invalid campaignId provided for transactions', { campaignId });
         return [];
       }
 
@@ -550,7 +552,7 @@ export class CampaignService {
       const transactions = await this.db.prepare(query).all(...params) as any[] || [];
 
       if (!Array.isArray(transactions)) {
-        console.warn('getCampaignTransactions: Database did not return an array, got:', typeof transactions, transactions);
+        logger.warn('Database did not return an array for transactions', { type: typeof transactions, transactions });
         return [];
       }
 
@@ -572,7 +574,7 @@ export class CampaignService {
         confirmedAt: row.confirmed_at,
       }));
     } catch (error) {
-      console.error('Failed to get campaign transactions:', error);
+      logger.error('[CampaignService] Failed to get campaign transactions', error as Error, { campaignId });
       return []; // Return empty array instead of throwing error
     }
   }
@@ -616,7 +618,7 @@ export class CampaignService {
       );
 
           } catch (error) {
-      console.error('Failed to record transaction:', error);
+      logger.error('[CampaignService] Failed to record transaction', error as Error, { campaignId, txHash: transactionData.txHash });
       // Don't throw error - recording transaction failure shouldn't break the main flow
     }
   }
@@ -646,7 +648,7 @@ export class CampaignService {
 
       await this.db.prepare(query).run(...updates);
           } catch (error) {
-      console.error('Failed to update transaction status:', error);
+      logger.error('[CampaignService] Failed to update transaction status', error as Error, { txHash, status });
     }
   }
 
@@ -672,7 +674,7 @@ export class CampaignService {
 
       return { success: true };
     } catch (error) {
-      console.error('Failed to resume campaign:', error);
+      logger.error('[CampaignService] Failed to resume campaign', error as Error, { id });
       throw new Error('Campaign resume failed');
     }
   }
@@ -727,7 +729,7 @@ export class CampaignService {
         },
       };
     } catch (error) {
-      console.error('Failed to get campaign details:', error);
+      logger.error('[CampaignService] Failed to get campaign details', error as Error, { id });
       throw new Error('Campaign details retrieval failed');
     }
   }
@@ -756,7 +758,7 @@ export class CampaignService {
       `).run(new Date().toISOString(), campaignId);
 
           } catch (error) {
-      console.error('Failed to retry failed transactions:', error);
+      logger.error('[CampaignService] Failed to retry failed transactions', error as Error, { campaignId });
       throw error;
     }
   }

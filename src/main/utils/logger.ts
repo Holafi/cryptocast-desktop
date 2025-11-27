@@ -21,7 +21,7 @@ export interface LogEntry {
   levelName: string;
   category: string;
   message: string;
-  data?: any;
+  data?: Record<string, unknown>;
   error?: Error;
   module?: string;
   userId?: string;
@@ -84,35 +84,35 @@ export class Logger {
   /**
    * 记录调试日志
    */
-  debug(message: string, data?: any, category: string = 'GENERAL'): void {
+  debug(message: string, data?: Record<string, unknown>, category: string = 'GENERAL'): void {
     this.log(LogLevel.DEBUG, message, data, category);
   }
 
   /**
    * 记录信息日志
    */
-  info(message: string, data?: any, category: string = 'GENERAL'): void {
+  info(message: string, data?: Record<string, unknown>, category: string = 'GENERAL'): void {
     this.log(LogLevel.INFO, message, data, category);
   }
 
   /**
    * 记录警告日志
    */
-  warn(message: string, data?: any, category: string = 'GENERAL'): void {
+  warn(message: string, data?: Record<string, unknown>, category: string = 'GENERAL'): void {
     this.log(LogLevel.WARN, message, data, category);
   }
 
   /**
    * 记录错误日志
    */
-  error(message: string, error?: Error, data?: any, category: string = 'ERROR'): void {
+  error(message: string, error?: Error, data?: Record<string, unknown>, category: string = 'ERROR'): void {
     this.log(LogLevel.ERROR, message, data, category, error);
   }
 
   /**
    * 记录致命错误日志
    */
-  fatal(message: string, error?: Error, data?: any, category: string = 'FATAL'): void {
+  fatal(message: string, error?: Error, data?: Record<string, unknown>, category: string = 'FATAL'): void {
     this.log(LogLevel.FATAL, message, data, category, error);
   }
 
@@ -120,42 +120,42 @@ export class Logger {
    * 专用日志方法
    */
   // 区块链相关日志
-  blockchain(message: string, data?: any): void {
+  blockchain(message: string, data?: Record<string, unknown>): void {
     this.info(message, data, 'BLOCKCHAIN');
   }
 
   // 活动相关日志
-  campaign(message: string, data?: any): void {
+  campaign(message: string, data?: Record<string, unknown>): void {
     this.info(message, data, 'CAMPAIGN');
   }
 
   // 交易相关日志
-  transaction(message: string, data?: any): void {
+  transaction(message: string, data?: Record<string, unknown>): void {
     this.info(message, data, 'TRANSACTION');
   }
 
   // 钱包相关日志
-  wallet(message: string, data?: any): void {
+  wallet(message: string, data?: Record<string, unknown>): void {
     this.info(message, data, 'WALLET');
   }
 
   // 网络相关日志
-  network(message: string, data?: any): void {
+  network(message: string, data?: Record<string, unknown>): void {
     this.info(message, data, 'NETWORK');
   }
 
   // 数据库相关日志
-  database(message: string, data?: any): void {
+  database(message: string, data?: Record<string, unknown>): void {
     this.info(message, data, 'DATABASE');
   }
 
   // 性能相关日志
-  performance(message: string, data?: any): void {
+  performance(message: string, data?: Record<string, unknown>): void {
     this.info(message, data, 'PERFORMANCE');
   }
 
   // 安全相关日志
-  security(message: string, data?: any): void {
+  security(message: string, data?: Record<string, unknown>): void {
     this.warn(message, data, 'SECURITY');
   }
 
@@ -165,7 +165,7 @@ export class Logger {
   private log(
     level: LogLevel,
     message: string,
-    data?: any,
+    data?: Record<string, unknown>,
     category: string = 'GENERAL',
     error?: Error
   ): void {
@@ -173,13 +173,16 @@ export class Logger {
       return;
     }
 
+    // Sanitize sensitive data
+    const sanitizedData = data ? this.sanitizeData(data) : undefined;
+
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
       levelName: LogLevel[level],
       category,
       message,
-      data,
+      data: sanitizedData,
       error,
       sessionId: this.sessionId,
       module: this.getCallingModule()
@@ -194,6 +197,46 @@ export class Logger {
     if (this.config.enableFile) {
       this.logToFile(logEntry);
     }
+  }
+
+  /**
+   * Sanitize sensitive data before logging
+   */
+  private sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
+    const sensitiveKeys = [
+      'privatekey', 'private_key', 'privatekeybase64', 'private_key_base64',
+      'secret', 'password', 'apikey', 'api_key', 'token', 'authorization',
+      'walletprivatekey', 'wallet_private_key'
+    ];
+
+    const sanitize = (obj: unknown): unknown => {
+      if (obj === null || obj === undefined) {
+        return obj;
+      }
+
+      if (typeof obj !== 'object') {
+        return obj;
+      }
+
+      if (Array.isArray(obj)) {
+        return obj.map(item => sanitize(item));
+      }
+
+      const sanitized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        const lowerKey = key.toLowerCase().replace(/[_\s-]/g, '');
+        if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
+          sanitized[key] = '[REDACTED]';
+        } else if (typeof value === 'object' && value !== null) {
+          sanitized[key] = sanitize(value);
+        } else {
+          sanitized[key] = value;
+        }
+      }
+      return sanitized;
+    };
+
+    return sanitize(data) as Record<string, unknown>;
   }
 
   /**
@@ -389,18 +432,18 @@ export class Logger {
    * 创建子日志器（带模块前缀）
    */
   child(moduleName: string): {
-    debug: (message: string, data?: any) => void;
-    info: (message: string, data?: any) => void;
-    warn: (message: string, data?: any) => void;
-    error: (message: string, error?: Error, data?: any) => void;
-    fatal: (message: string, error?: Error, data?: any) => void;
+    debug: (message: string, data?: Record<string, unknown>) => void;
+    info: (message: string, data?: Record<string, unknown>) => void;
+    warn: (message: string, data?: Record<string, unknown>) => void;
+    error: (message: string, error?: Error, data?: Record<string, unknown>) => void;
+    fatal: (message: string, error?: Error, data?: Record<string, unknown>) => void;
   } {
     return {
-      debug: (message: string, data?: any) => this.debug(`[${moduleName}] ${message}`, data, moduleName),
-      info: (message: string, data?: any) => this.info(`[${moduleName}] ${message}`, data, moduleName),
-      warn: (message: string, data?: any) => this.warn(`[${moduleName}] ${message}`, data, moduleName),
-      error: (message: string, error?: Error, data?: any) => this.error(`[${moduleName}] ${message}`, error, data, moduleName),
-      fatal: (message: string, error?: Error, data?: any) => this.fatal(`[${moduleName}] ${message}`, error, data, moduleName)
+      debug: (message: string, data?: Record<string, unknown>) => this.debug(`[${moduleName}] ${message}`, data, moduleName),
+      info: (message: string, data?: Record<string, unknown>) => this.info(`[${moduleName}] ${message}`, data, moduleName),
+      warn: (message: string, data?: Record<string, unknown>) => this.warn(`[${moduleName}] ${message}`, data, moduleName),
+      error: (message: string, error?: Error, data?: Record<string, unknown>) => this.error(`[${moduleName}] ${message}`, error, data, moduleName),
+      fatal: (message: string, error?: Error, data?: Record<string, unknown>) => this.fatal(`[${moduleName}] ${message}`, error, data, moduleName)
     };
   }
 

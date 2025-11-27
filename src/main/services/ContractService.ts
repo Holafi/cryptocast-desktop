@@ -1,6 +1,9 @@
 import { ethers } from 'ethers';
-import { GasService, GasInfo } from './GasService';
+import { GasService, GasInfo, TransactionOptions } from './GasService';
 import { DEFAULTS } from '../config/defaults';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('ContractService');
 
 // Batch Airdrop Contract ABI
 const BATCH_AIRDROP_CONTRACT_ABI = [
@@ -97,7 +100,7 @@ export class ContractService {
         gasUsed: receipt?.gasUsed?.toString() || '0'
       };
     } catch (error) {
-      console.error('Failed to deploy contract:', error);
+      logger.error('Failed to deploy contract', error as Error, { chainId: config.chainId });
       throw new Error(`Contract deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -133,7 +136,7 @@ export class ContractService {
 
       return tx.hash;
     } catch (error) {
-      console.error('Failed to approve tokens:', error);
+      logger.error('Failed to approve tokens', error as Error, { tokenAddress, contractAddress });
       throw new Error(`Token approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -171,46 +174,45 @@ export class ContractService {
       const bigintAmounts = amounts.map(amount => ethers.parseUnits(amount.toString(), tokenDecimals));
 
       // Get gas info for this batch
-      console.log(`[ContractService] 📊 Getting gas estimate for ${recipients.length} recipients`);
+      logger.debug('Getting gas estimate', { recipientCount: recipients.length });
       const gasInfo = await this.gasService.getBatchGasEstimate(rpcUrl, 'ethereum', recipients.length);
 
-      console.log(`[ContractService] ⛽ Gas Info Received:`);
-      console.log(`  - Gas Price: ${gasInfo.gasPrice} Gwei`);
-      console.log(`  - Max Fee: ${gasInfo.maxFeePerGas || 'N/A'} Gwei`);
-      console.log(`  - Priority Fee: ${gasInfo.maxPriorityFeePerGas || 'N/A'} Gwei`);
-      console.log(`  - Estimated Gas Limit: ${gasInfo.estimatedGasLimit}`);
-      console.log(`  - Estimated Cost: ${gasInfo.estimatedCost} ETH`);
+      logger.debug('Gas info received', {
+        gasPrice: gasInfo.gasPrice,
+        maxFeePerGas: gasInfo.maxFeePerGas,
+        maxPriorityFeePerGas: gasInfo.maxPriorityFeePerGas,
+        estimatedGasLimit: gasInfo.estimatedGasLimit,
+        estimatedCost: gasInfo.estimatedCost
+      });
 
       const txOptions = this.gasService.getTransactionOptions(gasInfo);
 
-      console.log(`[ContractService] 🔧 Transaction Options:`);
-      if (txOptions.gasPrice) {
-        console.log(`  - Gas Price: ${ethers.formatUnits(txOptions.gasPrice, 'gwei')} Gwei`);
-      }
-      if (txOptions.maxFeePerGas) {
-        console.log(`  - Max Fee: ${ethers.formatUnits(txOptions.maxFeePerGas, 'gwei')} Gwei`);
-      }
-      if (txOptions.maxPriorityFeePerGas) {
-        console.log(`  - Priority Fee: ${ethers.formatUnits(txOptions.maxPriorityFeePerGas, 'gwei')} Gwei`);
-      }
-      console.log(`  - Gas Limit: ${txOptions.gasLimit?.toString() || 'auto'}`);
+      logger.debug('Transaction options', {
+        gasPrice: txOptions.gasPrice ? ethers.formatUnits(txOptions.gasPrice, 'gwei') : undefined,
+        maxFeePerGas: txOptions.maxFeePerGas ? ethers.formatUnits(txOptions.maxFeePerGas, 'gwei') : undefined,
+        maxPriorityFeePerGas: txOptions.maxPriorityFeePerGas ? ethers.formatUnits(txOptions.maxPriorityFeePerGas, 'gwei') : undefined,
+        gasLimit: txOptions.gasLimit?.toString()
+      });
 
       // Get wallet balance before transaction
       const balance = await provider.getBalance(wallet.address);
-      console.log(`[ContractService] 💰 Wallet Balance: ${ethers.formatEther(balance)} ETH`);
+      logger.debug('Wallet balance', { balance: ethers.formatEther(balance) });
 
       // 执行批量转账
-      console.log(`[ContractService] 🚀 Executing batch transfer...`);
+      logger.info('Executing batch transfer', { recipientCount: recipients.length });
       const tx = await contract.batchTransfer(tokenAddress, recipients, bigintAmounts, txOptions);
-      console.log(`[ContractService] 📝 Transaction submitted: ${tx.hash}`);
-      console.log(`[ContractService] ⛽ Gas Limit in TX: ${tx.gasLimit?.toString() || 'unknown'}`);
-      console.log(`[ContractService] 💸 Gas Price in TX: ${tx.gasPrice ? ethers.formatUnits(tx.gasPrice, 'gwei') : 'unknown'} Gwei`);
+      logger.info('Transaction submitted', {
+        txHash: tx.hash,
+        gasLimit: tx.gasLimit?.toString(),
+        gasPrice: tx.gasPrice ? ethers.formatUnits(tx.gasPrice, 'gwei') : undefined
+      });
 
       const receipt = await tx.wait();
-      console.log(`[ContractService] ✅ Transaction confirmed!`);
-      console.log(`[ContractService] ⛽ Gas Used: ${receipt?.gasUsed?.toString() || 'unknown'}`);
-      console.log(`[ContractService] 💸 Actual Gas Price: ${receipt?.gasPrice ? ethers.formatUnits(receipt.gasPrice, 'gwei') : 'unknown'} Gwei`);
-      console.log(`[ContractService] 💰 Actual Cost: ${receipt ? ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : 'unknown'} ETH`);
+      logger.info('Transaction confirmed', {
+        gasUsed: receipt?.gasUsed?.toString(),
+        actualGasPrice: receipt?.gasPrice ? ethers.formatUnits(receipt.gasPrice, 'gwei') : undefined,
+        actualCost: receipt ? ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : undefined
+      });
 
       // 计算总金额
       const totalAmount = bigintAmounts.reduce((sum, amount) => sum + amount, 0n);
@@ -222,7 +224,7 @@ export class ContractService {
         gasUsed: receipt?.gasUsed?.toString() || '0'
       };
     } catch (error) {
-      console.error('批量转账失败:', error);
+      logger.error('批量转账失败', error as Error, { recipientCount: recipients.length });
       throw new Error(`批量转账失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
@@ -237,7 +239,7 @@ export class ContractService {
       const decimals = await tokenContract.decimals();
       return Number(decimals);
     } catch (error) {
-      console.error('Failed to get token decimals, defaulting to 18:', error);
+      logger.warn('Failed to get token decimals, using default', { tokenAddress, error: error instanceof Error ? error.message : String(error) });
       return 18; // Default fallback
     }
   }
@@ -265,7 +267,7 @@ export class ContractService {
         decimals: Number(decimals)
       };
     } catch (error) {
-      console.error('Failed to get token info:', error);
+      logger.error('Failed to get token info', error as Error, { tokenAddress });
       throw new Error(`Failed to get token info: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -312,7 +314,7 @@ export class ContractService {
         amount
       };
     } catch (error) {
-      console.error('Failed to withdraw tokens:', error);
+      logger.error('Failed to withdraw tokens', error as Error, { tokenAddress, recipientAddress });
       throw new Error(`Failed to withdraw tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -364,7 +366,7 @@ export class ContractService {
         gasLimit = estimatedGasLimit;
 
               } catch (estimateError) {
-        console.warn('Precise gas estimation failed, using fallback:', estimateError);
+        logger.warn('Precise gas estimation failed, using fallback', { error: estimateError instanceof Error ? estimateError.message : String(estimateError) });
         gasLimit = 21000n; // Standard ETH transfer gas limit
       }
 
@@ -408,7 +410,7 @@ export class ContractService {
       }
 
       // Prepare transaction with proper gas settings
-      let txOptions: any = {
+      let txOptions: Partial<TransactionOptions> = {
         gasLimit: gasLimit
       };
 
@@ -444,7 +446,7 @@ export class ContractService {
         amount
       };
     } catch (error) {
-      console.error('Failed to withdraw native tokens:', error);
+      logger.error('Failed to withdraw native tokens', error as Error, { recipientAddress });
       throw new Error(`Failed to withdraw native tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -467,7 +469,7 @@ export class ContractService {
       const allowance = await tokenContract.allowance(wallet.address, contractAddress);
       return allowance >= ethers.parseEther(requiredAmount);
     } catch (error) {
-      console.error('Failed to check approval:', error);
+      logger.error('Failed to check approval', error as Error, { tokenAddress, contractAddress });
       return false;
     }
   }

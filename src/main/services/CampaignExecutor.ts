@@ -6,10 +6,13 @@ import { SolanaService } from './SolanaService';
 import { ChainUtils } from '../utils/chain-utils';
 import { RetryUtils } from '../utils/retry-utils';
 import { TransactionUtils } from '../utils/transaction-utils';
+import { Logger } from '../utils/logger';
 import type { DatabaseManager } from '../database/sqlite-schema';
 import type { DatabaseAdapter } from '../database/db-adapter';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
+
+const logger = Logger.getInstance().child('CampaignExecutor');
 
 
 export interface ExecutionProgress {
@@ -45,6 +48,7 @@ export class CampaignExecutor {
     this.gasService = new GasService();
     this.blockchainService = new BlockchainService();
     this.solanaService = new SolanaService();
+    logger.info('CampaignExecutor initialized');
   }
 
   /**
@@ -54,7 +58,7 @@ export class CampaignExecutor {
     campaignId: string,
     onProgress?: (progress: ExecutionProgress) => void
   ): Promise<void> {
-    console.log(`[CampaignExecutor] Starting campaign execution for ${campaignId}`);
+    logger.info('Starting campaign execution', { campaignId });
 
     // Check if already executing
     if (this.executionMap.get(campaignId)) {

@@ -2,6 +2,9 @@ import { GasService } from './GasService';
 import { ChainService } from './ChainService';
 import { ChainUtils } from '../utils/chain-utils';
 import type { DatabaseManager } from '../database/sqlite-schema';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('CampaignEstimator');
 
 export interface EstimateRequest {
   chain: string;
@@ -72,7 +75,7 @@ export class CampaignEstimator {
 
       return this.estimateEVM(request);
     } catch (error) {
-      console.error('Failed to estimate campaign:', error);
+      logger.error('[CampaignEstimator] Failed to estimate campaign', error as Error, { chain: request.chain });
       throw new Error('Campaign estimation failed');
     }
   }
@@ -108,7 +111,10 @@ export class CampaignEstimator {
         isEIP1559 = gasData.isEIP1559;
 
               } catch (error) {
-        console.warn(`⚠️  [CampaignEstimator] Failed to get RPC gas price, using fallback:`, error);
+        logger.warn('[CampaignEstimator] Failed to get RPC gas price, using fallback', {
+          chain: request.chain,
+          error: error instanceof Error ? error.message : String(error)
+        });
         const fallbackGasPrice = await this.gasService.getGasPrice(request.chain);
         gasPriceGwei = parseFloat(fallbackGasPrice);
               }
@@ -168,10 +174,10 @@ export class CampaignEstimator {
         },
       };
 
-      
+
       return result;
     } catch (error) {
-      console.error('Failed to estimate campaign:', error);
+      logger.error('[CampaignEstimator] Failed to estimate EVM campaign', error as Error, { chain: request.chain });
       throw new Error('Campaign estimation failed');
     }
   }
@@ -235,7 +241,7 @@ export class CampaignEstimator {
 
       return result;
     } catch (error) {
-      console.error('Failed to estimate Solana campaign:', error);
+      logger.error('[CampaignEstimator] Failed to estimate Solana campaign', error as Error, { chain: request.chain });
       throw new Error('Solana campaign estimation failed');
     }
   }
@@ -322,7 +328,7 @@ export class CampaignEstimator {
         totalWithBuffer: total.toFixed(6),
       };
     } catch (error) {
-      console.error('Failed to estimate token amount:', error);
+      logger.error('[CampaignEstimator] Failed to estimate token amount', error as Error, { totalAmount, bufferPercentage });
       throw new Error('Token amount estimation failed');
     }
   }

@@ -5,6 +5,9 @@ import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createTransferInstruction,
 import { PriceService } from './PriceService';
 import { ChainUtils } from '../utils/chain-utils';
 import type { DatabaseManager } from '../database/sqlite-schema';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('BlockchainService');
 
 export interface BalanceData {
   native: string;
@@ -58,7 +61,7 @@ export class BlockchainService {
         return await this.getEVMBalance(address, chain, tokenAddress, tokenDecimals, rpcUrl);
       }
     } catch (error) {
-      console.error('Failed to get balance:', error);
+      logger.error('Failed to get balance', error as Error, { address, chain, tokenAddress });
       throw new Error('Balance retrieval failed');
     }
   }
@@ -171,7 +174,7 @@ export class BlockchainService {
           tokenBalance = '0';
         }
       } catch (error) {
-        console.error('Failed to get SPL token balance:', error);
+        logger.error('Failed to get SPL token balance', error as Error, { tokenAddress, address });
         tokenBalance = '0';
       }
     }
@@ -305,7 +308,7 @@ export class BlockchainService {
         }
       };
     } catch (error) {
-      console.error('Failed to get dynamic Solana gas estimation:', error);
+      logger.error('Failed to get dynamic Solana gas estimation', error as Error);
       // Fallback to static estimation
       const baseFeePerSignature = BigInt(DEFAULTS.SOLANA_FEES.base_fee_per_signature);
       const totalLamports = baseFeePerSignature * BigInt(transactionCount * 3); // 更保守的估算
@@ -350,7 +353,7 @@ export class BlockchainService {
         }
       }
     } catch (error) {
-      console.warn('[BlockchainService] Failed to get RPC URL from database:', error);
+      logger.warn('Failed to get RPC URL from database', { chain, error: error instanceof Error ? error.message : String(error) });
     }
 
     // Fallback RPC URLs
@@ -474,7 +477,7 @@ export class BlockchainService {
         const tx = await connection.getTransaction(signature);
         blockNumber = tx?.slot;
       } catch (error) {
-        console.error('Failed to get block number:', error);
+        logger.error('Failed to get block number', error as Error);
       }
     }
 
@@ -516,7 +519,7 @@ export class BlockchainService {
         // 等待下次检查
         await new Promise(resolve => setTimeout(resolve, checkInterval));
       } catch (error) {
-        console.error('Error checking transaction status:', error);
+        logger.error('Error checking transaction status', error as Error, { txHash });
         await new Promise(resolve => setTimeout(resolve, checkInterval));
       }
     }
@@ -601,7 +604,7 @@ export class BlockchainService {
         amount: amountFormatted
       };
     } catch (error) {
-      console.error('[BlockchainService] Failed to withdraw SPL tokens:', error);
+      logger.error('Failed to withdraw SPL tokens', error as Error, { tokenMintAddress, recipientAddress });
       throw new Error(`Failed to withdraw SPL tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -698,7 +701,7 @@ export class BlockchainService {
         amount: amountInSOL
       };
     } catch (error) {
-      console.error('[BlockchainService] Failed to withdraw SOL:', error);
+      logger.error('Failed to withdraw SOL', error as Error, { recipientAddress });
       throw new Error(`Failed to withdraw SOL: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

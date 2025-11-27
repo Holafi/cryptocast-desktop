@@ -279,32 +279,36 @@ export class DatabaseManager {
     console.log('[Database] Creating indexes...');
 
     await this.db.exec(`
-      -- Campaign indexes
+      -- Campaign indexes for common queries
       CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
       CREATE INDEX IF NOT EXISTS idx_campaigns_chain ON campaigns(chain_type, chain_id);
-      CREATE INDEX IF NOT EXISTS idx_campaigns_created_at ON campaigns(created_at);
+      CREATE INDEX IF NOT EXISTS idx_campaigns_created_at ON campaigns(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_campaigns_status_updated ON campaigns(status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_campaigns_chain_status ON campaigns(chain_id, status);
 
-      -- Recipient indexes
+      -- Recipient indexes for batch processing and status tracking
       CREATE INDEX IF NOT EXISTS idx_recipients_campaign_id ON recipients(campaign_id);
       CREATE INDEX IF NOT EXISTS idx_recipients_status ON recipients(status);
       CREATE INDEX IF NOT EXISTS idx_recipients_address ON recipients(address);
       CREATE INDEX IF NOT EXISTS idx_recipients_campaign_status_created ON recipients(campaign_id, status, created_at);
       CREATE INDEX IF NOT EXISTS idx_recipients_campaign_status_id ON recipients(campaign_id, status, id);
       CREATE INDEX IF NOT EXISTS idx_recipients_batch_number ON recipients(campaign_id, batch_number);
+      CREATE INDEX IF NOT EXISTS idx_recipients_tx_hash ON recipients(tx_hash) WHERE tx_hash IS NOT NULL;
 
-      -- Transaction indexes
+      -- Transaction indexes for lookups and filtering
       CREATE INDEX IF NOT EXISTS idx_transactions_campaign_id ON transactions(campaign_id);
       CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
-      CREATE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(tx_hash);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(tx_hash);
       CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(tx_type);
+      CREATE INDEX IF NOT EXISTS idx_transactions_campaign_created ON transactions(campaign_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_transactions_status_created ON transactions(status, created_at DESC);
 
       -- Chain indexes
       CREATE INDEX IF NOT EXISTS idx_chains_type ON chains(type);
       CREATE INDEX IF NOT EXISTS idx_chains_chain_id ON chains(chain_id);
-      CREATE INDEX IF NOT EXISTS idx_chains_name ON chains(name);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_chains_name ON chains(name);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_chains_name_unique ON chains(name);
 
-      -- Price history indexes
+      -- Price history indexes for time-series queries
       CREATE INDEX IF NOT EXISTS idx_price_symbol_timestamp ON price_history(symbol, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_price_timestamp ON price_history(timestamp DESC);
 
