@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-11-28
+
+### Added
+- **Centralized Configuration**: New constants module with unified management of magic numbers
+- **Enhanced Type System**: Comprehensive type safety improvements across frontend and backend
+- **Native Token Detection**: Automatic detection and validation for native tokens across chains
+
+### Changed
+- **Service Architecture**: Comprehensive refactoring of service layer for better performance
+- **UI Components**: Enhanced user experience with improved component reliability
+- **Build System**: Added Vite configuration for optimized development and production builds
+
+### Improved
+- **Contract Integration**: Optimized smart contract implementation for batch airdrops
+- **Wallet Management**: Enhanced blockchain service integration and wallet operations
+- **Campaign Tracking**: Better progress monitoring and data consistency validation
+
+---
+
 ## [1.3.0] - 2025-11-28
 
 ### Added
