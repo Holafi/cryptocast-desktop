@@ -7,15 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] - 2025-11-28
 
+### Added
+- **Data Consistency Validation**: New validation system for campaign progress tracking
+  - Validates counts between campaigns and recipients tables
+  - Displays warnings for any data inconsistencies
+  - Tracks differences in completed, failed, and total counts
+  - Ensures data integrity across the campaign management system
+
 ### Changed
 - **CI/CD Workflow**: Optimized macOS build configuration for better native module compatibility
   - Intel (x64) builds now use `macos-13` runner for native architecture compilation
   - Apple Silicon (arm64) builds now use `macos-14` runner for ARM64 native compilation
   - Ensures proper native module compilation (sqlite3, sharp) on correct platforms
   - Improves backward compatibility for Intel builds and native performance for ARM64
+- **Campaign Progress Tracking**: Refactored to use single source of truth
+  - Progress counts now calculated from recipients table aggregation
+  - Automatic tracking of completed and failed counts
+  - Improved data consistency and accuracy
 
 ### Fixed
 - **Dependencies**: Regenerated package-lock.json for consistent dependency resolution across environments
+- **Page Refresh UX**: Eliminated flickering during campaign execution
+  - Implemented silent refresh mode for background data updates
+  - Preserves scroll position and UI state during auto-refresh
+  - Smooth real-time progress updates without page interruption
+  - Only shows loading state on initial page load
 
 ## [1.2.0] - 2025-11-27
 
