@@ -181,8 +181,10 @@ export default function CampaignDetail() {
     return warnings;
   };
 
-  const loadCampaign = async () => {
-    setLoading(true);
+  const loadCampaign = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       if (!id || id === 'undefined') {
         throw new Error('Campaign ID is required');
@@ -287,9 +289,13 @@ export default function CampaignDetail() {
 
     } catch (error) {
       console.error('Failed to load campaign:', error);
-      alert('加载活动详情失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      if (!silent) {
+        alert('加载活动详情失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -359,12 +365,12 @@ export default function CampaignDetail() {
           // Pause campaign
           await window.electronAPI.campaign.pause(id);
           alert('活动已暂停');
-          await loadCampaign(); // Reload to get updated status
+          await loadCampaign(true); // Silent refresh after pause
         } else if (campaign.status === 'PAUSED') {
           // Resume campaign
           await window.electronAPI.campaign.resume(id);
           alert('活动已恢复');
-          await loadCampaign(); // Reload to get updated status
+          await loadCampaign(true); // Silent refresh after resume
         }
       }
     } catch (error) {
@@ -390,8 +396,8 @@ export default function CampaignDetail() {
         console.log('Campaign started successfully');
 
         // 成功启动后重新加载活动状态
-        await loadCampaign();
-        alert('活动已开始发送！页面将每5秒自动刷新状态。');
+        await loadCampaign(true); // Silent refresh after start
+        alert('活动已开始发送！页面将自动刷新状态。');
       }
     } catch (error) {
       console.error('Failed to start campaign:', error);
@@ -484,7 +490,7 @@ export default function CampaignDetail() {
 
         // 刷新活动状态
         setTimeout(async () => {
-          await loadCampaign();
+          await loadCampaign(true); // Silent refresh after deployment
           await refreshBalances();
         }, 1000);
 
@@ -509,7 +515,7 @@ export default function CampaignDetail() {
       if (window.electronAPI?.campaign) {
         const result = await window.electronAPI.campaign.retryFailedTransactions(id);
         alert(result.message || '重试设置成功');
-        await loadCampaign(); // Reload to get updated status
+        await loadCampaign(true); // Silent refresh after retry
         await loadRecipients(); // Reload recipients to reflect the changes
       }
     } catch (error) {
@@ -1024,7 +1030,7 @@ export default function CampaignDetail() {
 
     if (refreshInterval) {
       const interval = setInterval(() => {
-        loadCampaign(); // loadCampaign includes refreshBalances call
+        loadCampaign(true); // Silent refresh - updates data without loading state
       }, refreshInterval);
 
       return () => clearInterval(interval);
@@ -1088,7 +1094,7 @@ export default function CampaignDetail() {
                 if (!id) return;
                 try {
                   await window.electronAPI.campaign.updateStatus(id, 'READY');
-                  await loadCampaign();
+                  await loadCampaign(true); // Silent refresh after status update
                   alert('活动已标记为就绪状态！');
                 } catch (error) {
                   console.error('Failed to update status:', error);
