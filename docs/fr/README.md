@@ -125,7 +125,7 @@ Comme l'application n'est pas signée par code, le système d'exploitation peut 
 
 ### Prérequis
 
-- Node.js 24+
+- Node.js 18+
 - npm (ou yarn/pnpm)
 - Git
 
@@ -230,7 +230,7 @@ cryptocast-desktop/
 - **React Router** : Routage
 
 ### ⚙️ Backend & Cœur d'Application
-- **Node.js 24+** : Environnement d'exécution
+- **Node.js 18+** : Environnement d'exécution
 - **Electron 39.2.2** : Framework d'application bureau multi-plateforme
 - **SQLite** : Base de données locale
 - **TypeScript 5.7.3** : Système de types

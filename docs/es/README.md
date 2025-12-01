@@ -128,7 +128,7 @@ As the application is not code-signed, the operating system may block it from ru
 
 ### Prerequisites
 
-- Node.js 24+
+- Node.js 18+
 - npm (or yarn/pnpm)
 - Git
 
@@ -233,7 +233,7 @@ cryptocast-desktop/
 - **React Router**: Routing
 
 ### ⚙️ Backend & Application Core
-- **Node.js 24+**: Runtime environment
+- **Node.js 18+**: Runtime environment
 - **Electron 39.2.2**: Cross-platform desktop application framework
 - **SQLite**: Local database
 - **TypeScript 5.7.3**: Type system

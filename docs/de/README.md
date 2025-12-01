@@ -125,7 +125,7 @@ Da die Anwendung nicht code-signiert ist, könnte das Betriebssystem die Ausfüh
 
 ### Voraussetzungen
 
-- Node.js 24+
+- Node.js 18+
 - npm (oder yarn/pnpm)
 - Git
 
@@ -230,7 +230,7 @@ cryptocast-desktop/
 - **React Router**: Routing
 
 ### ⚙️ Backend & Anwendungskern
-- **Node.js 24+**: Laufzeitumgebung
+- **Node.js 18+**: Laufzeitumgebung
 - **Electron 39.2.2**: Cross-Plattform Desktop-Anwendungsframework
 - **SQLite**: Lokale Datenbank
 - **TypeScript 5.7.3**: Typsystem

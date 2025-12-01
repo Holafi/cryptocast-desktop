@@ -125,7 +125,7 @@ CryptoCast Desktopは、マーケティングキャンペーン、エアドロ�
 
 ### 前提条件
 
-- Node.js 24+
+- Node.js 18+
 - npm（またはyarn/pnpm）
 - Git
 
@@ -230,7 +230,7 @@ cryptocast-desktop/
 - **React Router**: ルーティング
 
 ### ⚙️ バックエンドとアプリケーションコア
-- **Node.js 24+**: ランタイム環境
+- **Node.js 18+**: ランタイム環境
 - **Electron 39.2.2**: クロスプラットフォームデスクトップアプリケーションフレームワーク
 - **SQLite**: ローカルデータベース
 - **TypeScript 5.7.3**: 型システム
