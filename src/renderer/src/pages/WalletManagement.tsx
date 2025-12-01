@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityWallet,
   WalletBalance,
@@ -10,6 +11,7 @@ import { isSolanaChain, exportPrivateKey, getChainDisplayName, getChainDisplayBa
 
 export default function WalletManagement() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [wallets, setWallets] = useState<ActivityWallet[]>([]);
   const [totalWallets, setTotalWallets] = useState(0);
   const [chains, setChains] = useState<ChainInfo[]>([]);
@@ -81,7 +83,7 @@ export default function WalletManagement() {
 
   const handleExportWallet = async (wallet: ActivityWallet) => {
     if (!wallet.privateKeyBase64) {
-      alert('该钱包没有可导出的私钥');
+      alert(t('wallet.noPrivateKey'));
       return;
     }
 
@@ -98,7 +100,7 @@ export default function WalletManagement() {
       setCopied(false);
     } catch (error) {
       console.error('Failed to export wallet:', error);
-      alert('获取私钥失败，请重试');
+      alert(t('wallet.exportFailed'));
     }
   };
 
@@ -126,24 +128,24 @@ export default function WalletManagement() {
     const upperStatus = status.toUpperCase();
     switch (upperStatus) {
       case 'CREATED':
-        return <div className="badge badge-warning gap-1">📝 已创建</div>;
+        return <div className="badge badge-warning gap-1">📝 {t('status.created')}</div>;
       case 'FUNDED':
-        return <div className="badge badge-info gap-1">💰 已充值</div>;
+        return <div className="badge badge-info gap-1">💰 {t('history.funded')}</div>;
       case 'READY':
-        return <div className="badge badge-primary gap-1">✅ 准备就绪</div>;
+        return <div className="badge badge-primary gap-1">✅ {t('wallet.statusReady')}</div>;
       case 'SENDING':
-        return <div className="badge badge-info gap-1">🔄 发送中</div>;
+        return <div className="badge badge-info gap-1">🔄 {t('status.sending')}</div>;
       case 'PAUSED':
-        return <div className="badge badge-warning gap-1">⏸️ 已暂停</div>;
+        return <div className="badge badge-warning gap-1">⏸️ {t('history.paused')}</div>;
       case 'COMPLETED':
-        return <div className="badge badge-success gap-1">✅ 已完成</div>;
+        return <div className="badge badge-success gap-1">✅ {t('status.success')}</div>;
       case 'FAILED':
-        return <div className="badge badge-error gap-1">❌ 已失败</div>;
+        return <div className="badge badge-error gap-1">❌ {t('status.failed')}</div>;
       // Fallback for lowercase values
       case 'ACTIVE':
-        return <div className="badge badge-info gap-1">🔄 进行中</div>;
+        return <div className="badge badge-info gap-1">🔄 {t('wallet.statusActive')}</div>;
       case 'PENDING':
-        return <div className="badge badge-warning gap-1">⏳ 待充值</div>;
+        return <div className="badge badge-warning gap-1">⏳ {t('wallet.statusPending')}</div>;
       default:
         return <div className="badge badge-neutral gap-1">📋 {status}</div>;
     }
@@ -170,14 +172,14 @@ export default function WalletManagement() {
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
           <span className="text-3xl">👛</span>
-          <h1 className="text-2xl font-bold">钱包管理</h1>
+          <h1 className="text-2xl font-bold">{t('wallet.management')}</h1>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => navigate('/')}
             className="btn btn-ghost"
           >
-            ← 返回仪表盘
+            ← {t('wallet.backToDashboard')}
           </button>
         </div>
       </div>
@@ -188,9 +190,9 @@ export default function WalletManagement() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
         <div>
-          <h3 className="font-bold">活动钱包管理说明</h3>
+          <h3 className="font-bold">{t('wallet.activityWalletManagement')}</h3>
           <div className="text-sm">
-            系统为每个活动创建独立的钱包，确保隐私和安全性。使用外部钱包（如 MetaMask）为活动钱包充值。活动完成后，可以手动导出私钥以恢复剩余资金。
+            {t('wallet.activityWalletDesc')}
           </div>
         </div>
       </div>
@@ -201,23 +203,23 @@ export default function WalletManagement() {
           <div className="stat-figure text-primary">
             👛
           </div>
-          <div className="stat-title">活动钱包总数</div>
+          <div className="stat-title">{t('wallet.totalWallets')}</div>
           <div className="stat-value text-primary">{totalWallets}</div>
-          <div className="stat-desc text-info">所有活动钱包</div>
+          <div className="stat-desc text-info">{t('wallet.allActivityWallets')}</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
           <div className="stat-figure text-success">
             ✅
           </div>
-          <div className="stat-title">活跃钱包</div>
+          <div className="stat-title">{t('wallet.activeWallets')}</div>
           <div className="stat-value text-success">
             {wallets.filter(w => {
               const status = w.status.toUpperCase();
               return status === 'SENDING' || status === 'FUNDED' || status === 'READY' || status === 'ACTIVE';
             }).length}
           </div>
-          <div className="stat-desc text-success">当前页进行中</div>
+          <div className="stat-desc text-success">{t('wallet.inProgressCurrentPage')}</div>
         </div>
       </div>
 
@@ -227,10 +229,10 @@ export default function WalletManagement() {
           <table className="table table-zebra">
             <thead>
               <tr>
-                <th className="bg-base-200">活动名称</th>
-                <th className="bg-base-200">钱包地址</th>
-                <th className="bg-base-200">区块链网络</th>
-                <th className="bg-base-200 text-center">操作</th>
+                <th className="bg-base-200">{t('wallet.campaignName')}</th>
+                <th className="bg-base-200">{t('wallet.walletAddress')}</th>
+                <th className="bg-base-200">{t('wallet.blockchainNetwork')}</th>
+                <th className="bg-base-200 text-center">{t('wallet.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -253,7 +255,7 @@ export default function WalletManagement() {
                           // 使用 toast 替代 alert
                         }}
                         className="btn btn-ghost btn-xs"
-                        title="复制地址"
+                        title={t('wallet.copyAddress')}
                       >
                         📋
                       </button>
@@ -272,13 +274,13 @@ export default function WalletManagement() {
                         onClick={() => handleViewDetails(wallet)}
                         className="btn btn-ghost btn-xs"
                       >
-                        👁️ 详情
+                        👁️ {t('wallet.details')}
                       </button>
                       <button
                         onClick={() => handleExportWallet(wallet)}
                         className="btn btn-ghost btn-xs"
                       >
-                        🔑 导出
+                        🔑 {t('wallet.export')}
                       </button>
                     </div>
                   </td>
@@ -325,7 +327,7 @@ export default function WalletManagement() {
           </div>
 
           <div className="ml-4 text-sm text-base-content/60">
-            显示 {startIndex + 1}-{endIndex} / 共 {totalWallets} 个钱包
+            {t('wallet.showing')} {startIndex + 1}-{endIndex} / {t('wallet.total')} {totalWallets} {t('wallet.wallets')}
           </div>
         </div>
       )}
@@ -336,13 +338,13 @@ export default function WalletManagement() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
         </svg>
         <div>
-          <h3 className="font-bold">安全提示</h3>
+          <h3 className="font-bold">{t('wallet.securityTips')}</h3>
           <div className="text-sm">
             <ul className="list-disc list-inside space-y-1 mt-2">
-              <li>每个活动使用独立钱包，防止地址关联分析</li>
-              <li>私钥以加密格式存储在本地数据库中</li>
-              <li>活动结束后建议及时回收剩余资金</li>
-              <li>不要在公共电脑上使用本应用</li>
+              <li>{t('wallet.securityTip1')}</li>
+              <li>{t('wallet.securityTip2')}</li>
+              <li>{t('wallet.securityTip3')}</li>
+              <li>{t('wallet.securityTip4')}</li>
             </ul>
           </div>
         </div>
@@ -354,7 +356,7 @@ export default function WalletManagement() {
           <div className="modal-box max-w-2xl">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <span>🔑</span>
-              <span>导出私钥</span>
+              <span>{t('wallet.exportPrivateKey')}</span>
             </h3>
 
             {/* Warning Alert */}
@@ -363,14 +365,14 @@ export default function WalletManagement() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
               <span className="text-sm">
-                <strong>安全警告：</strong>私钥拥有您钱包的完全控制权，请妥善保管，切勿分享给他人！
+                <strong>{t('wallet.securityWarning')}</strong>{t('wallet.securityWarningText')}
               </span>
             </div>
 
             {/* Wallet Address */}
             <div className="mb-4">
               <label className="label">
-                <span className="label-text font-semibold">钱包地址</span>
+                <span className="label-text font-semibold">{t('wallet.walletAddress')}</span>
               </label>
               <div className="flex gap-2">
                 <div className="flex-1 bg-base-200 px-4 py-3 rounded-lg font-mono text-sm break-all">
@@ -379,7 +381,7 @@ export default function WalletManagement() {
                 <button
                   onClick={handleCopyAddress}
                   className="btn btn-square btn-outline"
-                  title="复制地址"
+                  title={t('wallet.copyAddress')}
                 >
                   📋
                 </button>
@@ -389,7 +391,7 @@ export default function WalletManagement() {
             {/* Private Key */}
             <div className="mb-6">
               <label className="label">
-                <span className="label-text font-semibold">私钥 (Private Key)</span>
+                <span className="label-text font-semibold">{t('wallet.privateKey')}</span>
               </label>
               <div className="flex gap-2">
                 <div className="flex-1 bg-error/10 border-2 border-error/30 px-4 py-3 rounded-lg font-mono text-sm break-all">
@@ -398,7 +400,7 @@ export default function WalletManagement() {
                 <button
                   onClick={handleCopyPrivateKey}
                   className={`btn btn-square ${copied ? 'btn-success' : 'btn-error'}`}
-                  title="复制私钥"
+                  title={t('wallet.copyPrivateKey')}
                 >
                   {copied ? '✓' : '📋'}
                 </button>
@@ -406,28 +408,28 @@ export default function WalletManagement() {
               {copied && (
                 <div className="text-success text-sm mt-2 flex items-center gap-1">
                   <span>✓</span>
-                  <span>私钥已复制到剪贴板</span>
+                  <span>{t('wallet.privateKeyCopied')}</span>
                 </div>
               )}
             </div>
 
             {/* Security Tips */}
             <div className="bg-base-200 p-4 rounded-lg mb-4">
-              <h4 className="font-semibold mb-2 text-sm">安全提示</h4>
+              <h4 className="font-semibold mb-2 text-sm">{t('wallet.securityTipsTitle')}</h4>
               <ul className="text-sm space-y-1 text-base-content/80">
-                <li>• EVM私钥可以导入到 MetaMask、Trust Wallet 等钱包</li>
-                <li>• Solana私钥为64字节数组格式，可导入到 Phantom、Solflare 等钱包</li>
-                <li>• 格式示例：[135,23,98,189,91,220,102,232,69,78,173,75,129,198,30,190,...]</li>
-                <li>• 请将私钥保存在安全的地方（如密码管理器）</li>
-                <li>• 不要截图或通过互联网传输私钥</li>
-                <li>• 任何拥有私钥的人都可以控制钱包资金</li>
+                <li>• {t('wallet.securityTipEVM')}</li>
+                <li>• {t('wallet.securityTipSolana')}</li>
+                <li>• {t('wallet.securityTipFormat')}</li>
+                <li>• {t('wallet.securityTipSave')}</li>
+                <li>• {t('wallet.securityTipNoScreenshot')}</li>
+                <li>• {t('wallet.securityTipControl')}</li>
               </ul>
             </div>
 
             {/* Modal Actions */}
             <div className="modal-action">
               <button onClick={handleCloseModal} className="btn btn-primary">
-                我已安全保存
+                {t('wallet.savedSecurely')}
               </button>
             </div>
           </div>

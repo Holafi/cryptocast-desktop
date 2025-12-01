@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCampaign } from '../contexts/CampaignContext';
 import { Campaign, CampaignStatus, EVMChain, ChainInfo } from '../types';
 import { isSolanaChain, getChainType, getChainDisplayName, getChainDisplayBadge } from '../utils/chainTypeUtils';
@@ -18,6 +19,7 @@ interface HistoryFilters {
 
 export default function History() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { state, actions } = useCampaign();
   const [filters, setFilters] = useState<HistoryFilters>({
     timeRange: 'all',
@@ -210,19 +212,19 @@ export default function History() {
     const baseClasses = "badge gap-1 text-xs font-medium px-3 py-2";
     switch (status) {
       case 'COMPLETED':
-        return <div className={`${baseClasses} bg-green-100 text-green-800 border-green-200`}>✅ 已完成</div>;
+        return <div className={`${baseClasses} bg-green-100 text-green-800 border-green-200`}>✅ {t('history.completed')}</div>;
       case 'FAILED':
-        return <div className={`${baseClasses} bg-red-100 text-red-800 border-red-200`}>❌ 已失败</div>;
+        return <div className={`${baseClasses} bg-red-100 text-red-800 border-red-200`}>❌ {t('history.failed')}</div>;
       case 'SENDING':
-        return <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>🔄 发送中</div>;
+        return <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>🔄 {t('status.sending')}</div>;
       case 'PAUSED':
-        return <div className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200`}>⏸️ 暂停</div>;
+        return <div className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200`}>⏸️ {t('history.paused')}</div>;
       case 'READY':
-        return <div className={`${baseClasses} bg-orange-100 text-orange-800 border-orange-200`}>⚡ 就绪</div>;
+        return <div className={`${baseClasses} bg-orange-100 text-orange-800 border-orange-200`}>⚡ {t('status.ready')}</div>;
       case 'FUNDED':
-        return <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>💰 已充值</div>;
+        return <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>💰 {t('history.funded')}</div>;
       default:
-        return <div className={`${baseClasses} bg-gray-100 text-gray-600 border-gray-200`}>📝 已创建</div>;
+        return <div className={`${baseClasses} bg-gray-100 text-gray-600 border-gray-200`}>📝 {t('status.created')}</div>;
     }
   };
 
@@ -303,7 +305,7 @@ export default function History() {
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
           <span className="text-3xl">📜</span>
-          <h1 className="text-2xl font-bold">历史记录</h1>
+          <h1 className="text-2xl font-bold">{t('history.title')}</h1>
           {state.isLoading && (
             <span className="loading loading-spinner loading-sm"></span>
           )}
@@ -312,7 +314,7 @@ export default function History() {
             onClick={() => navigate('/')}
             className="btn btn-sm btn-ghost"
           >
-            ← 返回仪表盘
+            ← {t('history.backToDashboard')}
           </button>
       </div>
 
@@ -322,33 +324,33 @@ export default function History() {
           <div className="stat-figure text-primary">
             📋
           </div>
-          <div className="stat-title">历史总活动</div>
+          <div className="stat-title">{t('history.totalHistorical')}</div>
           <div className="stat-value text-primary">{displayCampaigns.length}</div>
-          <div className="stat-desc text-info">累计创建</div>
+          <div className="stat-desc text-info">{t('history.totalCreated')}</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
           <div className="stat-figure text-secondary">
             👥
           </div>
-          <div className="stat-title">总发送地址</div>
+          <div className="stat-title">{t('history.totalRecipients')}</div>
           <div className="stat-value text-secondary">
             {formatNumber(displayCampaigns.reduce((sum, c) => sum + (c.totalRecipients || 0), 0))}
           </div>
-          <div className="stat-desc text-secondary">所有活动</div>
+          <div className="stat-desc text-secondary">{t('history.allActivities')}</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
           <div className="stat-figure text-success">
             ✅
           </div>
-          <div className="stat-title">平均成功率</div>
+          <div className="stat-title">{t('history.averageSuccessRate')}</div>
           <div className="stat-value text-success">{averageSuccessRate.toFixed(1)}%</div>
           <div className="stat-desc">
             <div className="flex items-center gap-2">
               <progress className="progress progress-success w-20" value={averageSuccessRate} max="100"></progress>
               <span className="text-xs text-success">
-                {averageSuccessRate >= 95 ? '优秀' : averageSuccessRate >= 80 ? '良好' : averageSuccessRate >= 60 ? '一般' : '待改进'}
+                {averageSuccessRate >= 95 ? t('history.excellent') : averageSuccessRate >= 80 ? t('history.good') : averageSuccessRate >= 60 ? t('history.fair') : t('history.needsImprovement')}
               </span>
             </div>
           </div>
@@ -360,39 +362,39 @@ export default function History() {
         <div className="card-body">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-lg">🔍</span>
-            <h2 className="text-lg font-semibold">筛选条件</h2>
+            <h2 className="text-lg font-semibold">{t('history.filterConditions')}</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Time Range Filter */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">时间范围</span>
+                <span className="label-text font-medium">{t('history.timeRange')}</span>
               </label>
               <select
                 value={filters.timeRange}
                 onChange={(e) => setFilters({ ...filters, timeRange: e.target.value as any })}
                 className="select select-bordered"
               >
-                <option value="all">全部时间</option>
-                <option value="today">今天</option>
-                <option value="week">本周</option>
-                <option value="month">本月</option>
-                <option value="custom">自定义</option>
+                <option value="all">{t('history.allTime')}</option>
+                <option value="today">{t('history.today')}</option>
+                <option value="week">{t('history.thisWeek')}</option>
+                <option value="month">{t('history.thisMonth')}</option>
+                <option value="custom">{t('history.custom')}</option>
               </select>
             </div>
 
             {/* Chain Filter */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">区块链</span>
+                <span className="label-text font-medium">{t('history.blockchain')}</span>
               </label>
               <select
                 value={filters.chain}
                 onChange={(e) => setFilters({ ...filters, chain: e.target.value })}
                 className="select select-bordered"
               >
-                <option value="all">所有链</option>
+                <option value="all">{t('history.allChains')}</option>
                 {chains.map((chain) => (
                   <option key={chain.name} value={chain.name}>
                     {getChainIcon(chain.name)} {chain.name}
@@ -404,31 +406,31 @@ export default function History() {
             {/* Status Filter */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">状态</span>
+                <span className="label-text font-medium">{t('history.status')}</span>
               </label>
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
                 className="select select-bordered"
               >
-                <option value="all">全部状态</option>
-                <option value="COMPLETED">✅ 已完成</option>
-                <option value="FAILED">❌ 已失败</option>
-                <option value="SENDING">🔄 发送中</option>
-                <option value="PAUSED">⏸️ 已暂停</option>
+                <option value="all">{t('history.allStatus')}</option>
+                <option value="COMPLETED">✅ {t('history.completed')}</option>
+                <option value="FAILED">❌ {t('history.failed')}</option>
+                <option value="SENDING">🔄 {t('status.sending')}</option>
+                <option value="PAUSED">⏸️ {t('history.paused')}</option>
               </select>
             </div>
 
             {/* Search */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">搜索</span>
+                <span className="label-text font-medium">{t('history.search')}</span>
               </label>
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                placeholder="输入活动名称..."
+                placeholder={t('history.searchPlaceholder')}
                 className="input input-bordered"
               />
             </div>
@@ -439,13 +441,13 @@ export default function History() {
           <div className="collapse collapse-arrow bg-base-200 mt-4">
             <input type="checkbox" defaultChecked />
             <div className="collapse-title text-sm font-medium">
-              自定义日期范围
+              {t('history.customDateRange')}
             </div>
             <div className="collapse-content">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">开始日期</span>
+                    <span className="label-text">{t('history.startDate')}</span>
                   </label>
                   <input
                     type="date"
@@ -459,7 +461,7 @@ export default function History() {
                 </div>
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">结束日期</span>
+                    <span className="label-text">{t('history.endDate')}</span>
                   </label>
                   <input
                     type="date"
@@ -482,8 +484,8 @@ export default function History() {
       {/* Results Summary */}
       <div className="flex justify-start items-center mb-4">
         <div className="text-sm text-base-content/60">
-          显示 <span className="font-medium">{formatNumber(paginatedCampaigns.length)}</span> /{' '}
-          <span className="font-medium">{formatNumber(filteredCampaigns.length)}</span> 条记录
+          {t('history.showing')} <span className="font-medium">{formatNumber(paginatedCampaigns.length)}</span> /{' '}
+          <span className="font-medium">{formatNumber(filteredCampaigns.length)}</span> {t('history.records')}
         </div>
       </div>
 
@@ -493,12 +495,12 @@ export default function History() {
           <table className="table-zebra table-hover">
             <thead>
               <tr>
-                <th className="bg-base-200 font-semibold text-sm w-2/5 px-4 py-3">名称</th>
-                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">链</th>
-                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">状态</th>
-                <th className="bg-base-200 font-semibold text-sm text-right w-1/6 px-3 py-3">地址数</th>
-                <th className="bg-base-200 font-semibold text-sm w-1/5 px-3 py-3">创建时间</th>
-                <th className="bg-base-200 font-semibold text-sm text-center w-1/12 px-2 py-3">操作</th>
+                <th className="bg-base-200 font-semibold text-sm w-2/5 px-4 py-3">{t('history.name')}</th>
+                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">{t('history.chain')}</th>
+                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">{t('history.status')}</th>
+                <th className="bg-base-200 font-semibold text-sm text-right w-1/6 px-3 py-3">{t('history.addresses')}</th>
+                <th className="bg-base-200 font-semibold text-sm w-1/5 px-3 py-3">{t('history.createdAt')}</th>
+                <th className="bg-base-200 font-semibold text-sm text-center w-1/12 px-2 py-3">{t('history.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -506,8 +508,8 @@ export default function History() {
                 <tr>
                   <td colSpan={6} className="text-center py-16">
                     <div className="text-6xl mb-4">📭</div>
-                    <div className="text-lg font-medium mb-2">暂无活动记录</div>
-                    <div className="text-sm text-base-content/60">创建活动后将在此处显示</div>
+                    <div className="text-lg font-medium mb-2">{t('history.noRecords')}</div>
+                    <div className="text-sm text-base-content/60">{t('history.noRecordsDesc')}</div>
                   </td>
                 </tr>
               ) : (
@@ -525,7 +527,7 @@ export default function History() {
                     <td className="px-3 py-4 text-right">
                       <div className="font-medium text-base-content">{formatNumber(campaign.totalRecipients)}</div>
                       <div className="text-xs text-success mt-1">
-                        +{formatNumber(campaign.completedRecipients)} 成功
+                        +{formatNumber(campaign.completedRecipients)} {t('history.successful')}
                       </div>
                     </td>
                     <td className="px-3 py-4">
@@ -537,7 +539,7 @@ export default function History() {
                           onClick={() => navigate(`/campaign/${campaign.id}`)}
                           className="btn btn-ghost btn-xs text-xs hover:bg-blue-50 hover:text-blue-600 transition-colors"
                         >
-                          👁️ 详情
+                          👁️ {t('history.details')}
                         </button>
                       </div>
                     </td>
@@ -585,7 +587,7 @@ export default function History() {
           </div>
 
           <div className="ml-4 text-sm text-base-content/60">
-            第 {pagination.page} 页，共 {totalPages} 页
+            {t('history.page')} {pagination.page} {t('history.of')} {totalPages} {t('history.pages')}
           </div>
         </div>
       )}

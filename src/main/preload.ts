@@ -104,6 +104,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 应用信息
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+    getLocale: (): Promise<string> => ipcRenderer.invoke('app:getLocale'),
   },
 
   // 文件操作

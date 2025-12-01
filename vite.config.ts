@@ -10,6 +10,24 @@ export default defineConfig({
     outDir: 'dist/renderer',
     emptyOutDir: true,
     assetsDir: './assets',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+
+          // UI library chunks
+          ui: ['@heroicons/react', 'react-hook-form'],
+
+          // Utility chunks
+          utils: ['ethers', '@solana/web3.js', 'date-fns'],
+
+          // i18n chunk
+          i18n: ['react-i18next', 'i18next', 'i18next-browser-languagedetector'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 300, // Reduced from default 500 to aim for smaller chunks
   },
   server: {
     port: 5173,

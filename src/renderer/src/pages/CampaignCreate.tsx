@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCampaign } from '../contexts/CampaignContext';
 import { Campaign, CSVValidationResult, TokenInfo } from '../types';
 import { parseCSV } from '../utils/csvValidator';
@@ -26,6 +27,7 @@ interface ChainOption {
 
 export default function CampaignCreate() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { state, actions } = useCampaign();
   const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
@@ -70,16 +72,16 @@ export default function CampaignCreate() {
         if (tokenData) {
           setTokenInfo(tokenData);
         } else {
-          setTokenInfoError('无法获取代币信息，请检查合约地址是否正确');
+          setTokenInfoError(t('campaign.cannotGetTokenInfo'));
           setTokenInfo(null);
         }
       } else {
-        setTokenInfoError('Token API不可用');
+        setTokenInfoError(t('campaign.tokenAPINotAvailable'));
         setTokenInfo(null);
       }
     } catch (error) {
       console.error('获取代币信息失败:', error);
-      setTokenInfoError(`获取代币信息失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      setTokenInfoError(`${t('campaign.getTokenInfoFailed')}: ${error instanceof Error ? error.message : t('campaign.unknownError')}`);
       setTokenInfo(null);
     } finally {
       setIsFetchingToken(false);
@@ -203,7 +205,7 @@ export default function CampaignCreate() {
         const isValidAddress = validateAddressForChain(value, (selectedChain || {}) as any);
 
         if (!isValidAddress) {
-          setTokenAddressError('请输入有效的代币合约地址');
+          setTokenAddressError(t('campaign.pleaseInputValidAddress'));
           setTokenInfo(null);
           setTokenInfoError('');
         } else {
@@ -237,7 +239,7 @@ export default function CampaignCreate() {
           totalRecords: 0,
           validRecords: 0,
           invalidRecords: 0,
-          errors: [{ row: 0, field: 'address', value: '', error: 'CSV内容解析失败' }],
+          errors: [{ row: 0, field: 'address', value: '', error: t('campaign.csvParseFailed') }],
           sampleData: []
         });
       }
@@ -249,15 +251,15 @@ export default function CampaignCreate() {
 
   const validateForm = () => {
     if (!formData.name.trim()) {
-      alert('请输入活动名称');
+      alert(t('campaign.pleaseInputCampaignName'));
       return false;
     }
     if (!formData.chain) {
-      alert('请选择区块链网络');
+      alert(t('campaign.pleaseSelectBlockchain'));
       return false;
     }
     if (!formData.tokenAddress.trim()) {
-      alert('请输入代币合约地址');
+      alert(t('campaign.pleaseInputTokenAddress'));
       return false;
     }
     if (tokenAddressError) {
@@ -265,11 +267,11 @@ export default function CampaignCreate() {
       return false;
     }
     if (!csvContent.trim()) {
-      alert('请输入CSV内容');
+      alert(t('campaign.pleaseInputCSV'));
       return false;
     }
     if (!csvValidation?.isValid) {
-      alert('CSV内容格式不正确');
+      alert(t('campaign.csvFormatIncorrect'));
       return false;
     }
     return true;
@@ -298,12 +300,12 @@ export default function CampaignCreate() {
 
       if (window.electronAPI?.campaign) {
         const newCampaign = await window.electronAPI.campaign.create(campaignData);
-        alert('活动创建成功！');
+        alert(t('campaign.createSuccess'));
         navigate(`/campaign/${newCampaign.id}`);
       }
     } catch (error) {
       console.error('Failed to create campaign:', error);
-      alert(`创建失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      alert(`${t('campaign.createFailed')}: ${error instanceof Error ? error.message : t('campaign.unknownError')}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -311,7 +313,7 @@ export default function CampaignCreate() {
 
   const handleEstimate = async () => {
     if (!formData.chain || !formData.tokenAddress || !csvValidation?.isValid) {
-      alert('请先填写完整的表单信息并确保CSV数据有效');
+      alert(t('campaign.pleaseCompleteForm'));
       return;
     }
 
@@ -330,7 +332,7 @@ export default function CampaignCreate() {
       }
     } catch (error) {
       console.error('Failed to estimate campaign:', error);
-      alert(`估算失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      alert(`${t('campaign.estimateFailed')}: ${error instanceof Error ? error.message : t('campaign.unknownError')}`);
     } finally {
       setIsEstimating(false);
     }
@@ -351,13 +353,13 @@ export default function CampaignCreate() {
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
           <span className="text-3xl">📋</span>
-          <h1 className="text-2xl font-bold">创建新活动</h1>
+          <h1 className="text-2xl font-bold">{t('campaign.createNew')}</h1>
         </div>
         <button
           onClick={() => navigate('/')}
           className="btn btn-ghost btn-sm"
         >
-          ← 返回仪表盘
+          ← {t('campaign.backToDashboard')}
         </button>
       </div>
 
@@ -367,20 +369,20 @@ export default function CampaignCreate() {
           <input type="checkbox" defaultChecked className="min-w-fit" />
           <div className="collapse-title text-lg font-semibold flex items-center gap-3">
             <span className="text-xl">📋</span>
-            基本信息
+            {t('campaign.basicInfo')}
           </div>
           <div className="collapse-content">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
               <div>
                 <div className="mb-2">
-                  <span className="text-sm font-medium">活动名称 *</span>
+                  <span className="text-sm font-medium">{t('campaign.campaignNameLabel')}</span>
                 </div>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="例如：2025年营销活动"
+                  placeholder={t('campaign.campaignNamePlaceholder')}
                   className="input input-bordered w-full"
                   style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   required
@@ -389,7 +391,7 @@ export default function CampaignCreate() {
 
               <div>
                 <div className="mb-2">
-                  <span className="text-sm font-medium">区块链网络 *</span>
+                  <span className="text-sm font-medium">{t('campaign.blockchainNetwork')}</span>
                 </div>
                 <select
                   name="chain"
@@ -401,10 +403,10 @@ export default function CampaignCreate() {
                   disabled={chainsLoading}
                 >
                   {chainsLoading ? (
-                    <option value="">加载链配置中...</option>
+                    <option value="">{t('campaign.loadingChains')}</option>
                   ) : (
                     <>
-                      <option value="">请选择区块链网络</option>
+                      <option value="">{t('campaign.selectBlockchain')}</option>
                       {availableChains.map(chain => (
                         <option key={chain.id} value={chain.id}>
                           {chain.name} ({chain.symbol})
@@ -417,7 +419,7 @@ export default function CampaignCreate() {
                 {getSelectedChainType() === 'solana' && (
                   <div className="mt-2">
                     <span className="text-xs text-info">
-                      <strong>Solana网络提示：</strong>请确保使用Solana格式的地址和代币合约地址
+                      <strong>{t('campaign.solanaNetworkTip')}</strong>{t('campaign.solanaAddressTip')}
                     </span>
                   </div>
                 )}
@@ -425,7 +427,7 @@ export default function CampaignCreate() {
 
               <div className="md:col-span-2">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-medium">代币合约地址 *</span>
+                  <span className="text-sm font-medium">{t('campaign.tokenContractAddress')}</span>
                   {!isSolanaChain(formData.chain) && (
                     <button
                       type="button"
@@ -447,7 +449,7 @@ export default function CampaignCreate() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      使用原生代币
+                      {t('campaign.useNativeToken')}
                     </button>
                   )}
                 </div>
@@ -456,7 +458,7 @@ export default function CampaignCreate() {
                   name="tokenAddress"
                   value={formData.tokenAddress}
                   onChange={handleInputChange}
-                  placeholder="EVM: 0xA0b86a33E6447b4C4A0b2F9D6d2eEa6d1b7d94a2 或 Solana: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+                  placeholder={t('campaign.tokenAddressPlaceholder')}
                   className={`input input-bordered w-full font-mono ${tokenAddressError ? 'input-error' : ''}`}
                   style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   required
@@ -472,7 +474,7 @@ export default function CampaignCreate() {
                   <div className="mt-2">
                     <div className="flex items-center gap-2">
                       <span className="loading loading-spinner loading-xs"></span>
-                      <span className="text-xs text-info">正在获取代币信息...</span>
+                      <span className="text-xs text-info">{t('campaign.fetchingTokenInfo')}</span>
                     </div>
                   </div>
                 )}
@@ -493,13 +495,13 @@ export default function CampaignCreate() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs opacity-70">精度</div>
+                          <div className="text-xs opacity-70">{t('campaign.tokenInfoPrecision')}</div>
                           <div className="text-sm font-mono">{tokenInfo.decimals}</div>
                         </div>
                       </div>
                       <div className="mt-2 text-xs opacity-60">
                         <div className="flex items-center gap-1">
-                          <span>链类型: {tokenInfo.chainType === 'evm' ? 'EVM' : 'Solana'}</span>
+                          <span>{t('campaign.chainType')}: {tokenInfo.chainType === 'evm' ? 'EVM' : 'Solana'}</span>
                           <span>•</span>
                           <span className="font-mono">{tokenInfo.address.substring(0, 8)}...{tokenInfo.address.substring(tokenInfo.address.length - 6)}</span>
                         </div>
@@ -522,7 +524,7 @@ export default function CampaignCreate() {
 
               <div className="md:col-span-2">
                 <div className="mb-2">
-                  <span className="text-sm font-medium">活动描述</span>
+                  <span className="text-sm font-medium">{t('campaign.campaignDescription')}</span>
                 </div>
                 <textarea
                   name="description"
@@ -530,7 +532,7 @@ export default function CampaignCreate() {
                   onChange={handleInputChange}
                   className="textarea textarea-bordered h-24 w-full"
                   style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
-                  placeholder="描述此活动的目的和详情..."
+                  placeholder={t('campaign.descriptionPlaceholder')}
                 />
               </div>
             </div>
@@ -542,13 +544,13 @@ export default function CampaignCreate() {
           <input type="checkbox" defaultChecked className="min-w-fit" />
           <div className="collapse-title text-lg font-semibold flex items-center gap-3">
             <span className="text-xl">⚙️</span>
-            批量设置
+            {t('campaign.batchSettings')}
           </div>
           <div className="collapse-content">
             <div className="space-y-6 mt-4">
               <div>
                 <div className="mb-3">
-                  <span className="text-sm font-medium">每批处理地址数量</span>
+                  <span className="text-sm font-medium">{t('campaign.addressesPerBatch')}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {(() => {
@@ -587,7 +589,7 @@ export default function CampaignCreate() {
 
               <div>
                 <div className="mb-3">
-                  <span className="text-sm font-medium">批次发送间隔</span>
+                  <span className="text-sm font-medium">{t('campaign.batchSendInterval')}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {(() => {
@@ -597,11 +599,11 @@ export default function CampaignCreate() {
                     if (isSolana) {
                       // Solana网络 - 考虑到批量变小，总体需要更快频率来补偿
                       return [
-                        { value: '3000', label: '3秒' },
-                        { value: '5000', label: '5秒' },
-                        { value: '8000', label: '8秒' },
-                        { value: '10000', label: '10秒' },
-                        { value: '15000', label: '15秒' }
+                        { value: '3000', label: `3${t('campaign.seconds')}` },
+                        { value: '5000', label: `5${t('campaign.seconds')}` },
+                        { value: '8000', label: `8${t('campaign.seconds')}` },
+                        { value: '10000', label: `10${t('campaign.seconds')}` },
+                        { value: '15000', label: `15${t('campaign.seconds')}` }
                       ].map(interval => (
                         <button
                           key={interval.value}
@@ -615,11 +617,11 @@ export default function CampaignCreate() {
                     } else {
                       // EVM网络 - 保持原有设置
                       return [
-                        { value: '15000', label: '15秒' },
-                        { value: '20000', label: '20秒' },
-                        { value: '30000', label: '30秒' },
-                        { value: '45000', label: '45秒' },
-                        { value: '60000', label: '60秒' }
+                        { value: '15000', label: `15${t('campaign.seconds')}` },
+                        { value: '20000', label: `20${t('campaign.seconds')}` },
+                        { value: '30000', label: `30${t('campaign.seconds')}` },
+                        { value: '45000', label: `45${t('campaign.seconds')}` },
+                        { value: '60000', label: `60${t('campaign.seconds')}` }
                       ].map(interval => (
                         <button
                           key={interval.value}
@@ -637,7 +639,7 @@ export default function CampaignCreate() {
                 {availableChains.find(c => c.id === formData.chain)?.type === 'solana' && (
                   <div className="mt-2">
                     <span className="text-xs text-warning">
-                      <strong>⚡ Solana限制：</strong>每批支持5-10个地址（ATA创建和转账使用相同配置）
+                      <strong>⚡ {t('campaign.solanaLimit')}</strong>{t('campaign.solanaLimitDesc')}
                     </span>
                   </div>
                 )}
@@ -650,20 +652,20 @@ export default function CampaignCreate() {
           <input type="checkbox" defaultChecked className="min-w-fit" />
           <div className="collapse-title text-lg font-semibold flex items-center gap-3">
             <span className="text-xl">📁</span>
-            输入地址列表
+            {t('campaign.inputAddressList')}
           </div>
           <div className="collapse-content">
             <div className="space-y-6">
               <div>
                 <div className="mb-2">
-                  <span className="text-sm font-medium">CSV 内容 *</span>
+                  <span className="text-sm font-medium">{t('campaign.csvContent')}</span>
                 </div>
                 <textarea
                   value={csvContent}
                   onChange={handleCSVContentChange}
                   className="textarea textarea-bordered font-mono text-sm h-96 resize-none w-full"
                   style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
-                  placeholder="请粘贴CSV内容，格式：地址,金额&#10;&#10;示例（EVM地址）：&#10;0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,100.5&#10;0xdAC17F958D2ee523a2206206994597C13D831ec7,200&#10;&#10;示例（Solana地址）：&#10;7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU,50.25&#10;DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK,150"
+                  placeholder={t('campaign.csvPlaceholder')}
                   required
                 />
               </div>
@@ -671,7 +673,7 @@ export default function CampaignCreate() {
               {csvValidation && (
                 <div>
                   <div className="mb-2">
-                    <span className="text-sm font-medium">数据预览</span>
+                    <span className="text-sm font-medium">{t('campaign.dataPreview')}</span>
                   </div>
                   {csvValidation && csvValidation.isValid ? (
                     <div className="bg-base-200 rounded-lg p-4 h-96 overflow-auto">
@@ -682,8 +684,8 @@ export default function CampaignCreate() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                           </svg>
                           <div>
-                            <div className="font-bold text-sm">{csvValidation.invalidRecords} 行数据有误</div>
-                            <div className="text-xs">将只处理 {csvValidation.validRecords} 条有效记录</div>
+                            <div className="font-bold text-sm">{csvValidation.invalidRecords} {t('campaign.rowsWithErrors')}</div>
+                            <div className="text-xs">{t('campaign.willProcess')} {csvValidation.validRecords} {t('campaign.validRecords')}</div>
                           </div>
                         </div>
                       )}
@@ -691,12 +693,12 @@ export default function CampaignCreate() {
                       {/* 统计信息 */}
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         <div className="stat bg-base-200 rounded-lg p-4">
-                          <div className="stat-title text-xs">有效地址数</div>
+                          <div className="stat-title text-xs">{t('campaign.validAddresses')}</div>
                           <div className="stat-value text-2xl">{csvValidation.validRecords}</div>
                         </div>
 
                         <div className="stat bg-base-200 rounded-lg p-4">
-                          <div className="stat-title text-xs">总代币数</div>
+                          <div className="stat-title text-xs">{t('campaign.totalTokens')}</div>
                           <div className="stat-value text-2xl">
                             {csvData.reduce((sum, item) => {
                               return sum.plus(new BigNumber(item.amount || 0));
@@ -705,21 +707,21 @@ export default function CampaignCreate() {
                         </div>
 
                         <div className="stat bg-base-200 rounded-lg p-4">
-                          <div className="stat-title text-xs">批次数量</div>
+                          <div className="stat-title text-xs">{t('campaign.batchCount')}</div>
                           <div className="stat-value text-2xl">
                             {Math.ceil(csvValidation.validRecords / formData.batchSize)}
                           </div>
                         </div>
 
                         <div className="stat bg-base-200 rounded-lg p-4">
-                          <div className="stat-title text-xs">预估总时长</div>
+                          <div className="stat-title text-xs">{t('campaign.estimatedDuration')}</div>
                           <div className="stat-value text-2xl">
                             {(() => {
                               const batches = Math.ceil(csvValidation.validRecords / formData.batchSize);
                               const totalSeconds = (batches * parseInt(formData.sendInterval)) / 1000;
                               const minutes = Math.floor(totalSeconds / 60);
                               const seconds = Math.floor(totalSeconds % 60);
-                              return `${minutes}分${seconds}秒`;
+                              return `${minutes}${t('campaign.minutes')}${seconds}${t('campaign.seconds')}`;
                             })()}
                           </div>
                         </div>
@@ -731,23 +733,23 @@ export default function CampaignCreate() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-sm font-medium">
-                          {csvValidation.errors.length === 0 ? '数据验证通过' : '部分数据有效'}
+                          {csvValidation.errors.length === 0 ? t('campaign.dataValidationPassed') : t('campaign.partialDataValid')}
                         </span>
                       </div>
 
                       {/* 错误详情（如果有） */}
                       {csvValidation.errors.length > 0 && (
                         <div className="mt-4">
-                          <div className="text-xs font-bold mb-2">错误详情：</div>
+                          <div className="text-xs font-bold mb-2">{t('campaign.errorDetails')}</div>
                           <div className="space-y-1 max-h-32 overflow-auto">
                             {csvValidation.errors.slice(0, 10).map((error, index) => (
                               <div key={index} className="text-xs bg-error/10 text-error p-2 rounded">
-                                第{error.row}行 {error.field}: {error.error}
+                                {t('campaign.row')}{error.row}{t('campaign.line')} {error.field}: {error.error}
                               </div>
                             ))}
                             {csvValidation.errors.length > 10 && (
                               <div className="text-xs opacity-70 mt-1">
-                                ... 还有 {csvValidation.errors.length - 10} 个错误
+                                ... {t('campaign.moreErrors')} {csvValidation.errors.length - 10} {t('campaign.errors')}
                               </div>
                             )}
                           </div>
@@ -761,8 +763,8 @@ export default function CampaignCreate() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div>
-                          <div className="font-bold text-sm">没有有效数据</div>
-                          <div className="text-xs">请检查CSV格式是否正确</div>
+                          <div className="font-bold text-sm">{t('campaign.noValidData')}</div>
+                          <div className="text-xs">{t('campaign.checkCSVFormat')}</div>
                         </div>
                       </div>
                     </div>
@@ -779,7 +781,7 @@ export default function CampaignCreate() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <span className="text-xl">💰</span>
-                <h2 className="text-lg font-semibold">活动成本估算</h2>
+                <h2 className="text-lg font-semibold">{t('campaign.costEstimation')}</h2>
               </div>
               <button
                 type="button"
@@ -790,10 +792,10 @@ export default function CampaignCreate() {
                 {isEstimating ? (
                   <>
                     <span className="loading loading-spinner loading-xs"></span>
-                    估算中...
+                    {t('campaign.estimating')}
                   </>
                 ) : (
-                  '开始估算'
+                  t('campaign.startEstimate')
                 )}
               </button>
             </div>
@@ -866,7 +868,7 @@ export default function CampaignCreate() {
               </div>
             ) : (
               <div className="text-center py-8 text-base-content/60">
-                <p>点击"开始估算"按钮获取活动成本预估</p>
+                <p>{t('campaign.clickToEstimate')}</p>
               </div>
             )}
           </div>
@@ -880,7 +882,7 @@ export default function CampaignCreate() {
             onClick={() => navigate('/')}
             className="btn btn-ghost"
           >
-            取消
+            {t('campaign.cancel')}
           </button>
           <button
             type="submit"
@@ -890,10 +892,10 @@ export default function CampaignCreate() {
             {isSubmitting ? (
               <>
                 <span className="loading loading-spinner loading-sm"></span>
-                创建中...
+                {t('campaign.creating')}
               </>
             ) : (
-              '创建活动'
+              t('campaign.createCampaign')
             )}
           </button>
         </div>

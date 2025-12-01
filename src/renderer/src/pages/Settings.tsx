@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
   AppSettings,
   EVMChain,
@@ -36,6 +37,7 @@ interface SettingsModalProps {
 }
 
 function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<ChainConfigurationForm>({
     name: '',
     chainId: 1,
@@ -105,7 +107,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
       }
     } catch (error) {
       console.error('测试失败:', error);
-      setTestError(error instanceof Error ? error.message : '连接失败');
+      setTestError(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTesting(false);
     }
@@ -127,7 +129,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
       }
     } catch (error) {
       console.error('备用RPC测试失败:', error);
-      setTestErrorBackup(error instanceof Error ? error.message : '连接失败');
+      setTestErrorBackup(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTestingBackup(false);
     }
@@ -140,7 +142,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
       <div className="modal-box w-11/12 max-w-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold">
-            {isNewChain ? '➕ 添加自定义网络' : `⚙️ 编辑 ${chain.name} 配置`}
+            {isNewChain ? `➕ ${t('settings.addCustomNetworkTitle')}` : `⚙️ ${t('settings.editChainConfig')} ${chain.name}`}
           </h2>
           <button
             onClick={onClose}
@@ -155,13 +157,13 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
           <div className="collapse collapse-arrow bg-base-200 mb-4">
             <input type="checkbox" defaultChecked className="min-w-fit" />
             <div className="collapse-title text-lg font-semibold">
-              🔗 基础信息
+              🔗 {t('settings.basicInfo')}
             </div>
             <div className="collapse-content">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium">链名称</span>
+                    <span className="label-text font-medium">{t('settings.chainName')}</span>
                   </label>
                   <input
                     type="text"
@@ -190,7 +192,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
 
               <div className="form-control mt-4">
                 <label className="label">
-                  <span className="label-text font-medium">RPC 节点 URL</span>
+                  <span className="label-text font-medium">{t('settings.rpcNodeUrl')}</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -215,17 +217,17 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                     {isTesting ? (
                       <>
                         <span className="loading loading-spinner loading-xs"></span>
-                        测试中
+                        {t('settings.testing')}
                       </>
                     ) : (
-                      '🧪 测试'
+                      `🧪 ${t('settings.test')}`
                     )}
                   </button>
                 </div>
                 {testResult && (
                   <div className="alert alert-success mt-2">
                     <div className="text-sm">
-                      ✅ 延迟: {testResult.latency}ms | 区块: {testResult.blockNumber}
+                      ✅ {t('settings.latency')}: {testResult.latency}ms | {t('settings.block')}: {testResult.blockNumber}
                     </div>
                   </div>
                 )}
@@ -237,13 +239,13 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                   </div>
                 )}
                 <label className="label">
-                  <span className="label-text-alt">建议配置多个 URL 以实现冗余备份</span>
+                  <span className="label-text-alt">{t('settings.rpcRedundancyTip')}</span>
                 </label>
               </div>
 
               <div className="form-control mt-4">
                 <label className="label">
-                  <span className="label-text font-medium">备用 RPC URL</span>
+                  <span className="label-text font-medium">{t('settings.backupRpcUrl')}</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -267,17 +269,17 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                     {isTestingBackup ? (
                       <>
                         <span className="loading loading-spinner loading-xs"></span>
-                        测试中
+                        {t('settings.testing')}
                       </>
                     ) : (
-                      '🧪 测试'
+                      `🧪 ${t('settings.test')}`
                     )}
                   </button>
                 </div>
                 {testResultBackup && (
                   <div className="alert alert-success mt-2">
                     <div className="text-sm">
-                      ✅ 延迟: {testResultBackup.latency}ms | 区块: {testResultBackup.blockNumber}
+                      ✅ {t('settings.latency')}: {testResultBackup.latency}ms | {t('settings.block')}: {testResultBackup.blockNumber}
                     </div>
                   </div>
                 )}
@@ -292,7 +294,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
 
               <div className="form-control mt-4">
                 <label className="label">
-                  <span className="label-text font-medium">区块链浏览器 URL</span>
+                  <span className="label-text font-medium">{t('settings.explorerUrl')}</span>
                 </label>
                 <input
                   type="url"
@@ -308,7 +310,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium">代币符号</span>
+                    <span className="label-text font-medium">{t('settings.tokenSymbol')}</span>
                   </label>
                   <input
                     type="text"
@@ -323,7 +325,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium">代币精度</span>
+                    <span className="label-text font-medium">{t('settings.tokenDecimals')}</span>
                   </label>
                   <input
                     type="number"
@@ -347,13 +349,13 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
               onClick={onClose}
               className="btn btn-ghost"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               className="btn btn-primary"
             >
-              💾 保存设置
+              💾 {t('settings.saveSettings')}
             </button>
           </div>
         </form>
@@ -372,6 +374,7 @@ interface SolanaEditModalProps {
 }
 
 function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<SolanaChain>({
     type: 'solana',
     name: '',
@@ -430,12 +433,12 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
         if (result.success && result.latency !== undefined) {
           setTestResult({ latency: result.latency, blockNumber: 0 });
         } else {
-          setTestError('连接失败');
+          setTestError(t('settings.connectionFailed'));
         }
       }
     } catch (error) {
       console.error('Solana RPC测试失败:', error);
-      setTestError(error instanceof Error ? error.message : '连接失败');
+      setTestError(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTesting(false);
     }
@@ -446,7 +449,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
       <div className="modal-box w-11/12 max-w-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold">
-            ⚙️ 编辑 {chain.name} 配置
+            ⚙️ {t('settings.editChainConfig')} {chain.name}
           </h2>
           <button
             onClick={onClose}
@@ -461,13 +464,13 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
           <div className="collapse collapse-arrow bg-base-200 mb-4">
             <input type="checkbox" defaultChecked className="min-w-fit" />
             <div className="collapse-title text-lg font-semibold">
-              🔗 基础信息
+              🔗 {t('settings.basicInfo')}
             </div>
             <div className="collapse-content">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium">链名称</span>
+                    <span className="label-text font-medium">{t('settings.chainName')}</span>
                   </label>
                   <input
                     type="text"
@@ -521,17 +524,17 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                     {isTesting ? (
                       <>
                         <span className="loading loading-spinner loading-xs"></span>
-                        测试中
+                        {t('settings.testing')}
                       </>
                     ) : (
-                      '🧪 测试'
+                      `🧪 ${t('settings.test')}`
                     )}
                   </button>
                 </div>
                 {testResult && (
                   <div className="alert alert-success mt-2">
                     <div className="text-sm">
-                      ✅ 延迟: {testResult.latency}ms | 槽位: {testResult.blockNumber}
+                      ✅ {t('settings.latency')}: {testResult.latency}ms | {t('settings.slot')}: {testResult.blockNumber}
                     </div>
                   </div>
                 )}
@@ -543,13 +546,13 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                   </div>
                 )}
                 <label className="label">
-                  <span className="label-text-alt">主 RPC 节点 URL</span>
+                  <span className="label-text-alt">{t('settings.mainRpcNode')}</span>
                 </label>
               </div>
 
               <div className="form-control mt-4">
                 <label className="label">
-                  <span className="label-text font-medium">备用 RPC URL</span>
+                  <span className="label-text font-medium">{t('settings.backupRpcUrl')}</span>
                 </label>
                 <input
                   type="url"
@@ -563,7 +566,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
 
               <div className="form-control mt-4">
                 <label className="label">
-                  <span className="label-text font-medium">区块链浏览器 URL</span>
+                  <span className="label-text font-medium">{t('settings.explorerUrl')}</span>
                 </label>
                 <input
                   type="url"
@@ -578,7 +581,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium">代币符号</span>
+                    <span className="label-text font-medium">{t('settings.tokenSymbol')}</span>
                   </label>
                   <input
                     type="text"
@@ -593,7 +596,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium">代币精度</span>
+                    <span className="label-text font-medium">{t('settings.tokenDecimals')}</span>
                   </label>
                   <input
                     type="number"
@@ -617,13 +620,13 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
               onClick={onClose}
               className="btn btn-ghost"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               className="btn btn-primary"
             >
-              💾 保存设置
+              💾 {t('settings.saveSettings')}
             </button>
           </div>
         </form>
@@ -636,6 +639,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<AppSettings>({
     chains: [],
     solanaChains: [],
@@ -759,7 +763,7 @@ export default function Settings() {
       setEditingChain(null);
     } catch (error) {
       console.error('Failed to save chain:', error);
-      alert('保存链配置失败，请重试');
+      alert(t('settings.saveChainFailed'));
     }
   };
 
@@ -786,10 +790,14 @@ export default function Settings() {
       setEditingSolanaChain(null);
     } catch (error) {
       console.error('Failed to save Solana chain:', error);
-      alert('保存 Solana 网络配置失败，请重试');
+      alert(t('settings.saveSolanaFailed'));
     }
   };
 
+
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang);
+  };
 
   return (
     <>
@@ -798,21 +806,124 @@ export default function Settings() {
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
             <span className="text-3xl">⚙️</span>
-            <h1 className="text-2xl font-bold">区块链网络设置</h1>
+            <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
           </div>
           <div className="flex gap-2">
             <button
               onClick={handleAddChain}
               className="btn btn-primary"
             >
-              ➕ 添加自定义网络
+              ➕ {t('settings.addCustomNetwork')}
             </button>
             <button
               onClick={() => navigate('/')}
               className="btn btn-ghost"
             >
-              ← 返回仪表盘
+              ← {t('settings.backToDashboard')}
             </button>
+          </div>
+        </div>
+
+        {/* Language Settings Section */}
+        <div className="mb-8">
+          <div className="card bg-base-100 shadow-sm">
+            <div className="card-body">
+              <h2 className="card-title flex items-center gap-2">
+                <span>🌍</span>
+                <span>{t('settings.language')}</span>
+              </h2>
+              <p className="text-sm text-base-content/60 mb-4">
+                {t('settings.languageDescription')}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => handleLanguageChange('en')}
+                  className={`btn ${i18n.language === 'en' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇺🇸 English
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('zh')}
+                  className={`btn ${i18n.language === 'zh' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇨🇳 中文
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('es')}
+                  className={`btn ${i18n.language === 'es' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇪🇸 Español
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('fr')}
+                  className={`btn ${i18n.language === 'fr' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇫🇷 Français
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('de')}
+                  className={`btn ${i18n.language === 'de' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇩🇪 Deutsch
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('pt')}
+                  className={`btn ${i18n.language === 'pt' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇵🇹 Português
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('ru')}
+                  className={`btn ${i18n.language === 'ru' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇷🇺 Русский
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('ar')}
+                  className={`btn ${i18n.language === 'ar' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇸🇦 العربية
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('ko')}
+                  className={`btn ${i18n.language === 'ko' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇰🇷 한국어
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('ja')}
+                  className={`btn ${i18n.language === 'ja' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇯🇵 日本語
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('vi')}
+                  className={`btn ${i18n.language === 'vi' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇻🇳 Tiếng Việt
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('tr')}
+                  className={`btn ${i18n.language === 'tr' ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  🇹🇷 Türkçe
+                </button>
+              </div>
+              <div className="text-xs text-base-content/50 mt-2">
+                {i18n.language === 'en' && 'Current language: English'}
+                {i18n.language === 'zh' && '当前语言：中文'}
+                {i18n.language === 'es' && 'Idioma actual: Español'}
+                {i18n.language === 'fr' && 'Langue actuelle : Français'}
+                {i18n.language === 'de' && 'Aktuelle Sprache: Deutsch'}
+                {i18n.language === 'pt' && 'Idioma atual: Português'}
+                {i18n.language === 'ru' && 'Текущий язык: Русский'}
+                {i18n.language === 'ar' && 'اللغة الحالية: العربية'}
+                {i18n.language === 'ko' && '현재 언어: 한국어'}
+                {i18n.language === 'ja' && '現在の言語：日本語'}
+                {i18n.language === 'vi' && 'Ngôn ngữ hiện tại: Tiếng Việt'}
+                {i18n.language === 'tr' && 'Mevcut dil: Türkçe'}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -820,7 +931,7 @@ export default function Settings() {
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
             <span>⛓️</span>
-            <span>EVM 链</span>
+            <span>{t('settings.evmChains')}</span>
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(settings.chains || []).map((chain) => (
@@ -852,12 +963,12 @@ export default function Settings() {
 
                   <div className="space-y-3 mb-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-base-content/60">Chain ID</span>
+                      <span className="text-sm text-base-content/60">{t('settings.chainId')}</span>
                       <div className="font-mono text-sm bg-base-200 px-2 py-1 rounded">{chain.chainId}</div>
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-base-content/60">精度</span>
+                      <span className="text-sm text-base-content/60">{t('settings.decimals')}</span>
                       <span className="text-sm font-medium">{chain.decimals}</span>
                     </div>
                   </div>
@@ -868,7 +979,7 @@ export default function Settings() {
                       onClick={() => handleEditChain(chain)}
                       className="btn btn-sm btn-outline"
                     >
-                      ⚙️ 编辑
+                      ⚙️ {t('settings.editConfig')}
                     </button>
                   </div>
                 </div>
@@ -881,7 +992,7 @@ export default function Settings() {
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
             <span>🌐</span>
-            <span>Solana 网络</span>
+            <span>{t('settings.solanaNetworks')}</span>
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {solanaChains.map((chain) => {
@@ -914,12 +1025,12 @@ export default function Settings() {
                     {/* Chain Details */}
                     <div className="space-y-3 mb-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-base-content/60">Chain ID</span>
+                        <span className="text-sm text-base-content/60">{t('settings.chainId')}</span>
                         <div className="font-mono text-sm bg-base-200 px-2 py-1 rounded">{chain.chainId || 'N/A'}</div>
                       </div>
 
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-base-content/60">精度</span>
+                        <span className="text-sm text-base-content/60">{t('settings.decimals')}</span>
                         <span className="text-sm font-medium">{chain.decimals}</span>
                       </div>
                     </div>
@@ -930,7 +1041,7 @@ export default function Settings() {
                         onClick={() => handleEditSolanaChain(chain)}
                         className="btn btn-sm btn-outline"
                       >
-                        ⚙️ 编辑
+                        ⚙️ {t('settings.editConfig')}
                       </button>
                     </div>
                   </div>
@@ -944,15 +1055,15 @@ export default function Settings() {
         {(!settings.chains || settings.chains.length === 0) && solanaChains.length === 0 && (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🌐</div>
-            <div className="text-lg font-medium mb-2">暂无区块链网络</div>
+            <div className="text-lg font-medium mb-2">{t('settings.noNetworks')}</div>
             <div className="text-sm text-base-content/60 mb-6">
-              点击上方"添加自定义网络"开始配置
+              {t('settings.noNetworksDesc')}
             </div>
             <button
               onClick={handleAddChain}
               className="btn btn-primary"
             >
-              ➕ 添加第一个网络
+              ➕ {t('settings.addFirstNetwork')}
             </button>
           </div>
         )}
@@ -963,11 +1074,11 @@ export default function Settings() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           <div>
-            <h3 className="font-bold">快速提示</h3>
+            <h3 className="font-bold">{t('settings.quickTips')}</h3>
             <div className="text-sm">
-              • 建议为每个网络配置多个 RPC URL 以提高连接稳定性<br/>
-              • 自定义网络支持测试网和主网配置<br/>
-              • 编辑网络前建议先测试连接以确保配置正确
+              • {t('settings.tip1')}<br/>
+              • {t('settings.tip2')}<br/>
+              • {t('settings.tip3')}
             </div>
           </div>
         </div>

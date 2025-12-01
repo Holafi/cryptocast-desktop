@@ -118,14 +118,14 @@ export class CampaignExecutor {
         // Check for pause request
         if (this.pauseMap.get(campaignId)) {
           await this.updateCampaignStatus(campaignId, 'PAUSED');
-          console.log(`[CampaignExecutor] Campaign paused at batch ${batchNumber}`);
+          logger.info(`Campaign paused at batch ${batchNumber}`);
           break;
         }
 
         // Get next batch
         const batchData = await this.getNextBatchRecipients(campaignId);
         if (!batchData) {
-          console.log(`[CampaignExecutor] No more batches to process. Completed all batches.`);
+          logger.info('No more batches to process. Completed all batches.');
           break;
         }
 
@@ -140,7 +140,7 @@ export class CampaignExecutor {
 
             // Check native balance for gas
             const nativeBalance = await provider.getBalance(walletInstance.address);
-            console.log(`[Batch ${batchNumber}] Native balance: ${ethers.formatEther(nativeBalance)} ETH`);
+            logger.debug(`[Batch ${batchNumber}] Native balance: ${ethers.formatEther(nativeBalance)} ETH`);
 
             // Early warning if balance is running low
             if (nativeBalance < ethers.parseEther("0.001")) { // Less than 0.001 ETH
@@ -154,7 +154,7 @@ export class CampaignExecutor {
         try {
           // Execute batch transfer directly without retry to avoid duplicate transactions
           // For financial operations, we prefer safety over automatic retry
-          console.log(`[Batch ${batchNumber}] Executing pre-allocated batch of ${batch.length} recipients...`);
+          logger.info(`[Batch ${batchNumber}] Executing pre-allocated batch of ${batch.length} recipients`);
 
           const result = await this.executeBatch(
             campaignId,
@@ -272,12 +272,12 @@ export class CampaignExecutor {
           if (suggestedAction === 'STOP_CAMPAIGN') {
             console.error(`🚨 [Batch ${batchNumber - 1}] Campaign execution stopped due to critical error`);
             await this.updateCampaignStatus(campaignId, 'PAUSED');
-            console.log(`💡 Campaign has been paused. Fix the issue and use "Resume Campaign" to continue`);
+            logger.info('Campaign has been paused. Fix the issue and use "Resume Campaign" to continue');
             break; // Exit the batch processing loop
           }
 
           // For other errors, continue to next batch
-          console.log(`⚠️ [Batch ${batchNumber - 1}] Continuing to next batch. Manual retry recommended for failed batch.`);
+          logger.warn(`[Batch ${batchNumber - 1}] Continuing to next batch. Manual retry recommended for failed batch.`);
         }
       }
 
@@ -290,11 +290,11 @@ export class CampaignExecutor {
         if (finalFailed === 0) {
           await this.updateCampaignStatus(campaignId, 'COMPLETED');
           // Campaign completed successfully
-          console.log(`Campaign completed successfully. ${finalCompleted} recipients processed.`);
+          logger.info(`Campaign completed successfully. ${finalCompleted} recipients processed.`);
         } else {
           await this.updateCampaignStatus(campaignId, 'COMPLETED');
           // Campaign completed with errors
-          console.log(`Campaign completed with errors. ${finalCompleted} succeeded, ${finalFailed} failed.`);
+          logger.warn(`Campaign completed with errors. ${finalCompleted} succeeded, ${finalFailed} failed.`);
         }
       }
 
@@ -378,7 +378,7 @@ export class CampaignExecutor {
       });
 
       // Batch sent
-      console.log(`Batch ${batchNumber}/${totalBatches} sent. Tx: ${result.transactionHash}`);
+      logger.info(`Batch ${batchNumber}/${totalBatches} sent. Tx: ${result.transactionHash}`);
 
       // Wait for transaction confirmation with adaptive timeout
       const confirmationOptions = {
@@ -408,7 +408,7 @@ export class CampaignExecutor {
 
       if (confirmationResult.confirmed) {
         // Batch confirmed - recipient status will be updated in the main execution loop
-        console.log(`Batch ${batchNumber}/${totalBatches} confirmed. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`);
+        logger.info(`Batch ${batchNumber}/${totalBatches} confirmed. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`);
       } else {
         // Transaction failed or timeout - recipient status will be updated in the main execution loop
         const errorMessage = confirmationResult.finalStatus === 'failed'
@@ -427,7 +427,7 @@ export class CampaignExecutor {
       }
 
       // Batch confirmed
-      console.log(`Batch ${batchNumber}/${totalBatches} confirmed. Gas used: ${result.gasUsed}`);
+      logger.info(`Batch ${batchNumber}/${totalBatches} confirmed. Gas used: ${result.gasUsed}`);
 
       // Return transaction information for batch status tracking
       return {
@@ -446,7 +446,7 @@ export class CampaignExecutor {
    */
   pauseExecution(campaignId: string): void {
     this.pauseMap.set(campaignId, true);
-    console.log(`Pause requested for campaign ${campaignId}`);
+    logger.info(`Pause requested for campaign ${campaignId}`);
   }
 
   /**
@@ -454,7 +454,7 @@ export class CampaignExecutor {
    */
   async resumeExecution(campaignId: string): Promise<void> {
     this.pauseMap.set(campaignId, false);
-    console.log(`Resume requested for campaign ${campaignId}`);
+    logger.info(`Resume requested for campaign ${campaignId}`);
 
     // Check if campaign is actually paused and has pending recipients
     const campaign = await this.getCampaign(campaignId);
@@ -470,12 +470,12 @@ export class CampaignExecutor {
 
     const pendingRecipients = await this.getPendingRecipients(campaignId);
     if (pendingRecipients.length === 0) {
-      console.log(`Campaign ${campaignId} has no pending recipients, marking as completed`);
+      logger.info(`Campaign ${campaignId} has no pending recipients, marking as completed`);
       await this.updateCampaignStatus(campaignId, 'COMPLETED');
       return;
     }
 
-    console.log(`Resuming campaign ${campaignId} with ${pendingRecipients.length} pending recipients`);
+    logger.info(`Resuming campaign ${campaignId} with ${pendingRecipients.length} pending recipients`);
 
     // Re-execute the campaign with remaining recipients
     // This will continue from where it left off since we only get pending recipients
@@ -622,7 +622,7 @@ export class CampaignExecutor {
         return null;
       }
 
-      console.log(`[CampaignExecutor] Retrieved batch ${nextBatchNumber} with ${lockedRecipients.length} recipients`);
+      logger.debug(`Retrieved batch ${nextBatchNumber} with ${lockedRecipients.length} recipients`);
 
       return {
         batchNumber: nextBatchNumber,
@@ -776,7 +776,7 @@ export class CampaignExecutor {
           const status = await this.solanaService.getTransactionStatus(rpcUrl, txHash);
 
           if (status.status === 'confirmed') {
-            console.log(`Solana transaction confirmed: ${txHash}`);
+            logger.info(`Solana transaction confirmed: ${txHash}`);
             return;
           } else if (status.status === 'failed') {
             throw new Error(`Solana transaction failed: ${status.error}`);
@@ -864,7 +864,7 @@ export class CampaignExecutor {
         new Date().toISOString()
       );
 
-      console.log(`Transaction recorded: ${transactionData.txType} - ${transactionData.txHash}`);
+      logger.debug(`Transaction recorded: ${transactionData.txType} - ${transactionData.txHash}`);
     } catch (error) {
       console.error('Failed to record transaction:', error);
       // Don't throw error - recording transaction failure shouldn't break the main flow
@@ -900,7 +900,7 @@ export class CampaignExecutor {
       query += ` WHERE tx_hash = ?`;
 
       await this.db.prepare(query).run(...updates);
-      console.log(`Transaction status updated: ${txHash} -> ${status}`);
+      logger.debug(`Transaction status updated: ${txHash} -> ${status}`);
     } catch (error) {
       console.error('Failed to update transaction status:', error);
     }

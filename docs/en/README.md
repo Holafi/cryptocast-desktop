@@ -3,7 +3,7 @@
 > 🚀 Multi-chain Cryptocurrency Batch Reward Distribution Platform - Secure, Efficient, and User-Friendly Desktop Application
 
 **🌍 Languages / 语言 / Langues / Sprachen / 言語:**
-[🇺🇸 English](./docs/en/README.md) | [🇨🇳 中文](./docs/zh/README.md) | [🇪🇸 Español](./docs/es/README.md) | [🇫🇷 Français](./docs/fr/README.md) | [🇩🇪 Deutsch](./docs/de/README.md) | [🇵🇹 Português](./docs/pt/README.md) | [🇷🇺 Русский](./docs/ru/README.md) | [🇸🇦 العربية](./docs/ar/README.md) | [🇰🇷 한국어](./docs/ko/README.md) | [🇯🇵 日本語](./docs/ja/README.md) | [🇻🇳 Tiếng Việt](./docs/vi/README.md) | [🇹🇷 Türkçe](./docs/tr/README.md)
+[🇺🇸 English](../../README.md) | [🇨🇳 中文](../zh/README.md) | [🇪🇸 Español](../es/README.md) | [🇫🇷 Français](../fr/README.md) | [🇩🇪 Deutsch](../de/README.md) | [🇵🇹 Português](../pt/README.md) | [🇷🇺 Русский](../ru/README.md) | [🇸🇦 العربية](../ar/README.md) | [🇰🇷 한국어](../ko/README.md) | [🇯🇵 日本語](../ja/README.md) | [🇻🇳 Tiếng Việt](../vi/README.md) | [🇹🇷 Türkçe](../tr/README.md)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](../../.github/workflows/build.yml)

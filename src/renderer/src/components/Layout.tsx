@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const { electronAPI } = window as any;
 
@@ -17,6 +18,7 @@ interface PriceInfo {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const { t } = useTranslation();
   const [priceInfo, setPriceInfo] = useState<PriceInfo>({
     eth: 0,
     bnb: 0,
@@ -83,11 +85,11 @@ export default function Layout({ children }: LayoutProps) {
   }, []);
 
   const navItems = [
-    { path: '/', label: '仪表盘', icon: '🏠' },
-    { path: '/campaign/create', label: '活动', icon: '📊' },
-    { path: '/history', label: '历史', icon: '📜' },
-    { path: '/wallets', label: '钱包', icon: '👛' },
-    { path: '/settings', label: '设置', icon: '⚙️' },
+    { path: '/', label: t('nav.dashboard'), icon: '🏠' },
+    { path: '/campaign/create', label: t('campaign.create'), icon: '📊' },
+    { path: '/history', label: t('nav.history'), icon: '📜' },
+    { path: '/wallets', label: t('nav.wallets'), icon: '👛' },
+    { path: '/settings', label: t('nav.settings'), icon: '⚙️' },
   ];
 
   const formatPrice = (price: number) => {
@@ -138,7 +140,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="bg-base-200 p-4 rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">💰</span>
-              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">实时价格</h3>
+              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">{t('settings.livePrice')}</h3>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
@@ -183,7 +185,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="bg-base-200 p-3 rounded-lg">
             <div className="flex items-center gap-2">
               <span className="text-sm">🔖</span>
-              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">版本信息</h3>
+              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">{t('settings.versionInfo')}</h3>
             </div>
             <div className="mt-2 text-center">
               <span className="text-xs text-base-content/70">v{appVersion}</span>

@@ -86,6 +86,7 @@ export interface ElectronAPI {
 
   app: {
     getVersion: () => Promise<string>;
+    getLocale: () => Promise<string>;
   };
 
   blockchain: {

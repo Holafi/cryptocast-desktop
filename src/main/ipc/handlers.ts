@@ -799,6 +799,18 @@ export async function setupIPCHandlers() {
     }
   });
 
+  ipcMain.handle('app:getLocale', async (_event) => {
+    try {
+      const { app } = await import('electron');
+      const locale = app.getLocale();
+      logger.debug('Getting system locale', { locale });
+      return locale;
+    } catch (error) {
+      logger.error('Failed to get system locale', error as Error);
+      throw new Error('获取系统语言失败');
+    }
+  });
+
   // 错误处理
   ipcMain.on('error', (_event, error) => {
     logger.error('IPC error received', error);

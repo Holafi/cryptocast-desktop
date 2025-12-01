@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCampaign } from '../contexts/CampaignContext';
 
 const { electronAPI } = window as any;
@@ -49,6 +50,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { state, actions } = useCampaign();
   const [chains, setChains] = useState<any[]>([]);
 
@@ -105,17 +107,17 @@ export default function Dashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return <div className="badge badge-success gap-1">✅ 成功</div>;
+        return <div className="badge badge-success gap-1">✅ {t('status.success')}</div>;
       case 'SENDING':
-        return <div className="badge badge-info gap-1">🔄 发送中</div>;
+        return <div className="badge badge-info gap-1">🔄 {t('status.sending')}</div>;
       case 'FAILED':
-        return <div className="badge badge-error gap-1">❌ 失败</div>;
+        return <div className="badge badge-error gap-1">❌ {t('status.failed')}</div>;
       case 'PAUSED':
-        return <div className="badge badge-warning gap-1">⏸️ 暂停</div>;
+        return <div className="badge badge-warning gap-1">⏸️ {t('status.paused')}</div>;
       case 'READY':
-        return <div className="badge badge-warning gap-1">⚡ 就绪</div>;
+        return <div className="badge badge-warning gap-1">⚡ {t('status.ready')}</div>;
       default:
-        return <div className="badge badge-neutral gap-1">📋 创建</div>;
+        return <div className="badge badge-neutral gap-1">📋 {t('status.created')}</div>;
     }
   };
 
@@ -141,13 +143,13 @@ export default function Dashboard() {
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📊</span>
-            <h2 className="text-lg font-bold">数据概览</h2>
+            <h2 className="text-lg font-bold">{t('dashboard.title')}</h2>
           </div>
           <button
             onClick={() => navigate('/campaign/create')}
             className="btn btn-primary"
           >
-            ➕ 新建活动
+            ➕ {t('dashboard.newCampaign')}
           </button>
         </div>
 
@@ -156,12 +158,12 @@ export default function Dashboard() {
             <div className="stat-figure text-primary">
               📋
             </div>
-            <div className="stat-title">总活动数</div>
+            <div className="stat-title">{t('dashboard.totalActivities')}</div>
             <div className="stat-value text-primary">{stats.totalActivities}</div>
             <div className="stat-desc">
               <div className="flex items-center gap-1">
                 <span className="text-success">📈</span>
-                <span className="text-success">基于真实数据</span>
+                <span className="text-success">{t('dashboard.basedOnRealData')}</span>
               </div>
             </div>
           </div>
@@ -170,12 +172,12 @@ export default function Dashboard() {
             <div className="stat-figure text-success">
               ✅
             </div>
-            <div className="stat-title">成功发送</div>
+            <div className="stat-title">{t('dashboard.successfulActivities')}</div>
             <div className="stat-value text-success">{stats.successfulActivities}</div>
             <div className="stat-desc">
               <div className="flex items-center gap-1">
                 <span className="text-success">✅</span>
-                <span className="text-success">成功完成的任务</span>
+                <span className="text-success">{t('dashboard.completedTasks')}</span>
               </div>
             </div>
           </div>
@@ -184,12 +186,12 @@ export default function Dashboard() {
             <div className="stat-figure text-info">
               🔄
             </div>
-            <div className="stat-title">进行中活动</div>
+            <div className="stat-title">{t('dashboard.ongoingActivities')}</div>
             <div className="stat-value text-info">{stats.ongoingActivities}</div>
             <div className="stat-desc">
               <div className="flex items-center gap-1">
                 <span className="text-info">🔄</span>
-                <span className="text-info">正在进行中</span>
+                <span className="text-info">{t('dashboard.inProgress')}</span>
               </div>
             </div>
           </div>
@@ -198,12 +200,12 @@ export default function Dashboard() {
             <div className="stat-figure text-warning">
               📅
             </div>
-            <div className="stat-title">本周活动数</div>
+            <div className="stat-title">{t('dashboard.weeklyActivities')}</div>
             <div className="stat-value text-warning">{stats.weeklyActivities}</div>
             <div className="stat-desc">
               <div className="flex items-center gap-1">
                 <span className="text-warning">📅</span>
-                <span className="text-warning">本周内创建</span>
+                <span className="text-warning">{t('dashboard.createdThisWeek')}</span>
               </div>
             </div>
           </div>
@@ -214,7 +216,7 @@ export default function Dashboard() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
           <span className="text-xl">⚡</span>
-          <h2 className="text-lg font-bold">快速操作</h2>
+          <h2 className="text-lg font-bold">{t('dashboard.quickActions')}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div
@@ -229,7 +231,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <h3 className="card-title text-base mb-2">新建活动</h3>
+              <h3 className="card-title text-base mb-2">{t('dashboard.createNewCampaign')}</h3>
             </div>
           </div>
 
@@ -245,7 +247,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <h3 className="card-title text-base mb-2">查看历史</h3>
+              <h3 className="card-title text-base mb-2">{t('dashboard.viewHistory')}</h3>
             </div>
           </div>
 
@@ -261,7 +263,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <h3 className="card-title text-base mb-2">钱包管理</h3>
+              <h3 className="card-title text-base mb-2">{t('dashboard.manageWallets')}</h3>
             </div>
           </div>
         </div>
@@ -271,7 +273,7 @@ export default function Dashboard() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
           <span className="text-xl">🔗</span>
-          <h2 className="text-lg font-bold">链活动分布</h2>
+          <h2 className="text-lg font-bold">{t('dashboard.chainActivity')}</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {(() => {
@@ -311,7 +313,7 @@ export default function Dashboard() {
                     </div>
                     <h3 className="card-title text-sm justify-center mb-1">{chain.name}</h3>
                     <div className={`badge ${chain.badgeColor || 'badge-primary'} badge-sm mb-1`}>{activityCount}</div>
-                    <p className="text-xs text-base-content/60">{percentage}% 活动量</p>
+                    <p className="text-xs text-base-content/60">{percentage}% {t('dashboard.activityVolume')}</p>
                   </div>
                 </div>
               );

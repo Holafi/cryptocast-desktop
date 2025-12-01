@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { EVMChain, ChainInfo } from '../types';
 import BigNumber from 'bignumber.js';
 import { isSolanaChain, exportPrivateKey, isNativeToken, NATIVE_TOKEN_ADDRESSES } from '../utils/chainTypeUtils';
@@ -49,6 +50,7 @@ interface Recipient {
 export default function CampaignDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
@@ -302,7 +304,7 @@ export default function CampaignDetail() {
     } catch (error) {
       console.error('Failed to load campaign:', error);
       if (!silent) {
-        alert('加载活动详情失败: ' + (error instanceof Error ? error.message : '未知错误'));
+        alert(t('campaign.loadCampaignFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
       }
     } finally {
       if (!silent) {
@@ -345,19 +347,19 @@ export default function CampaignDetail() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return <div className="badge badge-success gap-1">✅ 成功</div>;
+        return <div className="badge badge-success gap-1">✅ {t('common.success')}</div>;
       case 'SENDING':
-        return <div className="badge badge-info gap-1">🔄 发送中</div>;
+        return <div className="badge badge-info gap-1">🔄 {t('common.sending')}</div>;
       case 'PAUSED':
-        return <div className="badge badge-warning gap-1">⏸️ 暂停</div>;
+        return <div className="badge badge-warning gap-1">⏸️ {t('common.paused')}</div>;
       case 'FAILED':
-        return <div className="badge badge-error gap-1">❌ 失败</div>;
+        return <div className="badge badge-error gap-1">❌ {t('common.failed')}</div>;
       case 'READY':
-        return <div className="badge badge-accent gap-1">⚡ 就绪</div>;
+        return <div className="badge badge-accent gap-1">⚡ {t('common.ready')}</div>;
       case 'FUNDED':
-        return <div className="badge badge-info gap-1">💰 已充值</div>;
+        return <div className="badge badge-info gap-1">💰 {t('history.funded')}</div>;
       default:
-        return <div className="badge badge-neutral gap-1">📋 创建</div>;
+        return <div className="badge badge-neutral gap-1">📋 {t('common.created')}</div>;
     }
   };
 
@@ -381,18 +383,18 @@ export default function CampaignDetail() {
         if (campaign.status === 'SENDING') {
           // Pause campaign
           await window.electronAPI.campaign.pause(id);
-          alert('活动已暂停');
+          alert(t('campaign.campaignPaused'));
           await loadCampaign(true); // Silent refresh after pause
         } else if (campaign.status === 'PAUSED') {
           // Resume campaign
           await window.electronAPI.campaign.resume(id);
-          alert('活动已恢复');
+          alert(t('campaign.campaignResumed'));
           await loadCampaign(true); // Silent refresh after resume
         }
       }
     } catch (error) {
       console.error('Failed to pause/resume campaign:', error);
-      alert('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      alert(t('campaign.operationFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
     }
   };
 
@@ -402,12 +404,12 @@ export default function CampaignDetail() {
     try {
       if (window.electronAPI?.campaign) {
         await window.electronAPI.campaign.retryFailedTransactions(id);
-        alert('已开始重试失败的交易');
+        alert(t('campaign.retryingFailedTx'));
         await loadCampaign(true);
       }
     } catch (error) {
       console.error('Failed to retry transactions:', error);
-      alert('重试失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      alert(t('campaign.retryFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
     }
   };
 
@@ -415,7 +417,7 @@ export default function CampaignDetail() {
     if (!campaign || !id) return;
 
     // 确认对话框
-    const confirmed = confirm(`确认开始发送代币吗？\n\n活动名称: ${campaign.name}\n发送数量: ${campaign.totalRecipients - campaign.completedRecipients - campaign.failedRecipients} 个接收者\n\n点击"确定"开始执行批量发送。`);
+    const confirmed = confirm(`${t('campaign.confirmStart')}\n\n${t('campaign.campaignName')}: ${campaign.name}\n${t('campaign.sendCount')}: ${campaign.totalRecipients - campaign.completedRecipients - campaign.failedRecipients} ${t('campaign.recipients')}\n\n${t('campaign.clickOkToStart')}`);
 
     if (!confirmed) {
       return; // 用户取消了
@@ -424,14 +426,14 @@ export default function CampaignDetail() {
     try {
       if (window.electronAPI?.campaign) {
                 await window.electronAPI.campaign.start(id);
-        
+
         // 成功启动后重新加载活动状态
         await loadCampaign(true); // Silent refresh after start
-        alert('活动已开始发送！页面将自动刷新状态。');
+        alert(t('campaign.campaignStarted'));
       }
     } catch (error) {
       console.error('Failed to start campaign:', error);
-      alert('启动失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      alert(t('campaign.startFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
     }
   };
 
@@ -452,7 +454,7 @@ export default function CampaignDetail() {
       nativeBalance = parseFloat(freshBalance.native || '0');
     } catch (balanceError) {
       console.error('Failed to check balance before deployment:', balanceError);
-      setDeploymentError('无法获取余额信息，请稍后重试');
+      setDeploymentError(t('campaign.cannotGetBalance'));
       setShowDeploymentModal(true);
       return;
     }
@@ -462,35 +464,35 @@ export default function CampaignDetail() {
 
     // 检查余额是否足够（使用动态计算的最低要求）
     if (nativeBalance < minGasRequired) {
-      setDeploymentError(`Gas余额不足，请确保钱包有至少 ${minGasRequired.toFixed(6)} ${nativeTokenSymbol} 来支付部署费用。当前余额: ${nativeBalance.toFixed(6)} ${nativeTokenSymbol}`);
+      setDeploymentError(`${t('campaign.insufficientGas')} ${minGasRequired.toFixed(6)} ${nativeTokenSymbol} ${t('campaign.toPayDeployment')} ${nativeBalance.toFixed(6)} ${nativeTokenSymbol}`);
       setShowDeploymentModal(true);
       return;
     }
 
     // 显示部署确认对话框
-    const confirmed = confirm(`确定要为此活动部署合约吗？
+    const confirmed = confirm(`${t('campaign.confirmDeploy')}
 
-合约部署 Gas 费用详情：
-• 当前余额: ${nativeBalance.toFixed(6)} ${nativeTokenSymbol}
-• 预计部署费用: ~${estimatedDeploymentCost} ${nativeTokenSymbol}
-• 最低余额要求: ${minGasRequired.toFixed(6)} ${nativeTokenSymbol} (含1.5倍安全缓冲)
+${t('campaign.deploymentGasDetails')}
+• ${t('campaign.currentBalanceLabel')} ${nativeBalance.toFixed(6)} ${nativeTokenSymbol}
+• ${t('campaign.estimatedDeploymentCost')} ~${estimatedDeploymentCost} ${nativeTokenSymbol}
+• ${t('campaign.minBalanceRequired')} ${minGasRequired.toFixed(6)} ${nativeTokenSymbol} ${t('campaign.safetyBuffer')}
 
-注意：部署后无法撤销，请确认链配置和代币地址正确。`);
+${t('campaign.deploymentWarning')}`);
     if (!confirmed) return;
 
     // 开始部署流程
     setShowDeploymentModal(true);
-    setDeploymentProgress('正在准备合约部署...');
+    setDeploymentProgress(t('campaign.preparingDeployment'));
     setDeploymentError(null);
     setIsDeploying(true);
 
     try {
       if (window.electronAPI?.campaign) {
-        setDeploymentProgress('正在部署合约，请稍候...');
+        setDeploymentProgress(t('campaign.deploying'));
 
         const result = await window.electronAPI.campaign.deployContract(id);
 
-        setDeploymentProgress('合约部署成功！');
+        setDeploymentProgress(t('campaign.deploymentSuccess'));
         setDeploymentResult(result);
 
         // 刷新活动状态
@@ -504,36 +506,36 @@ export default function CampaignDetail() {
       console.error('Failed to deploy contract:', error);
       const errorMessage = getSolanaSpecificErrorMessage(error);
       setDeploymentError(errorMessage);
-      setDeploymentProgress('部署失败');
+      setDeploymentProgress(t('campaign.deploymentFailed'));
     } finally {
       setIsDeploying(false);
     }
   };
 
-  
+
   const getSolanaSpecificErrorMessage = (error: any): string => {
     const errorMessage = error?.message || error?.toString() || '';
 
     if (errorMessage.includes('insufficient funds') || errorMessage.includes('insufficient lamports')) {
-      return 'SOL余额不足，请确保钱包有足够的SOL支付网络费用';
+      return t('campaign.solBalanceInsufficient');
     }
     if (errorMessage.includes('Invalid account') || errorMessage.includes('not found')) {
-      return '代币账户不存在或无效，请检查代币地址';
+      return t('campaign.invalidTokenAccount');
     }
     if (errorMessage.includes('Token account not found')) {
-      return 'SPL代币账户不存在，请确保地址正确';
+      return t('campaign.tokenAccountNotFound');
     }
     if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-      return 'Solana网络连接超时，请稍后重试';
+      return t('campaign.solanaNetworkTimeout');
     }
     if (errorMessage.includes('blockhash')) {
-      return 'Solana区块哈希过期，请重试交易';
+      return t('campaign.solanaBlockhashExpired');
     }
     if (errorMessage.includes('rate limit')) {
-      return 'Solana API请求过于频繁，请稍后重试';
+      return t('campaign.solanaRateLimit');
     }
 
-    return errorMessage || 'Solana操作失败，请检查网络连接和余额';
+    return errorMessage || t('campaign.solanaOperationFailed');
   };
 
   // Pagination logic
@@ -556,7 +558,7 @@ export default function CampaignDetail() {
   const formatPaginationInfo = <T,>(currentPage: number, items: T[]) => {
     const startIndex = (currentPage - 1) * itemsPerPage + 1;
     const endIndex = Math.min(currentPage * itemsPerPage, items.length);
-    return `显示 ${startIndex} 到 ${endIndex} 条，共 ${items.length} 条记录`;
+    return `${t('campaign.showing')} ${startIndex} ${t('campaign.to')} ${endIndex} ${t('campaign.totalRecords')} ${items.length} ${t('campaign.records')}`;
   };
 
   const renderPagination = (currentPage: number, totalPages: number, setCurrentPage: (page: number) => void) => {
@@ -656,7 +658,7 @@ export default function CampaignDetail() {
 
   const handleExportPrivateKey = async () => {
     if (!campaign?.walletPrivateKeyBase64) {
-      alert('该活动没有可导出的私钥');
+      alert(t('wallet.noPrivateKey'));
       return;
     }
 
@@ -673,7 +675,7 @@ export default function CampaignDetail() {
       setCopied(false);
     } catch (error) {
       console.error('Failed to export private key:', error);
-      alert('导出私钥失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      alert(t('wallet.exportFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
     }
   };
 
@@ -694,7 +696,7 @@ export default function CampaignDetail() {
   // Withdrawal handlers
   const handleOpenWithdrawModal = (type: 'tokens' | 'native') => {
     if (!campaign?.walletPrivateKeyBase64) {
-      alert('该活动没有可用的私钥，无法进行资金回收');
+      alert(t('campaign.noPrivateKey'));
       return;
     }
     setWithdrawType(type);
@@ -704,7 +706,7 @@ export default function CampaignDetail() {
 
   const handleWithdraw = async () => {
     if (!campaign?.id || !withdrawRecipient) {
-      alert('请输入接收地址');
+      alert(t('campaign.enterRecipientAddress'));
       return;
     }
 
@@ -713,18 +715,18 @@ export default function CampaignDetail() {
       let result;
       if (withdrawType === 'tokens') {
         result = await window.electronAPI.campaign.withdrawTokens(campaign.id, withdrawRecipient);
-        alert(`代币回收成功!\n交易哈希: ${result.txHash}\n回收数量: ${result.amount} ${campaign.tokenSymbol}`);
+        alert(`${t('campaign.tokensWithdrawn')}\n${t('campaign.txHash')}: ${result.txHash}\n${t('campaign.withdrawnAmount')}: ${result.amount} ${campaign.tokenSymbol}`);
       } else {
         result = await window.electronAPI.campaign.withdrawNative(campaign.id, withdrawRecipient);
         const nativeTokenSymbol = getNativeTokenSymbol(campaign.chain);
-        alert(`${nativeTokenSymbol} 原生代币回收成功!\n交易哈希: ${result.txHash}\n回收数量: ${result.amount} ${nativeTokenSymbol}`);
+        alert(`${nativeTokenSymbol} ${t('campaign.nativeWithdrawn')}\n${t('campaign.txHash')}: ${result.txHash}\n${t('campaign.withdrawnAmount')}: ${result.amount} ${nativeTokenSymbol}`);
       }
       setShowWithdrawModal(false);
       // Refresh balance
       await refreshBalances();
     } catch (error) {
       console.error('Withdrawal failed:', error);
-      alert('资金回收失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      alert(t('campaign.withdrawalFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
     } finally {
       setIsWithdrawing(false);
     }
@@ -766,10 +768,10 @@ export default function CampaignDetail() {
     const dataToExport = showFailedOnly ? transactions.filter(tx => tx.status === 'failed') : transactions;
 
     const csvContent = [
-      ['批次', '状态', '地址数', '交易哈希', 'Gas消耗', '创建时间'].join(','),
+      [t('campaign.batch'), t('campaign.status'), t('campaign.addressCount'), t('campaign.txHash'), t('campaign.gasUsed'), t('campaign.createdAt')].join(','),
       ...dataToExport.map(tx => [
         `#${tx.batchNumber}`,
-        tx.status === 'success' ? '成功' : tx.status === 'failed' ? '失败' : tx.status === 'sending' ? '发送中' : '待发送',
+        tx.status === 'success' ? t('common.success') : tx.status === 'failed' ? t('common.failed') : tx.status === 'sending' ? t('common.sending') : t('campaign.pending'),
         tx.addressCount,
         tx.txHash || '',
         tx.gasUsed || '',
@@ -802,7 +804,7 @@ export default function CampaignDetail() {
       }
     } catch (error) {
       console.error('Failed to refresh transactions:', error);
-      alert('刷新交易记录失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      alert(t('campaign.refreshTxFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
     }
   };
 
@@ -813,11 +815,11 @@ export default function CampaignDetail() {
 
   const handleExportRecipients = () => {
     const csvContent = [
-      ['接收地址', '金额', '状态', '交易哈希', '交易时间'].join(','),
+      [t('campaign.address'), t('campaign.amount'), t('campaign.status'), t('campaign.txHash'), t('campaign.txTime')].join(','),
       ...recipients.map(recipient => [
         recipient.address,
         recipient.amount,
-        recipient.status === 'success' ? '成功' : recipient.status === 'failed' ? '失败' : recipient.status === 'sending' ? '发送中' : '待发送',
+        recipient.status === 'success' ? t('common.success') : recipient.status === 'failed' ? t('common.failed') : recipient.status === 'sending' ? t('common.sending') : t('campaign.pending'),
         recipient.txHash || '',
         recipient.updatedAt ? formatDate(recipient.updatedAt) : recipient.createdAt ? formatDate(recipient.createdAt) : ''
       ].join(','))
@@ -1043,7 +1045,7 @@ export default function CampaignDetail() {
           <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span>活动未找到</span>
+          <span>{t('campaign.noCampaign')}</span>
         </div>
       </div>
     );
@@ -1071,7 +1073,7 @@ export default function CampaignDetail() {
               onClick={handleDeployContract}
               className="btn btn-primary"
             >
-                🚀 部署合约
+                🚀 {t('campaign.deployContract')}
             </button>
           )}
           {campaign && campaign.status === 'CREATED' && isSolanaChain(campaign) && (
@@ -1081,15 +1083,15 @@ export default function CampaignDetail() {
                 try {
                   await window.electronAPI.campaign.updateStatus(id, 'READY');
                   await loadCampaign(true); // Silent refresh after status update
-                  alert('活动已标记为就绪状态！');
+                  alert(t('campaign.statusUpdated'));
                 } catch (error) {
                   console.error('Failed to update status:', error);
-                  alert('更新状态失败');
+                  alert(t('campaign.updateStatusFailed'));
                 }
               }}
               className="btn btn-primary"
             >
-              ✅ 标记为已充值
+              ✅ {t('campaign.markAsFunded')}
             </button>
           )}
           {campaign && campaign.status === 'READY' && (
@@ -1097,7 +1099,7 @@ export default function CampaignDetail() {
               onClick={handleStartCampaign}
               className="btn btn-success"
             >
-                🚀 开始发送
+                🚀 {t('campaign.startSending')}
             </button>
           )}
           {campaign && (campaign.status === 'SENDING' || campaign.status === 'PAUSED') && (
@@ -1106,14 +1108,14 @@ export default function CampaignDetail() {
                 onClick={handlePauseResume}
                 className={`btn ${campaign.status === 'PAUSED' ? 'btn-success' : 'btn-warning'}`}
               >
-                {campaign.status === 'PAUSED' ? '▶️ 恢复' : '⏸️ 暂停'}
+                {campaign.status === 'PAUSED' ? `▶️ ${t('campaign.resume')}` : `⏸️ ${t('campaign.pause')}`}
               </button>
               {campaign.status === 'PAUSED' && campaign.failedRecipients > 0 && (
                 <button
                   onClick={handleRetryFailedTransactions}
                   className="btn btn-info"
                 >
-                  🔄 重试失败交易
+                  🔄 {t('campaign.retryFailedTx')}
                 </button>
               )}
             </>
@@ -1122,7 +1124,7 @@ export default function CampaignDetail() {
             onClick={() => navigate('/')}
             className="btn btn-ghost"
           >
-            ← 返回仪表盘
+            ← {t('campaign.backToDashboard')}
           </button>
         </div>
 
@@ -1130,15 +1132,15 @@ export default function CampaignDetail() {
       <div className="card bg-base-100 shadow-sm mb-8">
         <div className="card-body">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="card-title">发送进度</h2>
+            <h2 className="card-title">{t('campaign.sendingProgress')}</h2>
             <div className="text-2xl font-bold text-primary">{isNaN(progressPercentage) ? 0 : progressPercentage}%</div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>已完成 {campaign.completedRecipients} / {campaign.totalRecipients} 个地址</span>
-              <span className="text-success">成功 {campaign.completedRecipients}</span>
-              <span className="text-error">失败 {campaign.failedRecipients}</span>
-              <span className="text-warning">待发送 {remainingRecipients}</span>
+              <span>{t('campaign.completed')} {campaign.completedRecipients} / {campaign.totalRecipients} {t('campaign.addressUnit')}</span>
+              <span className="text-success">{t('campaign.successCount')} {campaign.completedRecipients}</span>
+              <span className="text-error">{t('campaign.failedCount')} {campaign.failedRecipients}</span>
+              <span className="text-warning">{t('campaign.pendingCount')} {remainingRecipients}</span>
             </div>
             <progress
               className="progress progress-success w-full"
@@ -1155,16 +1157,16 @@ export default function CampaignDetail() {
           <div className="stat-figure text-primary">
             📋
           </div>
-          <div className="stat-title">总地址数</div>
+          <div className="stat-title">{t('campaign.totalAddresses')}</div>
           <div className="stat-value text-primary">{campaign.totalRecipients || 0}</div>
-          <div className="stat-desc text-info">100% 目标</div>
+          <div className="stat-desc text-info">100% {t('campaign.target')}</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
           <div className="stat-figure text-success">
             ✅
           </div>
-          <div className="stat-title">成功发送</div>
+          <div className="stat-title">{t('campaign.successfullySent')}</div>
           <div className="stat-value text-success">{campaign.completedRecipients || 0}</div>
           <div className="stat-desc text-success">↑ {isNaN(progressPercentage) ? 0 : progressPercentage}%</div>
         </div>
@@ -1173,7 +1175,7 @@ export default function CampaignDetail() {
           <div className="stat-figure text-error">
             ❌
           </div>
-          <div className="stat-title">失败数量</div>
+          <div className="stat-title">{t('campaign.failedAmount')}</div>
           <div className="stat-value text-error">{campaign.failedRecipients || 0}</div>
           <div className="stat-desc text-error">{(campaign.totalRecipients && campaign.failedRecipients) ? Math.round((campaign.failedRecipients / campaign.totalRecipients) * 100) : 0}%</div>
         </div>
@@ -1182,7 +1184,7 @@ export default function CampaignDetail() {
           <div className="stat-figure text-warning">
             ⏳
           </div>
-          <div className="stat-title">待发送</div>
+          <div className="stat-title">{t('campaign.pending')}</div>
           <div className="stat-value text-warning">{remainingRecipients || 0}</div>
           <div className="stat-desc text-warning">{100 - (isNaN(progressPercentage) ? 0 : progressPercentage)}%</div>
         </div>
@@ -1195,17 +1197,17 @@ export default function CampaignDetail() {
           <div className="card-body">
             <h2 className="card-title flex items-center gap-2">
               <span>ℹ️</span>
-              活动信息
+              {t('campaign.campaignInfo')}
             </h2>
             <div className="space-y-4">
               {/* 主要信息 */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">活动状态:</span>
+                  <span className="text-sm font-medium text-base-content/70">{t('campaign.campaignStatus')}:</span>
                   <div>{getStatusBadge(campaign.status)}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">区块链网络:</span>
+                  <span className="text-sm font-medium text-base-content/70">{t('campaign.blockchainNetwork')}:</span>
                   <div>
                     {(() => {
                       const chain = getChainByName(campaign.chain);
@@ -1230,7 +1232,7 @@ export default function CampaignDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">空投总量:</span>
+                  <span className="text-sm font-medium text-base-content/70">{t('campaign.airdropTotal')}:</span>
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-primary">
                       {totalAirdropAmount}
@@ -1244,24 +1246,24 @@ export default function CampaignDetail() {
               <div className="divider"></div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">活动ID:</span>
+                  <span className="text-sm font-medium text-base-content/70">{t('campaign.campaignId')}:</span>
                   <div className="text-sm font-mono bg-base-200 px-2 py-1 rounded">
                     {campaign.id && typeof campaign.id === 'string' ? campaign.id : campaign.id && typeof campaign.id === 'number' ? String(campaign.id) : 'N/A'}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">创建时间:</span>
+                  <span className="text-sm font-medium text-base-content/70">{t('campaign.createdAt')}:</span>
                   <span className="text-sm">{formatDate(campaign.createdAt)}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">代币合约:</span>
+                  <span className="text-sm font-medium text-base-content/70">{t('campaign.tokenContract')}:</span>
                   <span className="text-sm font-mono bg-base-200 px-2 py-1 rounded whitespace-nowrap">
                     {campaign.tokenAddress}
                   </span>
                 </div>
                 {campaign.contractAddress && (
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-base-content/70">批量合约:</span>
+                    <span className="text-sm font-medium text-base-content/70">{t('campaign.batchContract')}:</span>
                     <span className="text-sm font-mono bg-base-200 px-2 py-1 rounded whitespace-nowrap">
                       {campaign.contractAddress}
                     </span>
@@ -1277,11 +1279,11 @@ export default function CampaignDetail() {
           <div className="card-body">
             <h2 className="card-title flex items-center gap-2">
               <span>💳</span>
-              活动钱包
+              {t('campaign.campaignWallet')}
             </h2>
             <div className="space-y-4">
               <div>
-                <div className="text-sm font-medium mb-2">钱包地址</div>
+                <div className="text-sm font-medium mb-2">{t('campaign.walletAddress')}</div>
                 <div className="text-sm font-mono bg-base-200 px-2 py-1 rounded">
                   {campaign.walletAddress}
                 </div>
@@ -1289,7 +1291,7 @@ export default function CampaignDetail() {
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-medium">当前余额</div>
+                  <div className="text-sm font-medium">{t('campaign.currentBalance')}</div>
                   <button
                     onClick={refreshBalances}
                     disabled={isRefreshingBalance}
@@ -1298,7 +1300,7 @@ export default function CampaignDetail() {
                     {isRefreshingBalance ? (
                       <span className="loading loading-spinner loading-xs"></span>
                     ) : (
-                      '🔄 刷新'
+                      `🔄 ${t('campaign.refresh')}`
                     )}
                   </button>
                 </div>
@@ -1339,7 +1341,7 @@ export default function CampaignDetail() {
 
               <div className="divider"></div>
               <div>
-                <div className="text-sm text-base-content/60 mb-2">私钥管理</div>
+                <div className="text-sm text-base-content/60 mb-2">{t('campaign.privateKeyManagement')}</div>
 
                 {campaign.walletPrivateKeyBase64 ? (
                   <>
@@ -1348,20 +1350,20 @@ export default function CampaignDetail() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <div>
-                        <div className="text-sm font-medium">私钥已保存</div>
-                        <div className="text-xs">可以导出私钥来控制钱包资金</div>
+                        <div className="text-sm font-medium">{t('campaign.privateKeySaved')}</div>
+                        <div className="text-xs">{t('campaign.canExportPrivateKey')}</div>
                       </div>
                     </div>
                     <button
                       onClick={handleExportPrivateKey}
                       className="btn btn-primary btn-sm w-full mt-3"
                     >
-                      🔑 导出私钥
+                      🔑 {t('campaign.exportPrivateKey')}
                     </button>
 
                     {/* Withdrawal buttons */}
                     <div className="divider my-3"></div>
-                    <div className="text-sm text-base-content/60 mb-2">资金回收</div>
+                    <div className="text-sm text-base-content/60 mb-2">{t('campaign.fundsWithdrawal')}</div>
                     {/* 判断是否是原生代币 */}
                     {!isNativeToken(campaign.tokenAddress) ? (
                       // 非原生代币：显示两个按钮
@@ -1370,13 +1372,13 @@ export default function CampaignDetail() {
                           onClick={() => handleOpenWithdrawModal('tokens')}
                           className="btn btn-warning btn-sm"
                         >
-                          💰 回收代币
+                          💰 {t('campaign.withdrawTokens')}
                         </button>
                         <button
                           onClick={() => handleOpenWithdrawModal('native')}
                           className="btn btn-warning btn-sm"
                         >
-                          💎 回收原生币
+                          💎 {t('campaign.withdrawNative')}
                         </button>
                       </div>
                     ) : (
@@ -1385,7 +1387,7 @@ export default function CampaignDetail() {
                         onClick={() => handleOpenWithdrawModal('native')}
                         className="btn btn-warning btn-sm w-full"
                       >
-                        💎 回收原生币
+                        💎 {t('campaign.withdrawNative')}
                       </button>
                     )}
                   </>
@@ -1396,16 +1398,16 @@ export default function CampaignDetail() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <div>
-                        <div className="text-sm font-medium">私钥丢失警告</div>
-                        <div className="text-xs">此活动创建时私钥未正确保存，无法导出私钥控制钱包</div>
+                        <div className="text-sm font-medium">{t('campaign.privateKeyLost')}</div>
+                        <div className="text-xs">{t('campaign.privateKeyNotSaved')}</div>
                       </div>
                     </div>
                     <button
                       className="btn btn-disabled btn-sm w-full mt-3"
-                      title="私钥未保存，无法导出"
+                      title={t('campaign.privateKeyUnavailable')}
                       disabled
                     >
-                      🔑 私钥不可用
+                      🔑 {t('campaign.privateKeyUnavailable')}
                     </button>
                   </>
                 )}
@@ -1421,16 +1423,16 @@ export default function CampaignDetail() {
           <div className="flex justify-between items-center mb-6">
             <h2 className="card-title flex items-center gap-2">
               <span>📊</span>
-              交易记录
+              {t('campaign.transactionRecords')}
             </h2>
             <div className="flex gap-2">
-              <button onClick={handleExportTransactions} className="btn btn-ghost btn-sm">📥 导出</button>
-              <button onClick={handleRefreshTransactions} className="btn btn-ghost btn-sm">🔄 刷新</button>
+              <button onClick={handleExportTransactions} className="btn btn-ghost btn-sm">📥 {t('campaign.export')}</button>
+              <button onClick={handleRefreshTransactions} className="btn btn-ghost btn-sm">🔄 {t('campaign.refresh')}</button>
               <button
                 onClick={handleToggleFilter}
                 className={`btn btn-sm ${showFailedOnly ? 'btn-error' : 'btn-ghost'}`}
               >
-                {showFailedOnly ? '✓ 仅失败' : '❌ 仅失败'}
+                {showFailedOnly ? `✓ ${t('campaign.showFailedOnly')}` : `❌ ${t('campaign.showFailedOnly')}`}
               </button>
             </div>
           </div>
@@ -1439,13 +1441,13 @@ export default function CampaignDetail() {
             <table className="table">
               <thead>
                 <tr className="border-b border-base-300">
-                  <th className="bg-base-200">批次</th>
-                  <th className="bg-base-200">状态</th>
-                  <th className="bg-base-200">地址数</th>
-                  <th className="bg-base-200">交易哈希</th>
-                  <th className="bg-base-200">Gas消耗</th>
-                  <th className="bg-base-200">交易时间</th>
-                  <th className="bg-base-200 text-center">操作</th>
+                  <th className="bg-base-200">{t('campaign.batch')}</th>
+                  <th className="bg-base-200">{t('campaign.status')}</th>
+                  <th className="bg-base-200">{t('campaign.addressCount')}</th>
+                  <th className="bg-base-200">{t('campaign.txHash')}</th>
+                  <th className="bg-base-200">{t('campaign.gasUsed')}</th>
+                  <th className="bg-base-200">{t('campaign.txTime')}</th>
+                  <th className="bg-base-200 text-center">{t('campaign.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1455,10 +1457,10 @@ export default function CampaignDetail() {
                       <div className="font-bold text-base">#{tx.batchNumber}</div>
                     </td>
                     <td className="py-4">
-                      {tx.status === 'success' && <div className="badge badge-success gap-1">✅ 成功</div>}
-                      {tx.status === 'sending' && <div className="badge badge-info gap-1">🔄 发送中</div>}
-                      {tx.status === 'pending' && <div className="badge badge-warning gap-1">⏳ 待发送</div>}
-                      {tx.status === 'failed' && <div className="badge badge-error gap-1">❌ 失败</div>}
+                      {tx.status === 'success' && <div className="badge badge-success gap-1">✅ {t('common.success')}</div>}
+                      {tx.status === 'sending' && <div className="badge badge-info gap-1">🔄 {t('common.sending')}</div>}
+                      {tx.status === 'pending' && <div className="badge badge-warning gap-1">⏳ {t('campaign.pending')}</div>}
+                      {tx.status === 'failed' && <div className="badge badge-error gap-1">❌ {t('common.failed')}</div>}
                     </td>
                     <td className="py-4">
                       <div className="font-medium">{tx.addressCount}</div>
@@ -1495,7 +1497,7 @@ export default function CampaignDetail() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-ghost btn-sm"
-                            title="在区块浏览器查看"
+                            title={t('campaign.viewInExplorer')}
                           >
                             🔍
                           </a>
@@ -1503,9 +1505,9 @@ export default function CampaignDetail() {
                         {tx.status === 'failed' && (
                           <button
                             className="btn btn-ghost btn-sm"
-                            title="重新发送"
+                            title={t('campaign.resend')}
                             onClick={() => {
-                              alert('重新发送功能待实现');
+                              alert(t('campaign.resendPending'));
                             }}
                           >
                             🔄
@@ -1534,10 +1536,10 @@ export default function CampaignDetail() {
           <div className="flex justify-between items-center mb-6">
             <h2 className="card-title flex items-center gap-2">
               <span>👥</span>
-              接收地址列表
+              {t('campaign.recipientList')}
             </h2>
             <div className="flex gap-2">
-              <button onClick={handleExportRecipients} className="btn btn-primary btn-sm">📥 导出CSV</button>
+              <button onClick={handleExportRecipients} className="btn btn-primary btn-sm">📥 {t('campaign.exportCSV')}</button>
             </div>
           </div>
 
@@ -1545,11 +1547,11 @@ export default function CampaignDetail() {
             <table className="table">
               <thead>
                 <tr className="border-b border-base-300">
-                  <th className="bg-base-200">地址</th>
-                  <th className="bg-base-200">金额</th>
-                  <th className="bg-base-200">状态</th>
-                  <th className="bg-base-200">交易哈希</th>
-                  <th className="bg-base-200">交易时间</th>
+                  <th className="bg-base-200">{t('campaign.address')}</th>
+                  <th className="bg-base-200">{t('campaign.amount')}</th>
+                  <th className="bg-base-200">{t('campaign.status')}</th>
+                  <th className="bg-base-200">{t('campaign.txHash')}</th>
+                  <th className="bg-base-200">{t('campaign.txTime')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1610,7 +1612,7 @@ export default function CampaignDetail() {
           <div className="modal-box max-w-2xl">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <span>🔑</span>
-              <span>导出私钥</span>
+              <span>{t('campaign.exportPrivateKey')}</span>
             </h3>
 
             {/* Warning Alert */}
@@ -1619,14 +1621,14 @@ export default function CampaignDetail() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
               <span className="text-sm">
-                <strong>安全警告：</strong>私钥拥有您钱包的完全控制权，请妥善保管，切勿分享给他人！
+                <strong>{t('campaign.securityWarning')}</strong>{t('campaign.securityWarningText')}
               </span>
             </div>
 
             {/* Wallet Address */}
             <div className="mb-4">
               <label className="label">
-                <span className="label-text font-semibold">钱包地址</span>
+                <span className="label-text font-semibold">{t('campaign.walletAddress')}</span>
               </label>
               <div className="flex gap-2">
                 <div className="flex-1 bg-base-200 px-4 py-3 rounded-lg font-mono text-sm break-all">
@@ -1635,7 +1637,7 @@ export default function CampaignDetail() {
                 <button
                   onClick={handleCopyAddress}
                   className="btn btn-square btn-outline"
-                  title="复制地址"
+                  title={t('wallet.copyAddress')}
                 >
                   📋
                 </button>
@@ -1645,7 +1647,7 @@ export default function CampaignDetail() {
             {/* Private Key */}
             <div className="mb-6">
               <label className="label">
-                <span className="label-text font-semibold">私钥 (Private Key)</span>
+                <span className="label-text font-semibold">{t('campaign.privateKeyLabel')}</span>
               </label>
               <div className="flex gap-2">
                 <div className="flex-1 bg-error/10 border-2 border-error/30 px-4 py-3 rounded-lg font-mono text-sm break-all">
@@ -1654,7 +1656,7 @@ export default function CampaignDetail() {
                 <button
                   onClick={handleCopyPrivateKey}
                   className={`btn btn-square ${copied ? 'btn-success' : 'btn-error'}`}
-                  title="复制私钥"
+                  title={t('campaign.copyPrivateKey')}
                 >
                   {copied ? '✓' : '📋'}
                 </button>
@@ -1662,28 +1664,28 @@ export default function CampaignDetail() {
               {copied && (
                 <div className="text-success text-sm mt-2 flex items-center gap-1">
                   <span>✓</span>
-                  <span>私钥已复制到剪贴板</span>
+                  <span>{t('campaign.privateKeyCopied')}</span>
                 </div>
               )}
             </div>
 
             {/* Security Tips */}
             <div className="bg-base-200 p-4 rounded-lg mb-4">
-              <h4 className="font-semibold mb-2 text-sm">安全提示</h4>
+              <h4 className="font-semibold mb-2 text-sm">{t('campaign.securityTips')}</h4>
               <ul className="text-sm space-y-1 text-base-content/80">
-                <li>• EVM私钥可以导入到 MetaMask、Trust Wallet 等钱包</li>
-                <li>• Solana私钥为64字节数组格式，可导入到 Phantom、Solflare 等钱包</li>
-                <li>• 格式示例：[135,23,98,189,91,220,102,232,69,78,173,75,129,198,30,190,...]</li>
-                <li>• 请将私钥保存在安全的地方（如密码管理器）</li>
-                <li>• 不要截图或通过互联网传输私钥</li>
-                <li>• 任何拥有私钥的人都可以控制钱包资金</li>
+                <li>• {t('campaign.securityTip1')}</li>
+                <li>• {t('campaign.securityTip2')}</li>
+                <li>• {t('campaign.securityTip3')}</li>
+                <li>• {t('campaign.securityTip4')}</li>
+                <li>• {t('campaign.securityTip5')}</li>
+                <li>• {t('campaign.securityTip6')}</li>
               </ul>
             </div>
 
             {/* Modal Actions */}
             <div className="modal-action">
               <button onClick={handleCloseModal} className="btn btn-primary">
-                我已安全保存
+                {t('campaign.savedSecurely')}
               </button>
             </div>
           </div>
@@ -1698,7 +1700,7 @@ export default function CampaignDetail() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg flex items-center gap-2">
                 <span>🚀</span>
-                合约部署状态
+                {t('campaign.deploymentStatus')}
               </h3>
               <button
                 onClick={() => setShowDeploymentModal(false)}
@@ -1735,7 +1737,7 @@ export default function CampaignDetail() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <h3 className="font-bold">部署失败</h3>
+                  <h3 className="font-bold">{t('campaign.deploymentFailedTitle')}</h3>
                   <div className="text-sm mt-1">{deploymentError}</div>
                 </div>
               </div>
@@ -1748,16 +1750,16 @@ export default function CampaignDetail() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <h3 className="font-bold">合约部署成功！</h3>
+                  <h3 className="font-bold">{t('campaign.deploymentSuccessTitle')}</h3>
                   <div className="text-sm mt-1">
                     <div className="mb-1">
-                      <strong>合约地址:</strong>
+                      <strong>{t('campaign.contractAddressLabel')}</strong>
                       <div className="font-mono text-xs bg-success/10 p-1 rounded mt-1 break-all">
                         {deploymentResult.contractAddress}
                       </div>
                     </div>
                     <div>
-                      <strong>交易哈希:</strong>
+                      <strong>{t('campaign.txHashLabel')}</strong>
                       <div className="font-mono text-xs bg-success/10 p-1 rounded mt-1 break-all">
                         {deploymentResult.transactionHash}
                       </div>
@@ -1778,7 +1780,7 @@ export default function CampaignDetail() {
                   className="btn"
                   disabled={isDeploying}
                 >
-                  关闭
+                  {t('common.close')}
                 </button>
               )}
 
@@ -1791,7 +1793,7 @@ export default function CampaignDetail() {
                     }}
                     className="btn btn-success"
                   >
-                    📋 复制合约地址
+                    📋 {t('campaign.copyContractAddress')}
                   </button>
                   <button
                     onClick={() => {
@@ -1800,7 +1802,7 @@ export default function CampaignDetail() {
                     }}
                     className="btn"
                   >
-                    完成
+                    {t('campaign.done')}
                   </button>
                 </>
               )}
@@ -1811,7 +1813,7 @@ export default function CampaignDetail() {
                   className="btn"
                   disabled={isDeploying}
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
               )}
             </div>
@@ -1825,7 +1827,7 @@ export default function CampaignDetail() {
         <div className="modal modal-open">
           <div className="modal-box">
             <h3 className="font-bold text-lg mb-4">
-              {withdrawType === 'tokens' ? '💰 回收剩余代币' : '💎 回收剩余原生代币'}
+              {withdrawType === 'tokens' ? `💰 ${t('campaign.withdrawRemainingTokens')}` : `💎 ${t('campaign.withdrawRemainingNative')}`}
             </h3>
 
             {/* Warning */}
@@ -1835,14 +1837,14 @@ export default function CampaignDetail() {
               </svg>
               <span className="text-sm">
                 {withdrawType === 'tokens'
-                  ? `将钱包中的所有剩余 ${campaign?.tokenSymbol} 代币转移到指定地址`
-                  : '将钱包中的剩余原生代币转移到指定地址（会保留gas费用）'}
+                  ? `${t('campaign.withdrawTokensWarning')} ${campaign?.tokenSymbol} ${t('campaign.tokensSuffix')}`
+                  : t('campaign.withdrawNativeWarning')}
               </span>
             </div>
 
             {/* Current Balance */}
             <div className="bg-base-200 p-3 rounded-lg mb-4">
-              <div className="text-sm text-base-content/60">当前余额</div>
+              <div className="text-sm text-base-content/60">{t('campaign.currentBalance')}</div>
               <div className="text-lg font-bold">
                 {withdrawType === 'tokens'
                   ? `${parseFloat(walletBalances.token.current).toFixed(4)} ${campaign?.tokenSymbol}`
@@ -1853,11 +1855,11 @@ export default function CampaignDetail() {
             {/* Recipient Address Input */}
             <div className="form-control w-full mb-4">
               <label className="label">
-                <span className="label-text font-medium">接收地址</span>
+                <span className="label-text font-medium">{t('campaign.recipientAddress')}</span>
               </label>
               <input
                 type="text"
-                placeholder="请输入接收地址"
+                placeholder={t('campaign.enterRecipient')}
                 className="input input-bordered w-full"
                 value={withdrawRecipient}
                 onChange={(e) => setWithdrawRecipient(e.target.value)}
@@ -1872,14 +1874,14 @@ export default function CampaignDetail() {
                 className="btn"
                 disabled={isWithdrawing}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleWithdraw}
                 className="btn btn-warning"
                 disabled={isWithdrawing || !withdrawRecipient}
               >
-                {isWithdrawing ? '处理中...' : '确认回收'}
+                {isWithdrawing ? t('campaign.processing') : t('campaign.confirmWithdrawal')}
               </button>
             </div>
           </div>
