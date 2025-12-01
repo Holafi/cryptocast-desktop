@@ -7,7 +7,6 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg)](../../.github/workflows/build.yml)
-[![Version](https://img.shields.io/badge/version-1.4.2-blue.svg)](https://github.com/viaweb3/cryptocast-desktop/releases)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue.svg)](../../.github/workflows/build.yml)
 
 ---
@@ -56,7 +55,6 @@ CryptoCast Desktop 是一个基于 Electron 构建的专业跨平台桌面应用
 
 ## 💾 下载和安装
 
-**最新版本: v1.4.2**
 
 | 平台 | 下载链接 | 描述 |
 |---------|---------------|-------------|
