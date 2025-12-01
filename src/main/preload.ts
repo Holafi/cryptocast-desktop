@@ -101,6 +101,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (settings: Record<string, unknown>): Promise<void> => ipcRenderer.invoke('settings:update', settings),
   },
 
+  // 应用信息
+  app: {
+    getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  },
+
   // 文件操作
   file: {
     readCSV: (filePath: string): Promise<unknown> => ipcRenderer.invoke('file:readCSV', filePath),

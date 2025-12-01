@@ -787,6 +787,18 @@ export async function setupIPCHandlers() {
     }
   });
 
+  ipcMain.handle('app:getVersion', async (_event) => {
+    try {
+      const { app } = await import('electron');
+      const version = app.getVersion();
+      logger.debug('Getting app version', { version });
+      return version;
+    } catch (error) {
+      logger.error('Failed to get app version', error as Error);
+      throw new Error('获取应用版本失败');
+    }
+  });
+
   // 错误处理
   ipcMain.on('error', (_event, error) => {
     logger.error('IPC error received', error);

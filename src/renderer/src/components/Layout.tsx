@@ -25,6 +25,23 @@ export default function Layout({ children }: LayoutProps) {
     sol: 0
   });
 
+  const [appVersion, setAppVersion] = useState<string>('1.4.1'); // Fallback version
+
+  // Fetch app version on component mount
+  useEffect(() => {
+    const fetchAppVersion = async () => {
+      try {
+        const version = await electronAPI.app.getVersion();
+        setAppVersion(version);
+      } catch (error) {
+        console.error('[Layout] Failed to fetch app version:', error);
+        // Keep fallback version if API fails
+      }
+    };
+
+    fetchAppVersion();
+  }, []);
+
   // Fetch cached prices on component mount and set up interval
   useEffect(() => {
     const fetchCachedPrices = async () => {
@@ -159,6 +176,17 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 <span className="text-xs font-bold text-primary">{formatPrice(priceInfo.sol)}</span>
               </div>
+            </div>
+          </div>
+
+          {/* Version Info */}
+          <div className="bg-base-200 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🔖</span>
+              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">版本信息</h3>
+            </div>
+            <div className="mt-2 text-center">
+              <span className="text-xs text-base-content/70">v{appVersion}</span>
             </div>
           </div>
         </div>

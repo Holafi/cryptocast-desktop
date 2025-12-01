@@ -131,31 +131,36 @@ export default function CampaignDetail() {
       pending: recipientsData.filter(r => r.status === 'pending' || r.status === 'sending').length,
     };
 
+    // Safely get campaign values with fallbacks
+    const campaignCompleted = campaignData.completedRecipients ?? 0;
+    const campaignFailed = campaignData.failedRecipients ?? 0;
+    const campaignTotal = campaignData.totalRecipients ?? 0;
+
     // Validate completed recipients count
-    if (recipientCounts.sent !== campaignData.completedRecipients) {
+    if (recipientCounts.sent !== campaignCompleted) {
       warnings.push(
-        `[数据不一致] 完成数量: 接收者表=${recipientCounts.sent}, 活动表=${campaignData.completedRecipients}, 差异=${Math.abs(recipientCounts.sent - campaignData.completedRecipients)}`
+        `[数据不一致] 完成数量: 接收者表=${recipientCounts.sent}, 活动表=${campaignCompleted}, 差异=${Math.abs(recipientCounts.sent - campaignCompleted)}`
       );
     }
 
     // Validate failed recipients count
-    if (recipientCounts.failed !== campaignData.failedRecipients) {
+    if (recipientCounts.failed !== campaignFailed) {
       warnings.push(
-        `[数据不一致] 失败数量: 接收者表=${recipientCounts.failed}, 活动表=${campaignData.failedRecipients || 0}, 差异=${Math.abs(recipientCounts.failed - (campaignData.failedRecipients || 0))}`
+        `[数据不一致] 失败数量: 接收者表=${recipientCounts.failed}, 活动表=${campaignFailed}, 差异=${Math.abs(recipientCounts.failed - campaignFailed)}`
       );
     }
 
     // Validate total recipients
     const totalInRecipients = recipientsData.length;
-    if (totalInRecipients !== campaignData.totalRecipients) {
+    if (totalInRecipients !== campaignTotal) {
       warnings.push(
-        `[数据不一致] 总数: 接收者表=${totalInRecipients}, 活动表=${campaignData.totalRecipients}, 差异=${Math.abs(totalInRecipients - campaignData.totalRecipients)}`
+        `[数据不一致] 总数: 接收者表=${totalInRecipients}, 活动表=${campaignTotal}, 差异=${Math.abs(totalInRecipients - campaignTotal)}`
       );
     }
 
-    // Validate progress calculation
-    const calculatedProgress = campaignData.totalRecipients > 0
-      ? Math.round((campaignData.completedRecipients / campaignData.totalRecipients) * 100)
+    // Validate progress calculation (avoid division by zero and NaN)
+    const calculatedProgress = campaignTotal > 0 && !isNaN(campaignTotal) && !isNaN(campaignCompleted)
+      ? Math.round((campaignCompleted / campaignTotal) * 100)
       : 0;
     const actualProgress = totalInRecipients > 0
       ? Math.round((recipientCounts.sent / totalInRecipients) * 100)
@@ -175,8 +180,7 @@ export default function CampaignDetail() {
         failedRecipients: campaignData.failedRecipients,
       });
       console.warn('接收者统计:', recipientCounts);
-    } else {
-          }
+    }
 
     return warnings;
   };
@@ -203,9 +207,11 @@ export default function CampaignDetail() {
 
       // Process campaign details (critical - must succeed)
       if (detailsResult.status === 'fulfilled' && detailsResult.value) {
+        // detailsResult.value contains both campaign and stats
+        const campaignData = detailsResult.value.campaign || detailsResult.value;
         setCampaign({
-          ...detailsResult.value,
-          chainId: parseInt(detailsResult.value.chain),
+          ...campaignData,
+          chainId: parseInt(campaignData.chain),
         });
       } else {
         const error = detailsResult.status === 'rejected' ? detailsResult.reason : 'Campaign not found';
@@ -273,9 +279,10 @@ export default function CampaignDetail() {
 
       // Validate data consistency after all data is loaded
       if (detailsResult.status === 'fulfilled' && recipientsResult.status === 'fulfilled') {
+        // Extract campaign data from the complex response
         const campaignData = {
-          ...detailsResult.value,
-          chainId: parseInt(detailsResult.value.chain),
+          ...(detailsResult.value.campaign || detailsResult.value),
+          chainId: parseInt((detailsResult.value.campaign || detailsResult.value).chain),
         };
         const recipientsData = recipientsResult.value.map((r: any) => ({
           id: r.id,
@@ -1042,8 +1049,13 @@ export default function CampaignDetail() {
     );
   }
 
-  const progressPercentage = Math.round((campaign.completedRecipients / campaign.totalRecipients) * 100);
-  const remainingRecipients = campaign.totalRecipients - campaign.completedRecipients - campaign.failedRecipients;
+  // Safely calculate progress percentage with fallbacks to avoid NaN
+  const progressPercentage = campaign.totalRecipients > 0 && !isNaN(campaign.totalRecipients) && !isNaN(campaign.completedRecipients)
+    ? Math.round((campaign.completedRecipients / campaign.totalRecipients) * 100)
+    : 0;
+
+  // Safely calculate remaining recipients with fallbacks
+  const remainingRecipients = (campaign.totalRecipients || 0) - (campaign.completedRecipients || 0) - (campaign.failedRecipients || 0);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -1119,7 +1131,7 @@ export default function CampaignDetail() {
         <div className="card-body">
           <div className="flex items-center justify-between mb-4">
             <h2 className="card-title">发送进度</h2>
-            <div className="text-2xl font-bold text-primary">{progressPercentage}%</div>
+            <div className="text-2xl font-bold text-primary">{isNaN(progressPercentage) ? 0 : progressPercentage}%</div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
@@ -1130,7 +1142,7 @@ export default function CampaignDetail() {
             </div>
             <progress
               className="progress progress-success w-full"
-              value={progressPercentage}
+              value={isNaN(progressPercentage) ? 0 : progressPercentage}
               max="100"
             ></progress>
           </div>
@@ -1144,7 +1156,7 @@ export default function CampaignDetail() {
             📋
           </div>
           <div className="stat-title">总地址数</div>
-          <div className="stat-value text-primary">{campaign.totalRecipients}</div>
+          <div className="stat-value text-primary">{campaign.totalRecipients || 0}</div>
           <div className="stat-desc text-info">100% 目标</div>
         </div>
 
@@ -1153,8 +1165,8 @@ export default function CampaignDetail() {
             ✅
           </div>
           <div className="stat-title">成功发送</div>
-          <div className="stat-value text-success">{campaign.completedRecipients}</div>
-          <div className="stat-desc text-success">↑ {progressPercentage}%</div>
+          <div className="stat-value text-success">{campaign.completedRecipients || 0}</div>
+          <div className="stat-desc text-success">↑ {isNaN(progressPercentage) ? 0 : progressPercentage}%</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
@@ -1162,8 +1174,8 @@ export default function CampaignDetail() {
             ❌
           </div>
           <div className="stat-title">失败数量</div>
-          <div className="stat-value text-error">{campaign.failedRecipients}</div>
-          <div className="stat-desc text-error">{Math.round((campaign.failedRecipients / campaign.totalRecipients) * 100)}%</div>
+          <div className="stat-value text-error">{campaign.failedRecipients || 0}</div>
+          <div className="stat-desc text-error">{(campaign.totalRecipients && campaign.failedRecipients) ? Math.round((campaign.failedRecipients / campaign.totalRecipients) * 100) : 0}%</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
@@ -1171,8 +1183,8 @@ export default function CampaignDetail() {
             ⏳
           </div>
           <div className="stat-title">待发送</div>
-          <div className="stat-value text-warning">{remainingRecipients}</div>
-          <div className="stat-desc text-warning">{100 - progressPercentage}%</div>
+          <div className="stat-value text-warning">{remainingRecipients || 0}</div>
+          <div className="stat-desc text-warning">{100 - (isNaN(progressPercentage) ? 0 : progressPercentage)}%</div>
         </div>
       </div>
 

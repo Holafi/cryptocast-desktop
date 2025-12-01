@@ -84,6 +84,10 @@ export interface ElectronAPI {
     exportSolanaPrivateKey: (privateKeyBase64: string) => Promise<string>;
   };
 
+  app: {
+    getVersion: () => Promise<string>;
+  };
+
   blockchain: {
     getBalance: (address: string, chain: string, tokenAddress?: string) => Promise<string>;
     estimateGas: (chain: string, fromAddress: string, toAddress: string, tokenAddress: string, recipientCount: number) => Promise<string>;
