@@ -2,7 +2,7 @@
 
 > 🚀 Multi-chain Cryptocurrency Batch Reward Distribution Platform - Secure, Efficient, and User-Friendly Desktop Application
 
-**🌍 Languages / 语言 / Idiomas / Langues / Sprachen / языки / اللغة / 언어 / 言語 / Tiếng Việt / Türkçe:**
+**🌍 Languages / 语言 / Langues / Sprachen / 言語:**
 [🇺🇸 English](../../README.md) | [🇨🇳 中文](../zh/README.md) | [🇪🇸 Español](../es/README.md) | [🇫🇷 Français](../fr/README.md) | [🇩🇪 Deutsch](../de/README.md) | [🇵🇹 Português](../pt/README.md) | [🇷🇺 Русский](../ru/README.md) | [🇸🇦 العربية](../ar/README.md) | [🇰🇷 한국어](../ko/README.md) | [🇯🇵 日本語](../ja/README.md) | [🇻🇳 Tiếng Việt](../vi/README.md) | [🇹🇷 Türkçe](../tr/README.md)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
