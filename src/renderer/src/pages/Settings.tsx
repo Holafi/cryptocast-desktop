@@ -10,11 +10,11 @@ import {
   NetworkTestResult
 } from '../types';
 
-// 获取链的显示字母
+// Get chain display initial
 function getChainInitial(name: string, symbol?: string): string {
   const lowerName = name.toLowerCase();
 
-  // 特殊链的显示字母
+  // Special chain display initials
   if (lowerName.includes('ethereum') && lowerName.includes('sepolia')) return 'S'; // Sepolia
   if (lowerName.includes('ethereum')) return 'E'; // Ethereum Mainnet
   if (lowerName.includes('polygon')) return 'P'; // Polygon
@@ -25,7 +25,7 @@ function getChainInitial(name: string, symbol?: string): string {
   if (lowerName.includes('avalanche')) return 'A'; // Avalanche
   if (lowerName.includes('solana')) return 'S'; // Solana
 
-  // 默认使用symbol的第一个字母
+  // Default to first letter of symbol
   return symbol?.charAt(0)?.toUpperCase() || name.charAt(0)?.toUpperCase() || '⚡';
 }
 
@@ -106,7 +106,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
         setTestResult(result);
       }
     } catch (error) {
-      console.error('测试失败:', error);
+      console.error('Test failed:', error);
       setTestError(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTesting(false);
@@ -128,7 +128,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
         setTestResultBackup(result);
       }
     } catch (error) {
-      console.error('备用RPC测试失败:', error);
+      console.error('Backup RPC test failed:', error);
       setTestErrorBackup(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTestingBackup(false);
@@ -437,7 +437,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
         }
       }
     } catch (error) {
-      console.error('Solana RPC测试失败:', error);
+      console.error('Solana RPC test failed:', error);
       setTestError(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTesting(false);
@@ -719,10 +719,10 @@ export default function Settings() {
     try {
       if (window.electronAPI?.chain) {
         if (chainData.id && chainData.id > 0) {
-          // 更新现有链
+          // Update existing chain
           await window.electronAPI.chain.updateEVMChain(chainData.id, chainData);
         } else {
-          // 添加新链
+          // Add new chain
           const newId = await window.electronAPI.chain.addEVMChain(chainData);
           chainData.id = newId;
         }
@@ -731,7 +731,7 @@ export default function Settings() {
       setSettings((prev: AppSettings) => {
         const chains = prev.chains || [];
         if (chainData.id && chainData.id > 0 && chains.some(c => c.id === chainData.id)) {
-          // 更新现有链
+          // Update existing chain
           return {
             ...prev,
             chains: chains.map(chain =>
@@ -739,7 +739,7 @@ export default function Settings() {
             )
           };
         } else {
-          // 添加新链
+          // Add new chain
           const newChain: EVMChain = {
             id: chainData.id || Date.now(),
             type: 'evm',
@@ -911,7 +911,7 @@ export default function Settings() {
               </div>
               <div className="text-xs text-base-content/50 mt-2">
                 {i18n.language === 'en' && 'Current language: English'}
-                {i18n.language === 'zh' && '当前语言：中文'}
+                {i18n.language === 'zh' && 'Current language: Chinese'}
                 {i18n.language === 'es' && 'Idioma actual: Español'}
                 {i18n.language === 'fr' && 'Langue actuelle : Français'}
                 {i18n.language === 'de' && 'Aktuelle Sprache: Deutsch'}
@@ -919,7 +919,7 @@ export default function Settings() {
                 {i18n.language === 'ru' && 'Текущий язык: Русский'}
                 {i18n.language === 'ar' && 'اللغة الحالية: العربية'}
                 {i18n.language === 'ko' && '현재 언어: 한국어'}
-                {i18n.language === 'ja' && '現在の言語：日本語'}
+                {i18n.language === 'ja' && 'Current language: Japanese'}
                 {i18n.language === 'vi' && 'Ngôn ngữ hiện tại: Tiếng Việt'}
                 {i18n.language === 'tr' && 'Mevcut dil: Türkçe'}
               </div>
