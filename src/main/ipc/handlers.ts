@@ -15,11 +15,11 @@ import { KeyUtils } from '../utils/keyUtils';
 import { Logger } from '../utils/logger';
 import type {
   CreateCampaignRequest,
-  CampaignFilters,
-  EstimateRequest,
-  WalletListOptions,
-  EVMChainData,
-  SolanaRPCData
+  CampaignFilters
+  // EstimateRequest,
+  // WalletListOptions,
+  // EVMChainData,
+  // SolanaRPCData
 } from '../types/ipc';
 
 const logger = Logger.getInstance().child('IPCHandlers');
@@ -71,7 +71,9 @@ export async function setupIPCHandlers() {
       return campaign;
     } catch (error) {
       logger.error('Failed to create campaign', error as Error, { data });
-      throw new Error(`Failed to create campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create campaign: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -86,7 +88,9 @@ export async function setupIPCHandlers() {
       return campaigns;
     } catch (error) {
       logger.error('Failed to list campaigns', error as Error, { filters });
-      throw new Error(`Failed to get campaign list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get campaign list: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -97,7 +101,9 @@ export async function setupIPCHandlers() {
       return campaign;
     } catch (error) {
       logger.error('Failed to get campaign', error as Error, { campaignId: id });
-      throw new Error(`Failed to get campaign details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get campaign details: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -109,7 +115,9 @@ export async function setupIPCHandlers() {
       return result;
     } catch (error) {
       logger.error('Failed to start campaign', error as Error, { campaignId: id });
-      throw new Error(`Failed to start campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to start campaign: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -120,7 +128,9 @@ export async function setupIPCHandlers() {
       return result;
     } catch (error) {
       logger.error('Failed to pause campaign', error as Error, { campaignId: id });
-      throw new Error(`Failed to pause campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to pause campaign: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -131,7 +141,9 @@ export async function setupIPCHandlers() {
       return result;
     } catch (error) {
       logger.error('Failed to resume campaign', error as Error, { campaignId: id });
-      throw new Error(`Failed to resume campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to resume campaign: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -142,10 +154,11 @@ export async function setupIPCHandlers() {
       return { success: true };
     } catch (error) {
       logger.error('Failed to update campaign status', error as Error, { campaignId: id, status });
-      throw new Error(`Failed to update campaign status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update campaign status: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
-
 
   ipcMain.handle('campaign:getDetails', async (_event, id) => {
     try {
@@ -154,7 +167,9 @@ export async function setupIPCHandlers() {
       return details;
     } catch (error) {
       logger.error('Failed to get campaign details', error as Error, { campaignId: id });
-      throw new Error(`Failed to get campaign details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get campaign details: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -165,7 +180,9 @@ export async function setupIPCHandlers() {
       return transactions;
     } catch (error) {
       logger.error('Failed to get campaign transactions', error as Error, { campaignId: id });
-      throw new Error(`Failed to get campaign transaction records: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get campaign transaction records: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -176,7 +193,9 @@ export async function setupIPCHandlers() {
       return recipients;
     } catch (error) {
       logger.error('Failed to get campaign recipients', error as Error, { campaignId: id });
-      throw new Error(`Failed to get campaign recipients list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get campaign recipients list: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -187,7 +206,9 @@ export async function setupIPCHandlers() {
       return estimate;
     } catch (error) {
       logger.error('Failed to estimate campaign cost', error as Error, { request });
-      throw new Error(`Failed to estimate campaign cost: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to estimate campaign cost: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -199,20 +220,36 @@ export async function setupIPCHandlers() {
       return { success: true, balance };
     } catch (error) {
       logger.error('Failed to get Solana balance', error as Error, { walletAddress });
-      throw new Error(`Failed to get Solana balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get Solana balance: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  ipcMain.handle('solana:batchTransfer', async (_event, rpcUrl, privateKeyBase64, recipients, amounts, tokenAddress) => {
-    try {
-      logger.info('Initiating Solana batch transfer', { recipientCount: recipients.length, tokenAddress });
-      const result = await solanaService.batchTransfer(rpcUrl, privateKeyBase64, recipients, amounts, tokenAddress);
-      return { success: true, data: result };
-    } catch (error) {
-      logger.error('Failed to execute Solana batch transfer', error as Error);
-      throw new Error(`Failed to execute Solana batch transfer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  ipcMain.handle(
+    'solana:batchTransfer',
+    async (_event, rpcUrl, privateKeyBase64, recipients, amounts, tokenAddress) => {
+      try {
+        logger.info('Initiating Solana batch transfer', {
+          recipientCount: recipients.length,
+          tokenAddress
+        });
+        const result = await solanaService.batchTransfer(
+          rpcUrl,
+          privateKeyBase64,
+          recipients,
+          amounts,
+          tokenAddress
+        );
+        return { success: true, data: result };
+      } catch (error) {
+        logger.error('Failed to execute Solana batch transfer', error as Error);
+        throw new Error(
+          `Failed to execute Solana batch transfer: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
     }
-  });
+  );
 
   ipcMain.handle('solana:getTransactionStatus', async (_event, rpcUrl, transactionHash) => {
     try {
@@ -221,7 +258,9 @@ export async function setupIPCHandlers() {
       return { success: true, data: status };
     } catch (error) {
       logger.error('Failed to get Solana transaction status', error as Error, { transactionHash });
-      throw new Error(`Failed to get Solana transaction status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get Solana transaction status: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -232,7 +271,9 @@ export async function setupIPCHandlers() {
       return { success: true, data: tokenInfo };
     } catch (error) {
       logger.error('Failed to get Solana token info', error as Error, { tokenAddress });
-      throw new Error(`Failed to get Solana token info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get Solana token info: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -240,27 +281,37 @@ export async function setupIPCHandlers() {
   ipcMain.handle('wallet:create', async (_event, type = 'evm') => {
     try {
       logger.info('Creating wallet', { type });
-      const wallet = type === 'solana'
-        ? walletService.createSolanaWallet()
-        : walletService.createEVMWallet();
+      const wallet =
+        type === 'solana' ? walletService.createSolanaWallet() : walletService.createEVMWallet();
       return wallet;
     } catch (error) {
       logger.error('Failed to create wallet', error as Error, { type });
-      throw new Error(`Failed to create wallet: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create wallet: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  
-  ipcMain.handle('wallet:getBalance', async (_event, address, chain, tokenAddress, tokenDecimals) => {
-    try {
-      logger.debug('Getting wallet balance', { address, chain, tokenAddress });
-      const balance = await blockchainService.getBalance(address, chain, tokenAddress, tokenDecimals);
-      return balance;
-    } catch (error) {
-      logger.error('Failed to get wallet balance', error as Error, { address, chain });
-      throw new Error(`Failed to query balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  ipcMain.handle(
+    'wallet:getBalance',
+    async (_event, address, chain, tokenAddress, tokenDecimals) => {
+      try {
+        logger.debug('Getting wallet balance', { address, chain, tokenAddress });
+        const balance = await blockchainService.getBalance(
+          address,
+          chain,
+          tokenAddress,
+          tokenDecimals
+        );
+        return balance;
+      } catch (error) {
+        logger.error('Failed to get wallet balance', error as Error, { address, chain });
+        throw new Error(
+          `Failed to query balance: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
     }
-  });
+  );
 
   ipcMain.handle('wallet:list', async (_event, options) => {
     try {
@@ -269,7 +320,9 @@ export async function setupIPCHandlers() {
       return wallets;
     } catch (error) {
       logger.error('Failed to list wallets', error as Error, { options });
-      throw new Error(`Failed to get wallet list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get wallet list: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -280,7 +333,9 @@ export async function setupIPCHandlers() {
       return balances;
     } catch (error) {
       logger.error('Failed to get campaign wallet balances', error as Error, { campaignId });
-      throw new Error(`Failed to get wallet balances: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get wallet balances: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -292,30 +347,36 @@ export async function setupIPCHandlers() {
       return Object.fromEntries(results);
     } catch (error) {
       logger.error('Failed to refresh wallet balances', error as Error);
-      throw new Error(`Failed to batch refresh wallet balances: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to batch refresh wallet balances: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
   // Chain management-related handlers
-  ipcMain.handle('chain:getEVMChains', async (_event) => {
+  ipcMain.handle('chain:getEVMChains', async _event => {
     try {
       logger.debug('Getting EVM chains');
       const chains = await chainService.getEVMChains();
       return chains;
     } catch (error) {
       logger.error('Failed to get EVM chains', error as Error);
-      throw new Error(`Failed to get EVM chain list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get EVM chain list: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  ipcMain.handle('chain:getAllChains', async (_event) => {
+  ipcMain.handle('chain:getAllChains', async _event => {
     try {
       logger.debug('Getting all chains');
       const chains = await chainService.getAllChains();
       return chains;
     } catch (error) {
       logger.error('Failed to get all chains', error as Error);
-      throw new Error(`Failed to get all chains list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get all chains list: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -326,7 +387,9 @@ export async function setupIPCHandlers() {
       return chainId;
     } catch (error) {
       logger.error('Failed to add EVM chain', error as Error, { chainData });
-      throw new Error(`Failed to add EVM chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to add EVM chain: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -336,7 +399,9 @@ export async function setupIPCHandlers() {
       await chainService.updateEVMChain(chainId, updates);
     } catch (error) {
       logger.error('Failed to update EVM chain', error as Error, { chainId });
-      throw new Error(`Failed to update EVM chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update EVM chain: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -346,7 +411,9 @@ export async function setupIPCHandlers() {
       await chainService.deleteEVMChain(chainId);
     } catch (error) {
       logger.error('Failed to delete EVM chain', error as Error, { chainId });
-      throw new Error(`Failed to delete EVM chain: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete EVM chain: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -357,22 +424,25 @@ export async function setupIPCHandlers() {
       return result;
     } catch (error) {
       logger.error('Failed to test EVM latency', error as Error, { rpcUrl });
-      throw new Error(`Failed to test EVM chain latency: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to test EVM chain latency: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  ipcMain.handle('chain:getSolanaRPCs', async (_event) => {
+  ipcMain.handle('chain:getSolanaRPCs', async _event => {
     try {
       logger.debug('Getting Solana RPCs');
       const rpcs = await chainService.getSolanaRPCs();
       return rpcs;
     } catch (error) {
       logger.error('Failed to get Solana RPCs', error as Error);
-      throw new Error(`Failed to get Solana RPC list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get Solana RPC list: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  
   ipcMain.handle('chain:addSolanaRPC', async (_event, rpcData) => {
     try {
       logger.info('Adding Solana RPC', { rpcData });
@@ -380,7 +450,9 @@ export async function setupIPCHandlers() {
       return rpcId;
     } catch (error) {
       logger.error('Failed to add Solana RPC', error as Error, { rpcData });
-      throw new Error(`Failed to add Solana RPC: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to add Solana RPC: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -391,7 +463,9 @@ export async function setupIPCHandlers() {
       return result;
     } catch (error) {
       logger.error('Failed to test Solana RPC', error as Error, { rpcUrl });
-      throw new Error(`Failed to test Solana RPC: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to test Solana RPC: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -401,7 +475,9 @@ export async function setupIPCHandlers() {
       await chainService.updateSolanaRPCPriority(id, priority);
     } catch (error) {
       logger.error('Failed to update Solana RPC priority', error as Error, { id });
-      throw new Error(`Failed to update Solana RPC priority: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update Solana RPC priority: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -411,7 +487,9 @@ export async function setupIPCHandlers() {
       await chainService.deleteSolanaRPC(id);
     } catch (error) {
       logger.error('Failed to delete Solana RPC', error as Error, { id });
-      throw new Error(`Failed to delete Solana RPC: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete Solana RPC: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -423,7 +501,9 @@ export async function setupIPCHandlers() {
       return data;
     } catch (error) {
       logger.error('Failed to read CSV file', error as Error, { filePath });
-      throw new Error(`Failed to read CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to read CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -434,26 +514,33 @@ export async function setupIPCHandlers() {
       return result;
     } catch (error) {
       logger.error('Failed to export report', error as Error, { campaignId });
-      throw new Error(`Failed to export report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to export report: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  ipcMain.handle('blockchain:estimateGas', async (_event, chain, fromAddress, toAddress, tokenAddress, recipientCount) => {
-    try {
-      logger.info('Estimating gas', { chain, recipientCount });
-      const estimate = await blockchainService.estimateGas(
-        chain,
-        fromAddress,
-        toAddress,
-        tokenAddress,
-        recipientCount
-      );
-      return estimate;
-    } catch (error) {
-      logger.error('Failed to estimate gas', error as Error, { chain });
-      throw new Error(`Failed to estimate gas fee: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  ipcMain.handle(
+    'blockchain:estimateGas',
+    async (_event, chain, fromAddress, toAddress, tokenAddress, recipientCount) => {
+      try {
+        logger.info('Estimating gas', { chain, recipientCount });
+        const estimate = await blockchainService.estimateGas(
+          chain,
+          fromAddress,
+          toAddress,
+          tokenAddress,
+          recipientCount
+        );
+        return estimate;
+      } catch (error) {
+        logger.error('Failed to estimate gas', error as Error, { chain });
+        throw new Error(
+          `Failed to estimate gas fee: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
     }
-  });
+  );
 
   ipcMain.handle('blockchain:getTransactionStatus', async (_event, txHash, chain) => {
     try {
@@ -462,7 +549,9 @@ export async function setupIPCHandlers() {
       return status;
     } catch (error) {
       logger.error('Failed to get transaction status', error as Error, { txHash, chain });
-      throw new Error(`Failed to get transaction status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get transaction status: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -474,7 +563,9 @@ export async function setupIPCHandlers() {
       return { symbol, price };
     } catch (error) {
       logger.error('Failed to get price', error as Error, { symbol });
-      throw new Error(`Failed to get price: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get price: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -489,10 +580,11 @@ export async function setupIPCHandlers() {
       return prices;
     } catch (error) {
       logger.error('Failed to get prices', error as Error, { symbols });
-      throw new Error(`Failed to batch get prices: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to batch get prices: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
-
 
   // Get cached prices without triggering new API calls
   ipcMain.handle('price:getCachedPrices', async (_event, symbols: string[]) => {
@@ -516,12 +608,14 @@ export async function setupIPCHandlers() {
       return prices;
     } catch (error) {
       logger.error('Failed to get cached prices', error as Error);
-      throw new Error(`Failed to get cached prices: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get cached prices: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
   // Get price summary with all cached data
-  ipcMain.handle('price:getSummary', async (_event) => {
+  ipcMain.handle('price:getSummary', async _event => {
     try {
       logger.debug('Getting price summary');
       if (!priceService) {
@@ -531,7 +625,9 @@ export async function setupIPCHandlers() {
       return summary;
     } catch (error) {
       logger.error('Failed to get price summary', error as Error);
-      throw new Error(`Failed to get price summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get price summary: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -540,10 +636,16 @@ export async function setupIPCHandlers() {
     try {
       logger.info('Retrying failed transactions', { campaignId });
       const retriedCount = await campaignService.retryFailedTransactions(campaignId);
-      return { success: true, retried: retriedCount, message: `Reset ${retriedCount} failed transactions, please click "Resume" to continue sending` };
+      return {
+        success: true,
+        retried: retriedCount,
+        message: `Reset ${retriedCount} failed transactions, please click "Resume" to continue sending`
+      };
     } catch (error) {
       logger.error('Failed to retry transactions', error as Error, { campaignId });
-      throw new Error(`Failed to retry failed transactions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to retry failed transactions: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -566,9 +668,10 @@ export async function setupIPCHandlers() {
 
         // 2. Decode private key
         const chainInfo = await chainService.getChainById(parseInt(campaign.chain));
-        const privateKey = chainInfo?.type === 'solana'
-          ? walletService.exportSolanaPrivateKey(campaign.walletPrivateKeyBase64)
-          : walletService.exportEVMPrivateKey(campaign.walletPrivateKeyBase64);
+        const privateKey =
+          chainInfo?.type === 'solana'
+            ? walletService.exportSolanaPrivateKey(campaign.walletPrivateKeyBase64)
+            : walletService.exportEVMPrivateKey(campaign.walletPrivateKeyBase64);
 
         // 3. Get chain configuration
         const chain = await chainService.getEVMChainById(parseInt(campaign.chain));
@@ -617,7 +720,9 @@ export async function setupIPCHandlers() {
         };
       } catch (error) {
         logger.error('Failed to deploy contract', error as Error, { campaignId });
-        throw new Error(`Failed to deploy contract for campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(
+          `Failed to deploy contract for campaign: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     });
   });
@@ -630,7 +735,9 @@ export async function setupIPCHandlers() {
       return tokenInfo;
     } catch (error) {
       logger.error('Failed to get token info', error as Error, { tokenAddress });
-      throw new Error(`Failed to get token information: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get token information: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -641,128 +748,151 @@ export async function setupIPCHandlers() {
       return validation;
     } catch (error) {
       logger.error('Failed to validate token address', error as Error, { tokenAddress });
-      throw new Error(`Failed to validate token address: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to validate token address: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  ipcMain.handle('token:getMultipleInfo', async (_event, tokenAddresses: string[], chainId: string) => {
-    try {
-      logger.debug('Getting multiple token infos', { count: tokenAddresses.length, chainId });
-      const tokenInfos = await tokenService.getMultipleTokenInfos(tokenAddresses, chainId);
-      return tokenInfos;
-    } catch (error) {
-      logger.error('Failed to get multiple token infos', error as Error);
-      throw new Error(`Failed to batch get token information: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  ipcMain.handle(
+    'token:getMultipleInfo',
+    async (_event, tokenAddresses: string[], chainId: string) => {
+      try {
+        logger.debug('Getting multiple token infos', { count: tokenAddresses.length, chainId });
+        const tokenInfos = await tokenService.getMultipleTokenInfos(tokenAddresses, chainId);
+        return tokenInfos;
+      } catch (error) {
+        logger.error('Failed to get multiple token infos', error as Error);
+        throw new Error(
+          `Failed to batch get token information: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
     }
-  });
+  );
 
   // Withdraw remaining tokens from campaign wallet
-  ipcMain.handle('campaign:withdrawTokens', async (_event, campaignId: string, recipientAddress: string) => {
-    try {
-      logger.info('Withdrawing tokens', { campaignId, recipientAddress });
+  ipcMain.handle(
+    'campaign:withdrawTokens',
+    async (_event, campaignId: string, recipientAddress: string) => {
+      try {
+        logger.info('Withdrawing tokens', { campaignId, recipientAddress });
 
-      // Get campaign details
-      const campaign = await campaignService.getCampaignById(campaignId);
-      if (!campaign) {
-        throw new Error('Campaign not found');
-      }
+        // Get campaign details
+        const campaign = await campaignService.getCampaignById(campaignId);
+        if (!campaign) {
+          throw new Error('Campaign not found');
+        }
 
-      if (!campaign.walletPrivateKeyBase64) {
-        throw new Error('Campaign wallet information missing');
-      }
+        if (!campaign.walletPrivateKeyBase64) {
+          throw new Error('Campaign wallet information missing');
+        }
 
-      // Get chain config first
-      const chain = await chainService.getChainById(parseInt(campaign.chain));
-      if (!chain) {
-        throw new Error('Chain not found');
-      }
+        // Get chain config first
+        const chain = await chainService.getChainById(parseInt(campaign.chain));
+        if (!chain) {
+          throw new Error('Chain not found');
+        }
 
-      // Decode private key using chain-specific method
-      const privateKey = chain.type === 'solana'
-        ? Buffer.from(KeyUtils.decodeToSolanaBytes(campaign.walletPrivateKeyBase64)).toString('hex')
-        : walletService.exportEVMPrivateKey(campaign.walletPrivateKeyBase64);
+        // Decode private key using chain-specific method
+        const privateKey =
+          chain.type === 'solana'
+            ? Buffer.from(KeyUtils.decodeToSolanaBytes(campaign.walletPrivateKeyBase64)).toString(
+                'hex'
+              )
+            : walletService.exportEVMPrivateKey(campaign.walletPrivateKeyBase64);
 
-      let result;
+        let result;
 
-      // Check if it's a Solana chain
-      if (chain.type === 'solana' || chain.name.toLowerCase().includes('solana')) {
-        // Withdraw SPL tokens
-        result = await blockchainService.withdrawRemainingSPLTokens(
-          chain.rpcUrl,
-          privateKey,
-          recipientAddress,
-          campaign.tokenAddress
+        // Check if it's a Solana chain
+        if (chain.type === 'solana' || chain.name.toLowerCase().includes('solana')) {
+          // Withdraw SPL tokens
+          result = await blockchainService.withdrawRemainingSPLTokens(
+            chain.rpcUrl,
+            privateKey,
+            recipientAddress,
+            campaign.tokenAddress
+          );
+        } else {
+          // Withdraw ERC20 tokens
+          result = await contractService.withdrawRemainingTokens(
+            chain.rpcUrl,
+            privateKey,
+            recipientAddress,
+            campaign.tokenAddress
+          );
+        }
+
+        logger.info('Tokens withdrawn successfully', { result });
+        return result;
+      } catch (error) {
+        logger.error('Failed to withdraw tokens', error as Error, { campaignId });
+        throw new Error(
+          `Failed to withdraw tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
-      } else {
-        // Withdraw ERC20 tokens
-        result = await contractService.withdrawRemainingTokens(
-          chain.rpcUrl,
-          privateKey,
-          recipientAddress,
-          campaign.tokenAddress
-        );
       }
-
-      logger.info('Tokens withdrawn successfully', { result });
-      return result;
-    } catch (error) {
-      logger.error('Failed to withdraw tokens', error as Error, { campaignId });
-      throw new Error(`Failed to withdraw tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  });
+  );
 
   // Withdraw remaining native token (ETH/BNB/MATIC/SOL/etc) from campaign wallet
-  ipcMain.handle('campaign:withdrawNative', async (_event, campaignId: string, recipientAddress: string) => {
-    try {
-      logger.info('Withdrawing native tokens', { campaignId, recipientAddress });
+  ipcMain.handle(
+    'campaign:withdrawNative',
+    async (_event, campaignId: string, recipientAddress: string) => {
+      try {
+        logger.info('Withdrawing native tokens', { campaignId, recipientAddress });
 
-      // Get campaign details
-      const campaign = await campaignService.getCampaignById(campaignId);
-      if (!campaign) {
-        throw new Error('Campaign not found');
-      }
+        // Get campaign details
+        const campaign = await campaignService.getCampaignById(campaignId);
+        if (!campaign) {
+          throw new Error('Campaign not found');
+        }
 
-      if (!campaign.walletPrivateKeyBase64) {
-        throw new Error('Campaign wallet information missing');
-      }
+        if (!campaign.walletPrivateKeyBase64) {
+          throw new Error('Campaign wallet information missing');
+        }
 
-      // Get chain config first
-      const chain = await chainService.getChainById(parseInt(campaign.chain));
-      if (!chain) {
-        throw new Error('Chain not found');
-      }
+        // Get chain config first
+        const chain = await chainService.getChainById(parseInt(campaign.chain));
+        if (!chain) {
+          throw new Error('Chain not found');
+        }
 
-      // Decode private key using chain-specific method
-      const privateKey = chain.type === 'solana'
-        ? Buffer.from(KeyUtils.decodeToSolanaBytes(campaign.walletPrivateKeyBase64)).toString('hex')
-        : walletService.exportEVMPrivateKey(campaign.walletPrivateKeyBase64);
+        // Decode private key using chain-specific method
+        const privateKey =
+          chain.type === 'solana'
+            ? Buffer.from(KeyUtils.decodeToSolanaBytes(campaign.walletPrivateKeyBase64)).toString(
+                'hex'
+              )
+            : walletService.exportEVMPrivateKey(campaign.walletPrivateKeyBase64);
 
-      let result;
+        let result;
 
-      // Check if it's a Solana chain
-      if (chain.type === 'solana' || chain.name.toLowerCase().includes('solana')) {
-        // Withdraw SOL
-        result = await blockchainService.withdrawRemainingSOL(
-          chain.rpcUrl,
-          privateKey,
-          recipientAddress
+        // Check if it's a Solana chain
+        if (chain.type === 'solana' || chain.name.toLowerCase().includes('solana')) {
+          // Withdraw SOL
+          result = await blockchainService.withdrawRemainingSOL(
+            chain.rpcUrl,
+            privateKey,
+            recipientAddress
+          );
+        } else {
+          // Withdraw native token (ETH/BNB/MATIC/AVAX/etc)
+          result = await contractService.withdrawRemainingETH(
+            chain.rpcUrl,
+            privateKey,
+            recipientAddress
+          );
+        }
+
+        logger.info('Native tokens withdrawn successfully', { result });
+        return result;
+      } catch (error) {
+        logger.error('Failed to withdraw native tokens', error as Error, { campaignId });
+        throw new Error(
+          `Failed to withdraw native tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
-      } else {
-        // Withdraw native token (ETH/BNB/MATIC/AVAX/etc)
-        result = await contractService.withdrawRemainingETH(
-          chain.rpcUrl,
-          privateKey,
-          recipientAddress
-        );
       }
-
-      logger.info('Native tokens withdrawn successfully', { result });
-      return result;
-    } catch (error) {
-      logger.error('Failed to withdraw native tokens', error as Error, { campaignId });
-      throw new Error(`Failed to withdraw native tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  });
+  );
 
   // Private key export handlers with chain type support
   ipcMain.handle('wallet:exportEVMPrivateKey', async (_event, privateKeyBase64: string) => {
@@ -772,7 +902,9 @@ export async function setupIPCHandlers() {
       return { success: true, privateKey };
     } catch (error) {
       logger.error('Failed to export EVM private key', error as Error);
-      throw new Error(`Failed to export EVM private key: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to export EVM private key: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
@@ -783,11 +915,13 @@ export async function setupIPCHandlers() {
       return { success: true, privateKey };
     } catch (error) {
       logger.error('Failed to export Solana private key', error as Error);
-      throw new Error(`Failed to export Solana private key: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to export Solana private key: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 
-  ipcMain.handle('app:getVersion', async (_event) => {
+  ipcMain.handle('app:getVersion', async _event => {
     try {
       const { app } = await import('electron');
       const version = app.getVersion();
@@ -799,7 +933,7 @@ export async function setupIPCHandlers() {
     }
   });
 
-  ipcMain.handle('app:getLocale', async (_event) => {
+  ipcMain.handle('app:getLocale', async _event => {
     try {
       const { app } = await import('electron');
       const locale = app.getLocale();

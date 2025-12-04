@@ -81,7 +81,7 @@ export class WalletManagementService {
 
       // Get total count
       const countQuery = `SELECT COUNT(*) as total FROM (${query})`;
-      const countResult = await this.db.prepare(countQuery).get(...params) as any;
+      const countResult = (await this.db.prepare(countQuery).get(...params)) as any;
       const total = countResult?.total || 0;
 
       query += ' ORDER BY c.created_at DESC';
@@ -96,10 +96,10 @@ export class WalletManagementService {
         params.push(options.offset);
       }
 
-      const rows = await this.db.prepare(query).all(...params) as any[];
+      const rows = (await this.db.prepare(query).all(...params)) as any[];
 
       const wallets: ActivityWallet[] = await Promise.all(
-        rows.map(async (row) => {
+        rows.map(async row => {
           // Use chain_id uniformly
           const chain = row.chain_id?.toString() || '';
 
@@ -117,15 +117,15 @@ export class WalletManagementService {
                 tokenSymbol: row.token_symbol || 'ETH',
                 tokenDecimals: 18,
                 balance: '0', // Requires on-chain query
-                usdValue: '0',
-              },
+                usdValue: '0'
+              }
             ],
             totalBalance: '0',
             totalCapacity: '0',
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             lastBalanceUpdate: new Date().toISOString(),
-            privateKeyBase64: row.private_key_base64,
+            privateKeyBase64: row.private_key_base64
           };
         })
       );
@@ -140,9 +140,7 @@ export class WalletManagementService {
   /**
    * Get detailed balance information for a single wallet
    */
-  async getWalletBalances(
-    campaignId: string
-  ): Promise<{
+  async getWalletBalances(campaignId: string): Promise<{
     address: string;
     chain: string;
     balances: Array<{
@@ -155,12 +153,12 @@ export class WalletManagementService {
   } | null> {
     try {
       this.logger.debug('Getting wallet balances', { campaignId });
-      const campaign = await this.db
+      const campaign = (await this.db
         .prepare(
           `SELECT wallet_address, chain_type, chain_id, network, token_address, token_symbol
            FROM campaigns WHERE id = ?`
         )
-        .get(campaignId) as any;
+        .get(campaignId)) as any;
 
       if (!campaign || !campaign.wallet_address) {
         return null;
@@ -168,7 +166,7 @@ export class WalletManagementService {
 
       // Get chain RPC URL
       const chains = await this.chainService.getEVMChains();
-      const chainConfig = chains.find((c) => c.chainId === campaign.chain_id);
+      const chainConfig = chains.find(c => c.chainId === campaign.chain_id);
 
       if (!chainConfig) {
         throw new Error(`Chain configuration not found for chain ID ${campaign.chain_id}`);
@@ -198,15 +196,15 @@ export class WalletManagementService {
             tokenAddress: campaign.token_address || NATIVE_TOKEN_ADDRESSES.EVM,
             tokenSymbol: tokenBalance.symbol,
             tokenDecimals: tokenBalance.decimals,
-            balance: tokenBalance.balance,
+            balance: tokenBalance.balance
           },
           {
             tokenAddress: NATIVE_TOKEN_ADDRESSES.EVM,
             tokenSymbol: chainConfig.symbol,
             tokenDecimals: 18,
-            balance: nativeBalance.balance,
-          },
-        ],
+            balance: nativeBalance.balance
+          }
+        ]
       };
     } catch (error) {
       this.logger.error('Failed to get wallet balances', error as Error, { campaignId });
@@ -222,7 +220,7 @@ export class WalletManagementService {
     const results = new Map<string, any>();
 
     await Promise.all(
-      campaignIds.map(async (campaignId) => {
+      campaignIds.map(async campaignId => {
         try {
           const balances = await this.getWalletBalances(campaignId);
           results.set(campaignId, balances);

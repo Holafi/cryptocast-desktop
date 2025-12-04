@@ -44,30 +44,38 @@ export default function Layout({ children }: LayoutProps) {
           const polygonChain = chains.find(c => c.name.toLowerCase().includes('polygon'));
 
           if (ethChain && priceInfo.eth > 0) {
-            const ethGasInfo = await window.electronAPI.gas.getInfo(ethChain.rpcUrl, 'ethereum', priceInfo.eth);
+            const ethGasInfo = await window.electronAPI.gas.getInfo(
+              ethChain.rpcUrl,
+              'ethereum',
+              priceInfo.eth
+            );
             if (ethGasInfo.gasPrice) {
               setGasPrices(prev => ({
                 ...prev,
-                'ethereum': parseFloat(ethGasInfo.gasPrice)
+                ethereum: parseFloat(ethGasInfo.gasPrice)
               }));
             }
           }
 
           if (polygonChain && priceInfo.matic > 0) {
-            const polygonGasInfo = await window.electronAPI.gas.getInfo(polygonChain.rpcUrl, 'polygon', priceInfo.matic);
+            const polygonGasInfo = await window.electronAPI.gas.getInfo(
+              polygonChain.rpcUrl,
+              'polygon',
+              priceInfo.matic
+            );
             if (polygonGasInfo.gasPrice) {
               setGasPrices(prev => ({
                 ...prev,
-                'polygon': parseFloat(polygonGasInfo.gasPrice)
+                polygon: parseFloat(polygonGasInfo.gasPrice)
               }));
             }
           }
         } catch (error) {
-          console.error('Failed to fetch gas prices:', error);
+          // Debug statement removed
         }
       }
     } catch (error) {
-      console.error('Failed to update prices:', error);
+      // Debug statement removed
     }
   };
 
@@ -75,7 +83,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/', label: '📊 Dashboard', icon: '📊' },
     { path: '/campaign/create', label: '➕ New Campaign', icon: '➕' },
     { path: '/history', label: '📜 History', icon: '📜' },
-    { path: '/settings', label: '⚙️ Settings', icon: '⚙️' },
+    { path: '/settings', label: '⚙️ Settings', icon: '⚙️' }
   ];
 
   const formatPrice = (price: number) => {
@@ -83,7 +91,7 @@ export default function Layout({ children }: LayoutProps) {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(price);
   };
 
@@ -111,15 +119,21 @@ export default function Layout({ children }: LayoutProps) {
           <div className="space-y-3 text-sm">
             <div className="flex justify-between items-center p-2 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
               <span className="text-gray-400 font-medium">ETH</span>
-              <span className="font-mono text-cryptocast-cyan font-semibold">{formatPrice(priceInfo.eth)}</span>
+              <span className="font-mono text-cryptocast-cyan font-semibold">
+                {formatPrice(priceInfo.eth)}
+              </span>
             </div>
             <div className="flex justify-between items-center p-2 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
               <span className="text-gray-400 font-medium">MATIC</span>
-              <span className="font-mono text-cryptocast-purple font-semibold">{formatPrice(priceInfo.matic)}</span>
+              <span className="font-mono text-cryptocast-purple font-semibold">
+                {formatPrice(priceInfo.matic)}
+              </span>
             </div>
             <div className="flex justify-between items-center p-2 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
               <span className="text-gray-400 font-medium">SOL</span>
-              <span className="font-mono text-cryptocast-green font-semibold">{formatPrice(priceInfo.sol)}</span>
+              <span className="font-mono text-cryptocast-green font-semibold">
+                {formatPrice(priceInfo.sol)}
+              </span>
             </div>
           </div>
         </div>
@@ -147,7 +161,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         <nav className="space-y-2">
-          {navItems.map((item) => (
+          {navItems.map(item => (
             <Link
               key={item.path}
               to={item.path}

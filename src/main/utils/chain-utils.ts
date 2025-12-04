@@ -3,6 +3,10 @@
  * Used to eliminate code duplication and unify chain type judgment logic
  */
 
+import { Logger } from './logger';
+
+const logger = Logger.getInstance().child('ChainUtils');
+
 export type ChainType = 'evm' | 'solana';
 
 export interface ChainInfo {
@@ -26,10 +30,12 @@ export class ChainUtils {
       return true;
     }
 
-    return chainStr.includes('solana') ||
-           chainStr === 'mainnet-beta' ||
-           chainStr === 'devnet' ||
-           chainStr === 'testnet';
+    return (
+      chainStr.includes('solana') ||
+      chainStr === 'mainnet-beta' ||
+      chainStr === 'devnet' ||
+      chainStr === 'testnet'
+    );
   }
 
   /**
@@ -54,7 +60,7 @@ export class ChainUtils {
    */
   static normalizeChainIdentifier(
     chain: string | number | undefined,
-    chains?: Array<{name: string, type?: string, chain_id?: number}>
+    chains?: Array<{ name: string; type?: string; chain_id?: number }>
   ): string {
     if (!chain) return '';
 
@@ -67,10 +73,11 @@ export class ChainUtils {
 
     // If chain info array is provided, prioritize using database information
     if (chains) {
-      const chainInfo = chains.find(c =>
-        (c.chain_id && c.chain_id.toString() === chainStr) ||
-        c.name.toLowerCase().includes(lowerChain) ||
-        c.name === chainStr
+      const chainInfo = chains.find(
+        c =>
+          (c.chain_id && c.chain_id.toString() === chainStr) ||
+          c.name.toLowerCase().includes(lowerChain) ||
+          c.name === chainStr
       );
       if (chainInfo) {
         return chainInfo.name;
@@ -89,7 +96,9 @@ export class ChainUtils {
     }
 
     // Fallback to hardcoded Solana chain IDs (deprecated)
-    console.warn('[ChainUtils] normalizeChainIdentifier: Using hardcoded chain IDs. Please provide chains parameter.');
+    logger.warn(
+      '[ChainUtils] normalizeChainIdentifier: Using hardcoded chain IDs. Please provide chains parameter.'
+    );
     const chainIdAsNumber = parseInt(chainStr);
     if (chainIdAsNumber === 501) return 'mainnet-beta';
     if (chainIdAsNumber === 502) return 'devnet';
@@ -104,7 +113,7 @@ export class ChainUtils {
    */
   static getChainDisplayName(
     chain: string | number | undefined,
-    chains?: Array<{name: string, type?: string, chain_id?: number}>
+    chains?: Array<{ name: string; type?: string; chain_id?: number }>
   ): string {
     if (!chain) return 'Unknown';
 
@@ -112,10 +121,11 @@ export class ChainUtils {
 
     // If chain info array is provided, prioritize using it
     if (chains) {
-      const chainInfo = chains.find(c =>
-        (c.chain_id && c.chain_id.toString() === chainStr) ||
-        c.name.toLowerCase().includes(chainStr.toLowerCase()) ||
-        c.name === chainStr
+      const chainInfo = chains.find(
+        c =>
+          (c.chain_id && c.chain_id.toString() === chainStr) ||
+          c.name.toLowerCase().includes(chainStr.toLowerCase()) ||
+          c.name === chainStr
       );
       if (chainInfo) {
         return chainInfo.name;
@@ -126,15 +136,21 @@ export class ChainUtils {
     if (this.isSolanaChain(chain)) {
       const normalized = this.normalizeChainIdentifier(chainStr);
       switch (normalized) {
-        case 'mainnet-beta': return 'Solana Mainnet';
-        case 'devnet': return 'Solana Devnet';
-        case 'testnet': return 'Solana Testnet';
-        default: return `Solana ${chainStr}`;
+        case 'mainnet-beta':
+          return 'Solana Mainnet';
+        case 'devnet':
+          return 'Solana Devnet';
+        case 'testnet':
+          return 'Solana Testnet';
+        default:
+          return `Solana ${chainStr}`;
       }
     }
 
     // Fallback to hardcoded EVM chain names (deprecated - should use chains parameter)
-    console.warn('[ChainUtils] getChainDisplayName: Using hardcoded chain names. Please provide chains parameter.');
+    logger.warn(
+      '[ChainUtils] getChainDisplayName: Using hardcoded chain names. Please provide chains parameter.'
+    );
     const evmChainNames: Record<string, string> = {
       '1': 'Ethereum',
       '11155111': 'Sepolia',
@@ -149,7 +165,7 @@ export class ChainUtils {
       '56': 'BSC',
       '97': 'BSC Testnet',
       '43114': 'Avalanche',
-      '43113': 'Avalanche Fuji',
+      '43113': 'Avalanche Fuji'
     };
 
     return evmChainNames[chainStr] || `Chain ${chainStr}`;
@@ -208,7 +224,7 @@ export class ChainUtils {
     return {
       type,
       chainId: parseInt(chain?.toString() || '0'),
-      name: this.getChainDisplayName(chain),
+      name: this.getChainDisplayName(chain)
     };
   }
 }

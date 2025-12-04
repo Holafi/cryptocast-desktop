@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
-import { GasService, GasInfo, TransactionOptions } from './GasService';
+import { GasService, TransactionOptions } from './GasService';
 import { DEFAULTS } from '../config/defaults';
-import { NATIVE_TOKEN_ADDRESSES, isNativeToken } from '../config/constants';
+import { isNativeToken } from '../config/constants';
 import { Logger } from '../utils/logger';
 
 const logger = Logger.getInstance().child('ContractService');
@@ -9,20 +9,20 @@ const logger = Logger.getInstance().child('ContractService');
 // Batch Airdrop Contract ABI
 const BATCH_AIRDROP_CONTRACT_ABI = [
   // ERC20 token batch transfer
-  "function batchTransfer(address token, address[] recipients, uint256[] amounts) external",
+  'function batchTransfer(address token, address[] recipients, uint256[] amounts) external',
   // Native token batch transfer
-  "function batchTransferNative(address[] recipients, uint256[] amounts) external payable"
+  'function batchTransferNative(address[] recipients, uint256[] amounts) external payable'
 ];
 
 // ERC20 ABI for token operations
 const ERC20_ABI = [
-  "function approve(address spender, uint256 amount) external returns (bool)",
-  "function allowance(address owner, address spender) external view returns (uint256)",
-  "function balanceOf(address account) external view returns (uint256)",
-  "function transfer(address to, uint256 amount) external returns (bool)",
-  "function decimals() external view returns (uint8)",
-  "function symbol() external view returns (string)",
-  "function name() external view returns (string)"
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function allowance(address owner, address spender) external view returns (uint256)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function transfer(address to, uint256 amount) external returns (bool)',
+  'function decimals() external view returns (uint8)',
+  'function symbol() external view returns (string)',
+  'function name() external view returns (string)'
 ];
 
 export interface BatchInfo {
@@ -68,7 +68,6 @@ export class ContractService {
     this.gasService = new GasService();
   }
 
-
   /**
    * Deploy the simple batch transfer contract
    */
@@ -83,7 +82,11 @@ export class ContractService {
 
       // Load contract bytecode
       const bytecode = this.getContractBytecode();
-      const contractFactory = new ethers.ContractFactory(BATCH_AIRDROP_CONTRACT_ABI, bytecode, wallet);
+      const contractFactory = new ethers.ContractFactory(
+        BATCH_AIRDROP_CONTRACT_ABI,
+        bytecode,
+        wallet
+      );
 
       // Deploy contract
       // Our contract has no constructor arguments, so we pass tx options directly
@@ -105,7 +108,9 @@ export class ContractService {
       };
     } catch (error) {
       logger.error('Failed to deploy contract', error as Error, { chainId: config.chainId });
-      throw new Error(`Contract deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Contract deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -136,12 +141,14 @@ export class ContractService {
 
       // Approve tokens
       const tx = await tokenContract.approve(contractAddress, amount, txOptions);
-      const receipt = await tx.wait();
+      await tx.wait();
 
       return tx.hash;
     } catch (error) {
       logger.error('Failed to approve tokens', error as Error, { tokenAddress, contractAddress });
-      throw new Error(`Token approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Token approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -176,11 +183,17 @@ export class ContractService {
       const tokenDecimals = isNative ? 18 : await this.getTokenDecimals(rpcUrl, tokenAddress);
 
       // Convert amounts to BigInt with correct decimals
-      const bigintAmounts = amounts.map(amount => ethers.parseUnits(amount.toString(), tokenDecimals));
+      const bigintAmounts = amounts.map(amount =>
+        ethers.parseUnits(amount.toString(), tokenDecimals)
+      );
 
       // Get gas info for this batch
       logger.debug('Getting gas estimate', { recipientCount: recipients.length });
-      const gasInfo = await this.gasService.getBatchGasEstimate(rpcUrl, 'ethereum', recipients.length);
+      const gasInfo = await this.gasService.getBatchGasEstimate(
+        rpcUrl,
+        'ethereum',
+        recipients.length
+      );
 
       logger.debug('Gas info received', {
         gasPrice: gasInfo.gasPrice,
@@ -194,8 +207,12 @@ export class ContractService {
 
       logger.debug('Transaction options', {
         gasPrice: txOptions.gasPrice ? ethers.formatUnits(txOptions.gasPrice, 'gwei') : undefined,
-        maxFeePerGas: txOptions.maxFeePerGas ? ethers.formatUnits(txOptions.maxFeePerGas, 'gwei') : undefined,
-        maxPriorityFeePerGas: txOptions.maxPriorityFeePerGas ? ethers.formatUnits(txOptions.maxPriorityFeePerGas, 'gwei') : undefined,
+        maxFeePerGas: txOptions.maxFeePerGas
+          ? ethers.formatUnits(txOptions.maxFeePerGas, 'gwei')
+          : undefined,
+        maxPriorityFeePerGas: txOptions.maxPriorityFeePerGas
+          ? ethers.formatUnits(txOptions.maxPriorityFeePerGas, 'gwei')
+          : undefined,
         gasLimit: txOptions.gasLimit?.toString()
       });
 
@@ -234,7 +251,9 @@ export class ContractService {
       const receipt = await tx.wait();
       logger.info('Transaction confirmed', {
         gasUsed: receipt?.gasUsed?.toString(),
-        actualGasPrice: receipt?.gasPrice ? ethers.formatUnits(receipt.gasPrice, 'gwei') : undefined,
+        actualGasPrice: receipt?.gasPrice
+          ? ethers.formatUnits(receipt.gasPrice, 'gwei')
+          : undefined,
         actualCost: receipt ? ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : undefined
       });
 
@@ -249,7 +268,9 @@ export class ContractService {
       };
     } catch (error) {
       logger.error('Batch transfer failed', error as Error, { recipientCount: recipients.length });
-      throw new Error(`Batch transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Batch transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -263,7 +284,10 @@ export class ContractService {
       const decimals = await tokenContract.decimals();
       return Number(decimals);
     } catch (error) {
-      logger.warn('Failed to get token decimals, using default', { tokenAddress, error: error instanceof Error ? error.message : String(error) });
+      logger.warn('Failed to get token decimals, using default', {
+        tokenAddress,
+        error: error instanceof Error ? error.message : String(error)
+      });
       return 18; // Default fallback
     }
   }
@@ -292,7 +316,9 @@ export class ContractService {
       };
     } catch (error) {
       logger.error('Failed to get token info', error as Error, { tokenAddress });
-      throw new Error(`Failed to get token info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get token info: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -313,7 +339,9 @@ export class ContractService {
       const wallet = new ethers.Wallet(privateKey, provider);
 
       if (isNativeToken(tokenAddress)) {
-        throw new Error('Cannot withdraw native tokens as ERC20. Use withdrawRemainingETH instead.');
+        throw new Error(
+          'Cannot withdraw native tokens as ERC20. Use withdrawRemainingETH instead.'
+        );
       }
 
       const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
@@ -339,7 +367,9 @@ export class ContractService {
       };
     } catch (error) {
       logger.error('Failed to withdraw tokens', error as Error, { tokenAddress, recipientAddress });
-      throw new Error(`Failed to withdraw tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to withdraw tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -382,15 +412,16 @@ export class ContractService {
         // Create a mock transaction with the actual amount we plan to withdraw
         const mockTx = {
           to: recipientAddress,
-          value: estimatedWithdrawable,
+          value: estimatedWithdrawable
         };
 
         // Estimate gas with the actual transaction amount
         const estimatedGasLimit = await provider.estimateGas(mockTx);
         gasLimit = estimatedGasLimit;
-
-              } catch (estimateError) {
-        logger.warn('Precise gas estimation failed, using fallback', { error: estimateError instanceof Error ? estimateError.message : String(estimateError) });
+      } catch (estimateError) {
+        logger.warn('Precise gas estimation failed, using fallback', {
+          error: estimateError instanceof Error ? estimateError.message : String(estimateError)
+        });
         gasLimit = 21000n; // Standard ETH transfer gas limit
       }
 
@@ -400,10 +431,10 @@ export class ContractService {
       if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas && feeData.maxFeePerGas > 0n) {
         // EIP-1559: Use actual fee data from network
         gasCost = feeData.maxFeePerGas * gasLimit;
-              } else if (feeData.gasPrice && feeData.gasPrice > 0n) {
+      } else if (feeData.gasPrice && feeData.gasPrice > 0n) {
         // Legacy: Use actual gas price from network
         gasCost = feeData.gasPrice * gasLimit;
-              } else {
+      } else {
         // Fallback to gasService data
         const txOptions = this.gasService.getTransactionOptions(gasInfo);
         if (txOptions.maxFeePerGas) {
@@ -427,9 +458,9 @@ export class ContractService {
 
         throw new Error(
           `Insufficient balance to withdraw. Balance: ${balanceEth} ETH, ` +
-          `Estimated gas cost: ${gasCostEth} ETH, ` +
-          `With 5% safety buffer: ${totalGasCostEth} ETH. ` +
-          `Available for withdrawal: 0 ETH`
+            `Estimated gas cost: ${gasCostEth} ETH, ` +
+            `With 5% safety buffer: ${totalGasCostEth} ETH. ` +
+            `Available for withdrawal: 0 ETH`
         );
       }
 
@@ -471,7 +502,9 @@ export class ContractService {
       };
     } catch (error) {
       logger.error('Failed to withdraw native tokens', error as Error, { recipientAddress });
-      throw new Error(`Failed to withdraw native tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to withdraw native tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

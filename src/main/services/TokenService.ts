@@ -3,6 +3,9 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { publicKey } from '@metaplex-foundation/umi';
 import { fetchDigitalAsset } from '@metaplex-foundation/mpl-token-metadata';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('TokenService');
 
 export interface TokenInfo {
   name: string;
@@ -38,7 +41,7 @@ const ERC20_ABI = [
     outputs: [{ name: '', type: 'string' }],
     payable: false,
     stateMutability: 'view',
-    type: 'function',
+    type: 'function'
   },
   // Get token symbol
   {
@@ -48,7 +51,7 @@ const ERC20_ABI = [
     outputs: [{ name: '', type: 'string' }],
     payable: false,
     stateMutability: 'view',
-    type: 'function',
+    type: 'function'
   },
   // Get token decimals
   {
@@ -58,8 +61,8 @@ const ERC20_ABI = [
     outputs: [{ name: '', type: 'uint8' }],
     payable: false,
     stateMutability: 'view',
-    type: 'function',
-  },
+    type: 'function'
+  }
 ];
 
 // Solana Token Program ID
@@ -85,14 +88,14 @@ export class TokenService {
       }
 
       if (chain.type === 'evm') {
-        return await this.getEVMTokenInfo(tokenAddress, chain) as TokenInfo;
+        return (await this.getEVMTokenInfo(tokenAddress, chain)) as TokenInfo;
       } else if (chain.type === 'solana') {
-        return await this.getSolanaTokenInfo(tokenAddress, chain) as TokenInfo;
+        return (await this.getSolanaTokenInfo(tokenAddress, chain)) as TokenInfo;
       } else {
         throw new Error(`Unsupported chain type: ${chain.type}`);
       }
     } catch (error) {
-      console.error('Failed to get token info:', error);
+      logger.error('Failed to get token info:', error as Error);
       return null;
     }
   }
@@ -110,7 +113,7 @@ export class TokenService {
       // Create provider
       const provider = new ethers.JsonRpcProvider(chain.rpcUrl, undefined, {
         batchMaxCount: 1,
-        polling: false,
+        polling: false
       });
 
       // Create contract instance
@@ -122,32 +125,33 @@ export class TokenService {
       });
 
       // Fetch token information in parallel
-      const [name, symbol, decimals] = await Promise.race([
-        Promise.all([
-          contract.name(),
-          contract.symbol(),
-          contract.decimals()
-        ]),
+      const [name, symbol, decimals] = (await Promise.race([
+        Promise.all([contract.name(), contract.symbol(), contract.decimals()]),
         timeoutPromise
-      ]) as [string, string, number];
+      ])) as [string, string, number];
 
       return {
         name,
         symbol,
         decimals: Number(decimals),
         address: tokenAddress,
-        chainType: 'evm',
+        chainType: 'evm'
       };
     } catch (error) {
       console.error(`Failed to get EVM token info for ${tokenAddress}:`, error);
-      throw new Error(`Failed to fetch EVM token info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch EVM token info: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
    * Get Solana token information
    */
-  private async getSolanaTokenInfo(tokenAddress: string, chain: any): Promise<SolanaTokenInfo | null> {
+  private async getSolanaTokenInfo(
+    tokenAddress: string,
+    chain: any
+  ): Promise<SolanaTokenInfo | null> {
     try {
       // Validate address format
       try {
@@ -172,7 +176,10 @@ export class TokenService {
         throw new Error('Unable to parse mint account data');
       }
 
-      if (!accountData.parsed || (accountData.program !== 'spl-token' && accountData.program !== 'spl-token-2022')) {
+      if (
+        !accountData.parsed ||
+        (accountData.program !== 'spl-token' && accountData.program !== 'spl-token-2022')
+      ) {
         throw new Error('Not a valid SPL token mint account');
       }
 
@@ -195,7 +202,9 @@ export class TokenService {
           symbol = asset.metadata.symbol || symbol;
         }
       } catch (metadataError) {
-        console.warn(`Failed to fetch token metadata for ${tokenAddress}, using defaults:`, metadataError);
+        logger.warn(
+          `Failed to fetch token metadata for ${tokenAddress}, using defaults: ${metadataError instanceof Error ? metadataError.message : String(metadataError)}`
+        );
         // If metadata fetch fails, try to get from known list
         const knownName = this.getTokenNameFromMint(tokenAddress);
         const knownSymbol = this.getTokenSymbolFromMint(tokenAddress);
@@ -208,11 +217,13 @@ export class TokenService {
         symbol,
         decimals,
         address: tokenAddress,
-        chainType: 'solana',
+        chainType: 'solana'
       };
     } catch (error) {
       console.error(`Failed to get Solana token info for ${tokenAddress}:`, error);
-      throw new Error(`Failed to fetch Solana token info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch Solana token info: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -222,11 +233,11 @@ export class TokenService {
   private getTokenNameFromMint(mintAddress: string): string | null {
     // Hardcoded mapping of common SPL tokens
     const knownTokens: { [key: string]: string } = {
-      'So11111111111111111111111111111111111111112': 'Wrapped SOL',
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
-      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
-      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'Bonk',
-      'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'Raydium',
+      So11111111111111111111111111111111111111112: 'Wrapped SOL',
+      EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
+      Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
+      DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263: 'Bonk',
+      mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: 'Raydium'
     };
     return knownTokens[mintAddress] || null;
   }
@@ -236,11 +247,11 @@ export class TokenService {
    */
   private getTokenSymbolFromMint(mintAddress: string): string | null {
     const knownTokens: { [key: string]: string } = {
-      'So11111111111111111111111111111111111111112': 'SOL',
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
-      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
-      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'BONK',
-      'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': 'RAY',
+      So11111111111111111111111111111111111111112: 'SOL',
+      EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: 'USDC',
+      Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: 'USDT',
+      DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263: 'BONK',
+      mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: 'RAY'
     };
     return knownTokens[mintAddress] || null;
   }
@@ -285,7 +296,10 @@ export class TokenService {
   /**
    * Validate token address for specific chain
    */
-  async validateTokenAddressForChain(tokenAddress: string, chainId: string): Promise<{
+  async validateTokenAddressForChain(
+    tokenAddress: string,
+    chainId: string
+  ): Promise<{
     isValid: boolean;
     chainType?: 'evm' | 'solana';
     error?: string;

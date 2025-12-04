@@ -20,10 +20,12 @@ export class ChainUtils {
       return true;
     }
 
-    return chainStr.includes('solana') ||
-           chainStr === 'mainnet-beta' ||
-           chainStr === 'devnet' ||
-           chainStr === 'testnet';
+    return (
+      chainStr.includes('solana') ||
+      chainStr === 'mainnet-beta' ||
+      chainStr === 'devnet' ||
+      chainStr === 'testnet'
+    );
   }
 
   /**
@@ -71,7 +73,7 @@ export class ChainUtils {
       '56': 'BSC',
       '97': 'BSC Testnet',
       '43114': 'Avalanche',
-      '43113': 'Avalanche Fuji',
+      '43113': 'Avalanche Fuji'
     };
 
     return evmChainNames[chainStr] || `Chain ${chainStr}`;
@@ -127,14 +129,16 @@ export class ChainUtils {
       '502': { badge: 'badge-accent', name: 'Solana Devnet' },
       'solana-mainnet-beta': { badge: 'badge-accent', name: 'Solana Mainnet' },
       'solana-devnet': { badge: 'badge-accent', name: 'Solana Devnet' },
-      'solana-testnet': { badge: 'badge-accent', name: 'Solana Testnet' },
+      'solana-testnet': { badge: 'badge-accent', name: 'Solana Testnet' }
     };
 
     if (this.isSolanaChain(chain)) {
       return { badge: 'badge-accent', name: this.getChainDisplayName(chain) };
     }
 
-    return chainConfig[chainStr] || { badge: 'badge-neutral', name: this.getChainDisplayName(chain) };
+    return (
+      chainConfig[chainStr] || { badge: 'badge-neutral', name: this.getChainDisplayName(chain) }
+    );
   }
 
   /**

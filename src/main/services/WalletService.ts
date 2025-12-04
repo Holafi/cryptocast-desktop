@@ -1,9 +1,12 @@
 import { ethers } from 'ethers';
 import { Keypair } from '@solana/web3.js';
-import bs58 from 'bs58';
+// import bs58 from 'bs58';
 import { ChainUtils } from '../utils/chain-utils';
 import { KeyUtils } from '../utils/keyUtils';
 import { isNativeToken } from '../config/constants';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('WalletService');
 
 interface WalletData {
   address: string;
@@ -30,7 +33,7 @@ export class WalletService {
         type: 'evm'
       };
     } catch (error) {
-      console.error('Failed to create EVM wallet:', error);
+      logger.error('Failed to create EVM wallet', error as Error);
       throw new Error('EVM wallet creation failed');
     }
   }
@@ -49,7 +52,7 @@ export class WalletService {
         type: 'solana'
       };
     } catch (error) {
-      console.error('Failed to create Solana wallet:', error);
+      logger.error('Failed to create Solana wallet', error as Error);
       throw new Error('Solana wallet creation failed');
     }
   }
@@ -61,7 +64,7 @@ export class WalletService {
     try {
       return KeyUtils.decodeToEVMHex(privateKeyBase64);
     } catch (error) {
-      console.error('Failed to decode private key:', error);
+      logger.error('Failed to decode private key', error as Error);
       throw new Error('Private key decode failed');
     }
   }
@@ -90,14 +93,16 @@ export class WalletService {
 
       // Validate private key length
       if (privateKeyBytes.length !== 64) {
-        throw new Error(`Invalid Solana private key length: ${privateKeyBytes.length}. Expected 64 bytes.`);
+        throw new Error(
+          `Invalid Solana private key length: ${privateKeyBytes.length}. Expected 64 bytes.`
+        );
       }
 
       // Convert to array format [1,2,3,...]
       const keypairArray = Array.from(privateKeyBytes);
       return '[' + keypairArray.join(',') + ']';
     } catch (error) {
-      console.error('Failed to export Solana private key:', error);
+      logger.error('Failed to export Solana private key', error as Error);
       throw new Error('Solana private key export failed');
     }
   }
@@ -110,7 +115,7 @@ export class WalletService {
       const privateKey = this.decodePrivateKey(privateKeyBase64);
       return new ethers.Wallet(privateKey);
     } catch (error) {
-      console.error('Failed to get EVM wallet:', error);
+      logger.error('Failed to get EVM wallet', error as Error);
       throw new Error('EVM wallet retrieval failed');
     }
   }
@@ -123,7 +128,7 @@ export class WalletService {
       const privateKeyBytes = KeyUtils.decodeToSolanaBytes(privateKeyBase64);
       return Keypair.fromSecretKey(privateKeyBytes);
     } catch (error) {
-      console.error('Failed to get Solana keypair:', error);
+      logger.error('Failed to get Solana keypair', error as Error);
       throw new Error('Solana keypair retrieval failed');
     }
   }
@@ -149,30 +154,34 @@ export class WalletService {
         return {
           balance: ethers.formatEther(balance),
           symbol: 'ETH',
-          decimals: 18,
+          decimals: 18
         };
       } else {
         // ERC20 token balance
         const tokenContract = new ethers.Contract(
           tokenAddress!,
-          ['function balanceOf(address) view returns (uint256)', 'function symbol() view returns (string)', 'function decimals() view returns (uint8)'],
+          [
+            'function balanceOf(address) view returns (uint256)',
+            'function symbol() view returns (string)',
+            'function decimals() view returns (uint8)'
+          ],
           provider
         );
 
         const [balance, symbol, decimals] = await Promise.all([
           tokenContract.balanceOf(address),
           tokenContract.symbol(),
-          tokenContract.decimals(),
+          tokenContract.decimals()
         ]);
 
         return {
           balance: ethers.formatUnits(balance, decimals),
           symbol,
-          decimals: Number(decimals),
+          decimals: Number(decimals)
         };
       }
     } catch (error) {
-      console.error('Failed to get EVM balance:', error);
+      logger.error('Failed to get EVM balance', error as Error);
       throw new Error('EVM balance query failed');
     }
   }

@@ -36,7 +36,7 @@ export default function Layout({ children }: LayoutProps) {
         const version = await electronAPI.app.getVersion();
         setAppVersion(version);
       } catch (error) {
-        console.error('[Layout] Failed to fetch app version:', error);
+        // Debug statement removed
         // Keep fallback version if API fails
       }
     };
@@ -48,7 +48,13 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     const fetchCachedPrices = async () => {
       try {
-        const prices = await electronAPI.price.getCachedPrices(['ETH', 'BNB', 'POL', 'AVAX', 'SOL']);
+        const prices = await electronAPI.price.getCachedPrices([
+          'ETH',
+          'BNB',
+          'POL',
+          'AVAX',
+          'SOL'
+        ]);
         setPriceInfo({
           eth: prices.ETH || 0,
           bnb: prices.BNB || 0,
@@ -57,10 +63,16 @@ export default function Layout({ children }: LayoutProps) {
           sol: prices.SOL || 0
         });
       } catch (error) {
-        console.error('[Layout] Failed to fetch cached prices:', error);
+        // Debug statement removed
         // Fallback to regular price fetch if cache is empty
         try {
-          const freshPrices = await electronAPI.price.getPrices(['ETH', 'BNB', 'POL', 'AVAX', 'SOL']);
+          const freshPrices = await electronAPI.price.getPrices([
+            'ETH',
+            'BNB',
+            'POL',
+            'AVAX',
+            'SOL'
+          ]);
           setPriceInfo({
             eth: freshPrices.ETH || 0,
             bnb: freshPrices.BNB || 0,
@@ -69,7 +81,7 @@ export default function Layout({ children }: LayoutProps) {
             sol: freshPrices.SOL || 0
           });
         } catch (fallbackError) {
-          console.error('[Layout] Fallback price fetch also failed:', fallbackError);
+          // Debug statement removed
         }
       }
     };
@@ -89,7 +101,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/campaign/create', label: t('campaign.create'), icon: '📊' },
     { path: '/history', label: t('nav.history'), icon: '📜' },
     { path: '/wallets', label: t('nav.wallets'), icon: '👛' },
-    { path: '/settings', label: t('nav.settings'), icon: '⚙️' },
+    { path: '/settings', label: t('nav.settings'), icon: '⚙️' }
   ];
 
   const formatPrice = (price: number) => {
@@ -108,25 +120,21 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Navigation */}
         <nav className="flex-1 py-6 px-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="block mb-1"
-            >
-              <div className={`flex items-center gap-4 px-4 py-3 rounded-btn transition-all duration-200 ${
-                location.pathname === item.path
-                  ? 'bg-primary text-primary-content font-semibold'
-                  : 'hover:bg-base-200 text-base-content'
-              }`}>
+          {navItems.map(item => (
+            <Link key={item.path} to={item.path} className="block mb-1">
+              <div
+                className={`flex items-center gap-4 px-4 py-3 rounded-btn transition-all duration-200 ${
+                  location.pathname === item.path
+                    ? 'bg-primary text-primary-content font-semibold'
+                    : 'hover:bg-base-200 text-base-content'
+                }`}
+              >
                 <span className={`text-xl ${location.pathname === item.path ? '' : 'opacity-70'}`}>
                   {item.icon}
                 </span>
-                <span className={`text-sm ${
-                  location.pathname === item.path
-                    ? 'font-semibold'
-                    : ''
-                }`}>
+                <span
+                  className={`text-sm ${location.pathname === item.path ? 'font-semibold' : ''}`}
+                >
                   {item.label}
                 </span>
               </div>
@@ -140,7 +148,9 @@ export default function Layout({ children }: LayoutProps) {
           <div className="bg-base-200 p-4 rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">💰</span>
-              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">{t('settings.livePrice')}</h3>
+              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">
+                {t('settings.livePrice')}
+              </h3>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
@@ -169,7 +179,9 @@ export default function Layout({ children }: LayoutProps) {
                   <div className="w-2 h-2 rounded-full bg-red-500"></div>
                   <span className="text-xs font-medium">AVAX</span>
                 </div>
-                <span className="text-xs font-bold text-primary">{formatPrice(priceInfo.avax)}</span>
+                <span className="text-xs font-bold text-primary">
+                  {formatPrice(priceInfo.avax)}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -185,7 +197,9 @@ export default function Layout({ children }: LayoutProps) {
           <div className="bg-base-200 p-3 rounded-lg">
             <div className="flex items-center gap-2">
               <span className="text-sm">🔖</span>
-              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">{t('settings.versionInfo')}</h3>
+              <h3 className="text-xs font-semibold text-info uppercase tracking-wide">
+                {t('settings.versionInfo')}
+              </h3>
             </div>
             <div className="mt-2 text-center">
               <span className="text-xs text-base-content/70">v{appVersion}</span>
@@ -197,9 +211,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </main>
     </div>
   );

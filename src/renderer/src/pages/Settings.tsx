@@ -50,15 +50,20 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
     gasLimit: 210000,
     batchSize: 100,
     sendInterval: 2000,
-    isCustom: false,
+    isCustom: false
   });
 
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ latency: number; blockNumber: number } | null>(null);
+  const [testResult, setTestResult] = useState<{ latency: number; blockNumber: number } | null>(
+    null
+  );
   const [testError, setTestError] = useState<string | null>(null);
 
   const [isTestingBackup, setIsTestingBackup] = useState(false);
-  const [testResultBackup, setTestResultBackup] = useState<{ latency: number; blockNumber: number } | null>(null);
+  const [testResultBackup, setTestResultBackup] = useState<{
+    latency: number;
+    blockNumber: number;
+  } | null>(null);
   const [testErrorBackup, setTestErrorBackup] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,7 +81,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
         gasLimit: 210000,
         batchSize: 100,
         sendInterval: 2000,
-        isCustom: chain.isCustom,
+        isCustom: chain.isCustom
       });
     }
   }, [chain]);
@@ -106,7 +111,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
         setTestResult(result);
       }
     } catch (error) {
-      console.error('Test failed:', error);
+      // Debug statement removed
       setTestError(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTesting(false);
@@ -128,7 +133,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
         setTestResultBackup(result);
       }
     } catch (error) {
-      console.error('Backup RPC test failed:', error);
+      // Debug statement removed
       setTestErrorBackup(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTestingBackup(false);
@@ -142,12 +147,11 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
       <div className="modal-box w-11/12 max-w-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold">
-            {isNewChain ? `➕ ${t('settings.addCustomNetworkTitle')}` : `⚙️ ${t('settings.editChainConfig')} ${chain.name}`}
+            {isNewChain
+              ? `➕ ${t('settings.addCustomNetworkTitle')}`
+              : `⚙️ ${t('settings.editChainConfig')} ${chain.name}`}
           </h2>
-          <button
-            onClick={onClose}
-            className="btn btn-sm btn-circle btn-ghost"
-          >
+          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost">
             ✕
           </button>
         </div>
@@ -156,9 +160,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
           {/* Basic Chain Information */}
           <div className="collapse collapse-arrow bg-base-200 mb-4">
             <input type="checkbox" defaultChecked className="min-w-fit" />
-            <div className="collapse-title text-lg font-semibold">
-              🔗 {t('settings.basicInfo')}
-            </div>
+            <div className="collapse-title text-lg font-semibold">🔗 {t('settings.basicInfo')}</div>
             <div className="collapse-content">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="form-control">
@@ -168,7 +170,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     required
@@ -182,7 +184,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                   <input
                     type="number"
                     value={formData.chainId}
-                    onChange={(e) => setFormData({ ...formData, chainId: parseInt(e.target.value) })}
+                    onChange={e => setFormData({ ...formData, chainId: parseInt(e.target.value) })}
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     required
@@ -198,7 +200,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                   <input
                     type="url"
                     value={formData.rpcUrl}
-                    onChange={(e) => {
+                    onChange={e => {
                       setFormData({ ...formData, rpcUrl: e.target.value });
                       setTestResult(null);
                       setTestError(null);
@@ -227,15 +229,14 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                 {testResult && (
                   <div className="alert alert-success mt-2">
                     <div className="text-sm">
-                      ✅ {t('settings.latency')}: {testResult.latency}ms | {t('settings.block')}: {testResult.blockNumber}
+                      ✅ {t('settings.latency')}: {testResult.latency}ms | {t('settings.block')}:{' '}
+                      {testResult.blockNumber}
                     </div>
                   </div>
                 )}
                 {testError && (
                   <div className="alert alert-error mt-2">
-                    <div className="text-sm">
-                      ❌ {testError}
-                    </div>
+                    <div className="text-sm">❌ {testError}</div>
                   </div>
                 )}
                 <label className="label">
@@ -251,7 +252,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                   <input
                     type="url"
                     value={formData.rpcBackup}
-                    onChange={(e) => {
+                    onChange={e => {
                       setFormData({ ...formData, rpcBackup: e.target.value });
                       setTestResultBackup(null);
                       setTestErrorBackup(null);
@@ -279,15 +280,14 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                 {testResultBackup && (
                   <div className="alert alert-success mt-2">
                     <div className="text-sm">
-                      ✅ {t('settings.latency')}: {testResultBackup.latency}ms | {t('settings.block')}: {testResultBackup.blockNumber}
+                      ✅ {t('settings.latency')}: {testResultBackup.latency}ms |{' '}
+                      {t('settings.block')}: {testResultBackup.blockNumber}
                     </div>
                   </div>
                 )}
                 {testErrorBackup && (
                   <div className="alert alert-error mt-2">
-                    <div className="text-sm">
-                      ❌ {testErrorBackup}
-                    </div>
+                    <div className="text-sm">❌ {testErrorBackup}</div>
                   </div>
                 )}
               </div>
@@ -299,7 +299,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                 <input
                   type="url"
                   value={formData.explorerUrl}
-                  onChange={(e) => setFormData({ ...formData, explorerUrl: e.target.value })}
+                  onChange={e => setFormData({ ...formData, explorerUrl: e.target.value })}
                   className="input input-bordered"
                   style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   placeholder="https://polygonscan.com"
@@ -315,7 +315,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                   <input
                     type="text"
                     value={formData.symbol}
-                    onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+                    onChange={e => setFormData({ ...formData, symbol: e.target.value })}
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     placeholder="MATIC"
@@ -330,7 +330,7 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
                   <input
                     type="number"
                     value={formData.decimals}
-                    onChange={(e) => setFormData({ ...formData, decimals: parseInt(e.target.value) })}
+                    onChange={e => setFormData({ ...formData, decimals: parseInt(e.target.value) })}
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     min="0"
@@ -344,17 +344,10 @@ function ChainEditModal({ isOpen, onClose, chain, onSave }: SettingsModalProps) 
 
           {/* Action Buttons */}
           <div className="modal-action">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-ghost"
-            >
+            <button type="button" onClick={onClose} className="btn btn-ghost">
               {t('common.cancel')}
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-            >
+            <button type="submit" className="btn btn-primary">
               💾 {t('settings.saveSettings')}
             </button>
           </div>
@@ -383,11 +376,13 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
     explorerUrl: '',
     symbol: 'SOL',
     decimals: 9,
-    isCustom: false,
+    isCustom: false
   });
 
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ latency: number; blockNumber: number } | null>(null);
+  const [testResult, setTestResult] = useState<{ latency: number; blockNumber: number } | null>(
+    null
+  );
   const [testError, setTestError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -404,7 +399,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
         decimals: chain.decimals,
         color: chain.color,
         badgeColor: chain.badgeColor,
-        isCustom: chain.isCustom,
+        isCustom: chain.isCustom
       });
     }
   }, [chain]);
@@ -437,7 +432,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
         }
       }
     } catch (error) {
-      console.error('Solana RPC test failed:', error);
+      // Debug statement removed
       setTestError(error instanceof Error ? error.message : t('settings.connectionFailed'));
     } finally {
       setIsTesting(false);
@@ -451,10 +446,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
           <h2 className="text-xl font-bold">
             ⚙️ {t('settings.editChainConfig')} {chain.name}
           </h2>
-          <button
-            onClick={onClose}
-            className="btn btn-sm btn-circle btn-ghost"
-          >
+          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost">
             ✕
           </button>
         </div>
@@ -463,9 +455,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
           {/* Basic Information */}
           <div className="collapse collapse-arrow bg-base-200 mb-4">
             <input type="checkbox" defaultChecked className="min-w-fit" />
-            <div className="collapse-title text-lg font-semibold">
-              🔗 {t('settings.basicInfo')}
-            </div>
+            <div className="collapse-title text-lg font-semibold">🔗 {t('settings.basicInfo')}</div>
             <div className="collapse-content">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="form-control">
@@ -475,7 +465,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     required
@@ -489,7 +479,9 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                   <input
                     type="number"
                     value={formData.chainId || ''}
-                    onChange={(e) => setFormData({ ...formData, chainId: parseInt(e.target.value) || undefined })}
+                    onChange={e =>
+                      setFormData({ ...formData, chainId: parseInt(e.target.value) || undefined })
+                    }
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     placeholder="501"
@@ -505,7 +497,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                   <input
                     type="url"
                     value={formData.rpcUrl}
-                    onChange={(e) => {
+                    onChange={e => {
                       setFormData({ ...formData, rpcUrl: e.target.value });
                       setTestResult(null);
                       setTestError(null);
@@ -534,15 +526,14 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                 {testResult && (
                   <div className="alert alert-success mt-2">
                     <div className="text-sm">
-                      ✅ {t('settings.latency')}: {testResult.latency}ms | {t('settings.slot')}: {testResult.blockNumber}
+                      ✅ {t('settings.latency')}: {testResult.latency}ms | {t('settings.slot')}:{' '}
+                      {testResult.blockNumber}
                     </div>
                   </div>
                 )}
                 {testError && (
                   <div className="alert alert-error mt-2">
-                    <div className="text-sm">
-                      ❌ {testError}
-                    </div>
+                    <div className="text-sm">❌ {testError}</div>
                   </div>
                 )}
                 <label className="label">
@@ -557,7 +548,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                 <input
                   type="url"
                   value={formData.rpcBackup}
-                  onChange={(e) => setFormData({ ...formData, rpcBackup: e.target.value })}
+                  onChange={e => setFormData({ ...formData, rpcBackup: e.target.value })}
                   className="input input-bordered"
                   style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   placeholder="https://api.devnet.solana.com"
@@ -571,7 +562,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                 <input
                   type="url"
                   value={formData.explorerUrl}
-                  onChange={(e) => setFormData({ ...formData, explorerUrl: e.target.value })}
+                  onChange={e => setFormData({ ...formData, explorerUrl: e.target.value })}
                   className="input input-bordered"
                   style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                   placeholder="https://solscan.io"
@@ -586,7 +577,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                   <input
                     type="text"
                     value={formData.symbol}
-                    onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+                    onChange={e => setFormData({ ...formData, symbol: e.target.value })}
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     placeholder="SOL"
@@ -601,7 +592,7 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
                   <input
                     type="number"
                     value={formData.decimals}
-                    onChange={(e) => setFormData({ ...formData, decimals: parseInt(e.target.value) })}
+                    onChange={e => setFormData({ ...formData, decimals: parseInt(e.target.value) })}
                     className="input input-bordered"
                     style={{ border: '1px solid #d1d5db', backgroundColor: '#ffffff' }}
                     min="0"
@@ -615,17 +606,10 @@ function SolanaEditModal({ isOpen, onClose, chain, onSave }: SolanaEditModalProp
 
           {/* Action Buttons */}
           <div className="modal-action">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-ghost"
-            >
+            <button type="button" onClick={onClose} className="btn btn-ghost">
               {t('common.cancel')}
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-            >
+            <button type="submit" className="btn btn-primary">
               💾 {t('settings.saveSettings')}
             </button>
           </div>
@@ -642,7 +626,7 @@ export default function Settings() {
   const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<AppSettings>({
     chains: [],
-    solanaChains: [],
+    solanaChains: []
   });
 
   const [activeTab] = useState<'chains'>('chains');
@@ -661,34 +645,36 @@ export default function Settings() {
     try {
       // Settings service removed, using default state
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      // Debug statement removed
     }
   };
 
   const loadChains = async () => {
     try {
-            if (window.electronAPI?.chain) {
+      if (window.electronAPI?.chain) {
         // Load EVM chains
         const chains = await window.electronAPI.chain.getEVMChains();
-                        setSettings((prev: AppSettings) => ({ ...prev, chains }));
-        
+        setSettings((prev: AppSettings) => ({ ...prev, chains }));
+
         // Load Solana chains
         try {
           const solanaChainData = await window.electronAPI.chain.getSolanaRPCs();
-                    setSolanaChains(solanaChainData.map(rpc => ({
-      ...rpc,
-      type: 'solana' as const,
-      symbol: 'SOL',
-      decimals: 9,
-      isCustom: true
-    })));
-                  } catch (error) {
-          console.warn('🔍 [Settings] loadChains: Failed to load Solana chains:', error);
+          setSolanaChains(
+            solanaChainData.map(rpc => ({
+              ...rpc,
+              type: 'solana' as const,
+              symbol: 'SOL',
+              decimals: 9,
+              isCustom: true
+            }))
+          );
+        } catch (error) {
+          // Debug statement removed
         }
       } else {
-              }
+      }
     } catch (error) {
-      console.error('🔍 [Settings] loadChains: Failed to load chains:', error);
+      // Debug statement removed
       // Set empty chains array when database connection fails
       setSettings(prev => ({ ...prev, chains: [] }));
     }
@@ -709,7 +695,7 @@ export default function Settings() {
       explorerUrl: '',
       symbol: '',
       decimals: 18,
-      isCustom: true,
+      isCustom: true
     };
     setEditingChain(newChain);
     setIsModalOpen(true);
@@ -750,7 +736,7 @@ export default function Settings() {
             explorerUrl: chainData.explorerUrl,
             symbol: chainData.symbol,
             decimals: chainData.decimals,
-            isCustom: true,
+            isCustom: true
           };
           return {
             ...prev,
@@ -762,7 +748,7 @@ export default function Settings() {
       setIsModalOpen(false);
       setEditingChain(null);
     } catch (error) {
-      console.error('Failed to save chain:', error);
+      // Debug statement removed
       alert(t('settings.saveChainFailed'));
     }
   };
@@ -780,20 +766,15 @@ export default function Settings() {
       }
 
       // Update local state
-      setSolanaChains(prev =>
-        prev.map(chain =>
-          chain.id === chainData.id ? chainData : chain
-        )
-      );
+      setSolanaChains(prev => prev.map(chain => (chain.id === chainData.id ? chainData : chain)));
 
       setIsSolanaModalOpen(false);
       setEditingSolanaChain(null);
     } catch (error) {
-      console.error('Failed to save Solana chain:', error);
+      // Debug statement removed
       alert(t('settings.saveSolanaFailed'));
     }
   };
-
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -809,16 +790,10 @@ export default function Settings() {
             <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={handleAddChain}
-              className="btn btn-primary"
-            >
+            <button onClick={handleAddChain} className="btn btn-primary">
               ➕ {t('settings.addCustomNetwork')}
             </button>
-            <button
-              onClick={() => navigate('/')}
-              className="btn btn-ghost"
-            >
+            <button onClick={() => navigate('/')} className="btn btn-ghost">
               ← {t('settings.backToDashboard')}
             </button>
           </div>
@@ -934,7 +909,7 @@ export default function Settings() {
             <span>{t('settings.evmChains')}</span>
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(settings.chains || []).map((chain) => (
+            {(settings.chains || []).map(chain => (
               <div
                 key={chain.id}
                 className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20"
@@ -953,7 +928,9 @@ export default function Settings() {
                     <div className="flex-1">
                       <h2 className="card-title text-lg">{chain.name}</h2>
                       <div className="flex items-center gap-2">
-                        <div className={`badge ${chain.badgeColor || 'badge-primary'} badge-sm`}>{chain.symbol}</div>
+                        <div className={`badge ${chain.badgeColor || 'badge-primary'} badge-sm`}>
+                          {chain.symbol}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -964,7 +941,9 @@ export default function Settings() {
                   <div className="space-y-3 mb-4">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-base-content/60">{t('settings.chainId')}</span>
-                      <div className="font-mono text-sm bg-base-200 px-2 py-1 rounded">{chain.chainId}</div>
+                      <div className="font-mono text-sm bg-base-200 px-2 py-1 rounded">
+                        {chain.chainId}
+                      </div>
                     </div>
 
                     <div className="flex justify-between items-center">
@@ -995,7 +974,7 @@ export default function Settings() {
             <span>{t('settings.solanaNetworks')}</span>
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {solanaChains.map((chain) => {
+            {solanaChains.map(chain => {
               return (
                 <div
                   key={chain.id}
@@ -1014,7 +993,9 @@ export default function Settings() {
                       <div className="flex-1">
                         <h2 className="card-title text-lg">{chain.name}</h2>
                         <div className="flex items-center gap-2">
-                          <div className={`badge ${chain.badgeColor || 'badge-accent'} badge-sm`}>{chain.symbol}</div>
+                          <div className={`badge ${chain.badgeColor || 'badge-accent'} badge-sm`}>
+                            {chain.symbol}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1025,12 +1006,18 @@ export default function Settings() {
                     {/* Chain Details */}
                     <div className="space-y-3 mb-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-base-content/60">{t('settings.chainId')}</span>
-                        <div className="font-mono text-sm bg-base-200 px-2 py-1 rounded">{chain.chainId || 'N/A'}</div>
+                        <span className="text-sm text-base-content/60">
+                          {t('settings.chainId')}
+                        </span>
+                        <div className="font-mono text-sm bg-base-200 px-2 py-1 rounded">
+                          {chain.chainId || 'N/A'}
+                        </div>
                       </div>
 
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-base-content/60">{t('settings.decimals')}</span>
+                        <span className="text-sm text-base-content/60">
+                          {t('settings.decimals')}
+                        </span>
                         <span className="text-sm font-medium">{chain.decimals}</span>
                       </div>
                     </div>
@@ -1056,13 +1043,8 @@ export default function Settings() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🌐</div>
             <div className="text-lg font-medium mb-2">{t('settings.noNetworks')}</div>
-            <div className="text-sm text-base-content/60 mb-6">
-              {t('settings.noNetworksDesc')}
-            </div>
-            <button
-              onClick={handleAddChain}
-              className="btn btn-primary"
-            >
+            <div className="text-sm text-base-content/60 mb-6">{t('settings.noNetworksDesc')}</div>
+            <button onClick={handleAddChain} className="btn btn-primary">
               ➕ {t('settings.addFirstNetwork')}
             </button>
           </div>
@@ -1070,15 +1052,25 @@ export default function Settings() {
 
         {/* Quick Tips */}
         <div className="alert alert-info mt-8">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            className="stroke-current shrink-0 w-6 h-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            ></path>
           </svg>
           <div>
             <h3 className="font-bold">{t('settings.quickTips')}</h3>
             <div className="text-sm">
-              • {t('settings.tip1')}<br/>
-              • {t('settings.tip2')}<br/>
-              • {t('settings.tip3')}
+              • {t('settings.tip1')}
+              <br />• {t('settings.tip2')}
+              <br />• {t('settings.tip3')}
             </div>
           </div>
         </div>

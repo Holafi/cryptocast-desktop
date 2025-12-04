@@ -14,8 +14,8 @@ export interface CSVValidationResult {
   validRecords: number;
   invalidRecords: number;
   errors: CSVValidationError[];
-  sampleData: CSVRow[];  // First 5 sample records for preview
-  data: CSVRow[];        // All data
+  sampleData: CSVRow[]; // First 5 sample records for preview
+  data: CSVRow[]; // All data
 }
 
 export interface CSVValidationError {
@@ -69,15 +69,8 @@ export function validateAmount(amount: string): { isValid: boolean; value?: numb
 /**
  * Parse CSV content
  */
-export function parseCSV(
-  content: string,
-  options: CSVParseOptions = {}
-): CSVValidationResult {
-  const {
-    hasHeaders = false,
-    skipEmptyLines = true,
-    trim = true
-  } = options;
+export function parseCSV(content: string, options: CSVParseOptions = {}): CSVValidationResult {
+  const { hasHeaders = false, skipEmptyLines = true, trim = true } = options;
 
   try {
     const lines = content.split('\n').filter(line => {
@@ -103,18 +96,27 @@ export function parseCSV(
     // Process header row
     if (hasHeaders) {
       const headerLine = lines[0];
-      headers.push(...headerLine.split(',').map(h => trim ? h.trim() : h));
+      headers.push(...headerLine.split(',').map(h => (trim ? h.trim() : h)));
       startIndex = 1;
 
       // Validate required columns
-      if (!headers.some(h => h.toLowerCase().includes('address')) ||
-          !headers.some(h => h.toLowerCase().includes('amount'))) {
+      if (
+        !headers.some(h => h.toLowerCase().includes('address')) ||
+        !headers.some(h => h.toLowerCase().includes('amount'))
+      ) {
         return {
           isValid: false,
           totalRecords: lines.length - 1,
           validRecords: 0,
           invalidRecords: lines.length - 1,
-          errors: [{ row: 1, field: 'address', value: headers.join(','), error: 'CSV must contain address and amount columns' }],
+          errors: [
+            {
+              row: 1,
+              field: 'address',
+              value: headers.join(','),
+              error: 'CSV must contain address and amount columns'
+            }
+          ],
           sampleData: [],
           data: []
         };
@@ -133,10 +135,15 @@ export function parseCSV(
         continue;
       }
 
-      const values = line.split(',').map(v => trim ? v.trim() : v);
+      const values = line.split(',').map(v => (trim ? v.trim() : v));
 
       if (values.length < 2) {
-        errors.push({ row: lineNum, field: 'address', value: line, error: 'Format error, must contain address and amount' });
+        errors.push({
+          row: lineNum,
+          field: 'address',
+          value: line,
+          error: 'Format error, must contain address and amount'
+        });
         continue;
       }
 
@@ -149,7 +156,12 @@ export function parseCSV(
         const amountIndex = headers.findIndex(h => h.toLowerCase().includes('amount'));
 
         if (addressIndex === -1 || amountIndex === -1) {
-          errors.push({ row: lineNum, field: 'address', value: values.join(','), error: 'Cannot find address or amount column' });
+          errors.push({
+            row: lineNum,
+            field: 'address',
+            value: values.join(','),
+            error: 'Cannot find address or amount column'
+          });
           continue;
         }
 
@@ -164,14 +176,24 @@ export function parseCSV(
       // Validate address
       const addressValidation = validateAddress(address);
       if (!addressValidation.isValid) {
-        errors.push({ row: lineNum, field: 'address', value: address, error: 'Invalid address format' });
+        errors.push({
+          row: lineNum,
+          field: 'address',
+          value: address,
+          error: 'Invalid address format'
+        });
         continue;
       }
 
       // Validate amount
       const amountValidation = validateAmount(amount);
       if (!amountValidation.isValid) {
-        errors.push({ row: lineNum, field: 'amount', value: amount, error: 'Amount must be a number greater than 0' });
+        errors.push({
+          row: lineNum,
+          field: 'amount',
+          value: amount,
+          error: 'Amount must be a number greater than 0'
+        });
         continue;
       }
 
@@ -187,17 +209,23 @@ export function parseCSV(
       validRecords: data.length,
       invalidRecords: lines.length - startIndex - data.length,
       errors,
-      sampleData: data.slice(0, 5),  // First 5 records for preview
-      data: data                      // All data
+      sampleData: data.slice(0, 5), // First 5 records for preview
+      data: data // All data
     };
-
   } catch (error) {
     return {
       isValid: false,
       totalRecords: 0,
       validRecords: 0,
       invalidRecords: 0,
-      errors: [{ row: 0, field: 'address', value: '', error: `CSV parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}` }],
+      errors: [
+        {
+          row: 0,
+          field: 'address',
+          value: '',
+          error: `CSV parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }
+      ],
       sampleData: [],
       data: []
     };
@@ -221,8 +249,9 @@ export async function readCSVFile(filePath: string): Promise<CSVRow[]> {
     // Can return more records here, not just the first 5
     const allData = parseCSV(fileContent, { hasHeaders: true });
     return parseCSV(fileContent, { hasHeaders: true }).sampleData;
-
   } catch (error) {
-    throw new Error(`CSV file read failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `CSV file read failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }

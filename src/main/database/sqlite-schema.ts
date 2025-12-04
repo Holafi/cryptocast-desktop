@@ -3,6 +3,9 @@ import { Database, open } from 'sqlite';
 import * as path from 'path';
 import * as os from 'os';
 import { DatabaseAdapter } from './db-adapter';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('sqlite-schema');
 
 /**
  * Campaign interface
@@ -59,7 +62,7 @@ export class DatabaseManager {
   private dbPath: string = '';
 
   constructor() {
-    console.log('[Database] Using SQLite3 database');
+    logger.info('[Database] Using SQLite3 database');
   }
 
   /**
@@ -71,7 +74,7 @@ export class DatabaseManager {
       await this.ensureDirectoryExists(this.dbPath);
 
       const dbFilePath = path.join(this.dbPath, 'cryptocast.db');
-      console.log(`[Database] Opening database at: ${dbFilePath}`);
+      logger.info(`[Database] Opening database at: ${dbFilePath}`);
 
       this.db = await open({
         filename: dbFilePath,
@@ -93,9 +96,9 @@ export class DatabaseManager {
       await this.createIndexes();
       await this.insertDefaultChains();
 
-      console.log('[Database] SQLite database initialized successfully');
+      logger.info('[Database] SQLite database initialized successfully');
     } catch (error) {
-      console.error('[Database] Failed to initialize database:', error);
+      logger.error('[Database] Failed to initialize database:', error as Error);
       throw error;
     }
   }
@@ -135,7 +138,7 @@ export class DatabaseManager {
   private async createTables(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    console.log('[Database] Creating tables...');
+    logger.info('[Database] Creating tables...');
 
     // Campaigns table
     await this.db.exec(`
@@ -186,7 +189,6 @@ export class DatabaseManager {
       )
     `);
 
-    
     // Transactions table
     await this.db.exec(`
       CREATE TABLE IF NOT EXISTS transactions (
@@ -244,8 +246,7 @@ export class DatabaseManager {
       )
     `);
 
-  
-    console.log('[Database] Tables created successfully');
+    logger.info('[Database] Tables created successfully');
   }
 
   /**
@@ -254,12 +255,12 @@ export class DatabaseManager {
   private async dropObsoleteTables(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    console.log('[Database] Dropping obsolete tables...');
+    logger.info('[Database] Dropping obsolete tables...');
 
     // Drop the obsolete files table if it exists (was completely unused)
     await this.db.exec('DROP TABLE IF EXISTS files');
 
-    console.log('[Database] Obsolete tables dropped successfully');
+    logger.info('[Database] Obsolete tables dropped successfully');
   }
 
   /**
@@ -267,7 +268,7 @@ export class DatabaseManager {
    */
   private async migrateDatabase(): Promise<void> {
     // No migrations needed for fresh installations
-    console.log('[Database] Database migrations skipped (using final schema)');
+    logger.info('[Database] Database migrations skipped (using final schema)');
   }
 
   /**
@@ -276,7 +277,7 @@ export class DatabaseManager {
   private async createIndexes(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    console.log('[Database] Creating indexes...');
+    logger.info('[Database] Creating indexes...');
 
     await this.db.exec(`
       -- Campaign indexes for common queries
@@ -314,7 +315,7 @@ export class DatabaseManager {
 
       `);
 
-    console.log('[Database] Indexes created successfully');
+    logger.info('[Database] Indexes created successfully');
   }
 
   /**
@@ -323,7 +324,7 @@ export class DatabaseManager {
   private async insertDefaultChains(): Promise<void> {
     if (!this.db) return;
 
-    console.log('[Database] Inserting default chains...');
+    logger.info('[Database] Inserting default chains...');
 
     // Default EVM chains
     const defaultEVMChains = [
@@ -337,7 +338,7 @@ export class DatabaseManager {
         symbol: 'ETH',
         decimals: 18,
         color: '#627EEA',
-        badge_color: 'badge-neutral',
+        badge_color: 'badge-neutral'
       },
       {
         type: 'evm',
@@ -349,7 +350,7 @@ export class DatabaseManager {
         symbol: 'ETH',
         decimals: 18,
         color: '#4169E1',
-        badge_color: 'badge-info',
+        badge_color: 'badge-info'
       },
       {
         type: 'evm',
@@ -361,7 +362,7 @@ export class DatabaseManager {
         symbol: 'POL',
         decimals: 18,
         color: '#8247E5',
-        badge_color: 'badge-secondary',
+        badge_color: 'badge-secondary'
       },
       {
         type: 'evm',
@@ -373,7 +374,7 @@ export class DatabaseManager {
         symbol: 'ETH',
         decimals: 18,
         color: '#28A0F0',
-        badge_color: 'badge-info',
+        badge_color: 'badge-info'
       },
       {
         type: 'evm',
@@ -385,7 +386,7 @@ export class DatabaseManager {
         symbol: 'ETH',
         decimals: 18,
         color: '#FF0420',
-        badge_color: 'badge-error',
+        badge_color: 'badge-error'
       },
       {
         type: 'evm',
@@ -397,7 +398,7 @@ export class DatabaseManager {
         symbol: 'ETH',
         decimals: 18,
         color: '#0052FF',
-        badge_color: 'badge-success',
+        badge_color: 'badge-success'
       },
       {
         type: 'evm',
@@ -409,7 +410,7 @@ export class DatabaseManager {
         symbol: 'BNB',
         decimals: 18,
         color: '#F3BA2F',
-        badge_color: 'badge-warning',
+        badge_color: 'badge-warning'
       },
       {
         type: 'evm',
@@ -421,8 +422,8 @@ export class DatabaseManager {
         symbol: 'AVAX',
         decimals: 18,
         color: '#E84142',
-        badge_color: 'badge-accent',
-      },
+        badge_color: 'badge-accent'
+      }
     ];
 
     // Default Solana networks
@@ -437,7 +438,7 @@ export class DatabaseManager {
         symbol: 'SOL',
         decimals: 9,
         color: '#00FFA3',
-        badge_color: 'badge-accent',
+        badge_color: 'badge-accent'
       },
       {
         type: 'solana',
@@ -449,39 +450,42 @@ export class DatabaseManager {
         symbol: 'SOL',
         decimals: 9,
         color: '#00D4AA',
-        badge_color: 'badge-info',
-      },
+        badge_color: 'badge-info'
+      }
     ];
 
     const allDefaultChains = [...defaultEVMChains, ...defaultSolanaNetworks];
 
     for (const chain of allDefaultChains) {
       try {
-        await this.db.run(`
+        await this.db.run(
+          `
           INSERT OR REPLACE INTO chains (
             type, chain_id, name, rpc_url, rpc_backup, explorer_url, symbol, decimals,
             color, badge_color, is_custom, created_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          chain.type,
-          chain.chain_id,
-          chain.name,
-          chain.rpc_url,
-          chain.rpc_backup,
-          chain.explorer_url,
-          chain.symbol,
-          chain.decimals,
-          chain.color,
-          chain.badge_color,
-          0, // is_custom (default chains are built-in)
-          new Date().toISOString()
-        ]);
+        `,
+          [
+            chain.type,
+            chain.chain_id,
+            chain.name,
+            chain.rpc_url,
+            chain.rpc_backup,
+            chain.explorer_url,
+            chain.symbol,
+            chain.decimals,
+            chain.color,
+            chain.badge_color,
+            0, // is_custom (default chains are built-in)
+            new Date().toISOString()
+          ]
+        );
       } catch (error) {
         console.error(`[Database] Failed to insert chain ${chain.name}:`, error);
       }
     }
 
-    console.log(`[Database] Inserted ${allDefaultChains.length} default chains`);
+    logger.info(`[Database] Inserted ${allDefaultChains.length} default chains`);
   }
 
   /**
@@ -494,7 +498,6 @@ export class DatabaseManager {
     return new DatabaseAdapter(this.db);
   }
 
-  
   /**
    * Close database connection
    */
@@ -502,7 +505,7 @@ export class DatabaseManager {
     if (this.db) {
       await this.db.close();
       this.db = null;
-      console.log('[Database] Database connection closed');
+      logger.info('[Database] Database connection closed');
     }
   }
 }

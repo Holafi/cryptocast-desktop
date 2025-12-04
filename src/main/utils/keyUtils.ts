@@ -4,6 +4,9 @@
  */
 
 import { Buffer } from 'buffer';
+import { Logger } from './logger';
+
+const logger = Logger.getInstance().child('KeyUtils');
 
 export interface PrivateKeyData {
   privateKeyBase64: string;
@@ -47,7 +50,7 @@ export class KeyUtils {
     try {
       return Buffer.from(privateKeyBase64, 'base64');
     } catch (error) {
-      console.error('Failed to decode private key from base64:', error);
+      logger.error('Failed to decode private key from base64', error as Error);
       throw new Error('Private key decode failed');
     }
   }
@@ -136,7 +139,7 @@ export class KeyUtils {
         };
       }
     } catch (error) {
-      console.error('Private key validation failed:', error);
+      logger.error('Private key validation failed', error as Error);
       return {
         privateKeyBase64,
         isValid: false

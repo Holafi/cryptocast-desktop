@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+coverage
+build
+*.log
+*.db
+*.sqlite
+contracts/lib
+.git

@@ -138,7 +138,7 @@ export class CampaignService {
       logger.debug('[CampaignService] Campaign data inserted successfully', { campaignId: id });
 
       // Insert recipients and assign batch numbers in transaction
-      await this.db.transaction(async (tx) => {
+      await this.db.transaction(async tx => {
         // Insert recipients and set batch numbers
         const insertRecipient = tx.prepare(`
           INSERT INTO recipients (
@@ -151,8 +151,7 @@ export class CampaignService {
           const batchNumber = Math.floor(i / (data.batchSize || 100)) + 1;
           await insertRecipient.run(id, recipient.address, recipient.amount, batchNumber, now);
         }
-
-              });
+      });
 
       const campaign = await this.getCampaignById(id);
       if (!campaign) {
@@ -161,10 +160,10 @@ export class CampaignService {
       return campaign;
     } catch (error) {
       logger.error('[CampaignService] Campaign creation failed', error as Error, {
-      campaignId: id,
-      name: data.name,
-      chain: data.chain
-    });
+        campaignId: id,
+        name: data.name,
+        chain: data.chain
+      });
 
       throw new Error('Campaign creation failed');
     }
@@ -213,7 +212,7 @@ export class CampaignService {
         params.push(filters.offset);
       }
 
-      const campaigns = await this.db.prepare(query).all(...params) as any[] || [];
+      const campaigns = ((await this.db.prepare(query).all(...params)) as any[]) || [];
       return campaigns.map(this.mapRowToCampaign);
     } catch (error) {
       logger.error('[CampaignService] Failed to list campaigns', error as Error, { filters });
@@ -223,7 +222,7 @@ export class CampaignService {
 
   async getCampaignById(id: string): Promise<Campaign | null> {
     try {
-      const row = await this.db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id) as any;
+      const row = (await this.db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id)) as any;
       return row ? this.mapRowToCampaign(row) : null;
     } catch (error) {
       logger.error('[CampaignService] Failed to get campaign by ID', error as Error, { id });
@@ -232,7 +231,7 @@ export class CampaignService {
   }
 
   private mapRowToCampaign(row: any): Campaign {
-        const campaign = {
+    const campaign = {
       id: row.id,
       name: row.name,
       description: row.description,
@@ -257,19 +256,22 @@ export class CampaignService {
       gasCostUsd: row.total_cost_usd || 0,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      completedAt: row.completed_at,
+      completedAt: row.completed_at
     };
-        return campaign;
+    return campaign;
   }
 
   async updateCampaignStatus(id: string, status: Campaign['status']): Promise<void> {
     try {
       const now = new Date().toISOString();
-      await this.db.prepare(
-        'UPDATE campaigns SET status = ?, updated_at = ? WHERE id = ?'
-      ).run(status, now, id);
+      await this.db
+        .prepare('UPDATE campaigns SET status = ?, updated_at = ? WHERE id = ?')
+        .run(status, now, id);
     } catch (error) {
-      logger.error('[CampaignService] Failed to update campaign status', error as Error, { id, status });
+      logger.error('[CampaignService] Failed to update campaign status', error as Error, {
+        id,
+        status
+      });
       throw new Error('Campaign status update failed');
     }
   }
@@ -293,11 +295,10 @@ export class CampaignService {
         }
       }
 
-      
       // Execute campaign in background (non-blocking)
-    this.executor.executeCampaign(id, onProgress).catch(error => {
-      logger.error('Campaign execution failed', error as Error, { id });
-    });
+      this.executor.executeCampaign(id, onProgress).catch(error => {
+        logger.error('Campaign execution failed', error as Error, { id });
+      });
 
       return { success: true };
     } catch (error) {
@@ -320,7 +321,6 @@ export class CampaignService {
       // Request executor to pause
       this.executor.pauseExecution(id);
 
-
       return { success: true };
     } catch (error) {
       logger.error('[CampaignService] Failed to pause campaign', error as Error, { id });
@@ -332,18 +332,24 @@ export class CampaignService {
     try {
       // IMPORTANT: Ignore the completedCount parameter and always calculate from recipients table
       // This ensures data consistency by using a single source of truth
-      const counts = await this.db.prepare(`
+      const counts = (await this.db
+        .prepare(
+          `
         SELECT
           COUNT(CASE WHEN status = 'SENT' THEN 1 END) as completed,
           COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed
         FROM recipients
         WHERE campaign_id = ?
-      `).get(id) as any;
+      `
+        )
+        .get(id)) as any;
 
       const now = new Date().toISOString();
-      await this.db.prepare(
-        'UPDATE campaigns SET completed_recipients = ?, failed_recipients = ?, updated_at = ? WHERE id = ?'
-      ).run(counts.completed || 0, counts.failed || 0, now, id);
+      await this.db
+        .prepare(
+          'UPDATE campaigns SET completed_recipients = ?, failed_recipients = ?, updated_at = ? WHERE id = ?'
+        )
+        .run(counts.completed || 0, counts.failed || 0, now, id);
 
       logger.debug('[CampaignService] Progress updated from aggregation', {
         campaignId: id,
@@ -372,31 +378,39 @@ export class CampaignService {
       if (!validTransitions.includes(campaign.status)) {
         throw new Error(
           `Cannot deploy contract from status ${campaign.status}. ` +
-          `Valid states: ${validTransitions.join(', ')}`
+            `Valid states: ${validTransitions.join(', ')}`
         );
       }
 
       // Check if contract has already been deployed
       if (campaign.contractAddress) {
         throw new Error(
-          `Contract already deployed at ${campaign.contractAddress}. ` +
-          `Cannot deploy again.`
+          `Contract already deployed at ${campaign.contractAddress}. ` + `Cannot deploy again.`
         );
       }
 
       const now = new Date().toISOString();
-      const result = await this.db.prepare(`
+      const result = await this.db
+        .prepare(
+          `
         UPDATE campaigns
         SET contract_address = ?, contract_deployed_at = ?, status = 'READY', updated_at = ?
         WHERE id = ? AND status IN ('CREATED', 'FUNDED') AND contract_address IS NULL
-      `).run(contractAddress, now, now, id);
+      `
+        )
+        .run(contractAddress, now, now, id);
 
       // Verify update succeeded (prevents concurrent deployment)
       if (result.changes === 0) {
-        throw new Error('Campaign status changed during deployment or already deployed, please retry');
+        throw new Error(
+          'Campaign status changed during deployment or already deployed, please retry'
+        );
       }
     } catch (error) {
-      logger.error('[CampaignService] Failed to update campaign contract', error as Error, { id, contractAddress });
+      logger.error('[CampaignService] Failed to update campaign contract', error as Error, {
+        id,
+        contractAddress
+      });
       throw error;
     }
   }
@@ -423,26 +437,33 @@ export class CampaignService {
     }
   }
 
-  async getCampaignRecipients(campaignId: string): Promise<Array<{
-    id: number;
-    address: string;
-    amount: string;
-    status: string;
-    txHash?: string;
-    gasUsed?: number;
-    errorMessage?: string;
-    createdAt: string;
-    updatedAt: string;
-  }>> {
+  async getCampaignRecipients(campaignId: string): Promise<
+    Array<{
+      id: number;
+      address: string;
+      amount: string;
+      status: string;
+      txHash?: string;
+      gasUsed?: number;
+      errorMessage?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>
+  > {
     try {
       if (!campaignId || campaignId === 'undefined') {
         logger.warn('Invalid campaignId provided', { campaignId });
         return [];
       }
 
-      const recipients = await this.db.prepare(`
+      const recipients =
+        ((await this.db
+          .prepare(
+            `
         SELECT * FROM recipients WHERE campaign_id = ? ORDER BY created_at
-      `).all(campaignId) as any[] || [];
+      `
+          )
+          .all(campaignId)) as any[]) || [];
 
       if (!Array.isArray(recipients)) {
         logger.warn('Database did not return an array', { type: typeof recipients, recipients });
@@ -458,10 +479,12 @@ export class CampaignService {
         gasUsed: row.gas_used,
         errorMessage: row.error_message,
         createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        updatedAt: row.updated_at
       }));
     } catch (error) {
-      logger.error('[CampaignService] Failed to get campaign recipients', error as Error, { campaignId });
+      logger.error('[CampaignService] Failed to get campaign recipients', error as Error, {
+        campaignId
+      });
       return []; // Return empty array instead of throwing error
     }
   }
@@ -476,17 +499,25 @@ export class CampaignService {
   ): Promise<void> {
     try {
       const now = new Date().toISOString();
-      await this.db.prepare(`
+      await this.db
+        .prepare(
+          `
         UPDATE recipients
         SET status = ?, tx_hash = ?, gas_used = ?, error_message = ?, updated_at = ?
         WHERE campaign_id = ? AND address = ?
-      `).run(status, txHash, gasUsed, errorMessage, now, campaignId, address);
+      `
+        )
+        .run(status, txHash, gasUsed, errorMessage, now, campaignId, address);
 
       // NOTE: Progress is automatically updated by CampaignExecutor.updateRecipientStatusesTransaction
       // which uses a transaction to update both recipients and campaigns table atomically.
       // We don't need to call updateProgress here to avoid double updates.
     } catch (error) {
-      logger.error('[CampaignService] Failed to update recipient status', error as Error, { campaignId, address, status });
+      logger.error('[CampaignService] Failed to update recipient status', error as Error, {
+        campaignId,
+        address,
+        status
+      });
       throw new Error('Recipient status update failed');
     }
   }
@@ -516,23 +547,25 @@ export class CampaignService {
       limit?: number;
       offset?: number;
     }
-  ): Promise<Array<{
-    id: number;
-    txHash: string;
-    txType: string;
-    fromAddress: string;
-    toAddress?: string;
-    amount?: string;
-    gasUsed?: number;
-    gasPrice?: string;
-    gasCost?: number;
-    status: string;
-    blockNumber?: number;
-    blockHash?: string;
-    recipientCount?: number;
-    createdAt: string;
-    confirmedAt?: string;
-  }>> {
+  ): Promise<
+    Array<{
+      id: number;
+      txHash: string;
+      txType: string;
+      fromAddress: string;
+      toAddress?: string;
+      amount?: string;
+      gasUsed?: number;
+      gasPrice?: string;
+      gasCost?: number;
+      status: string;
+      blockNumber?: number;
+      blockHash?: string;
+      recipientCount?: number;
+      createdAt: string;
+      confirmedAt?: string;
+    }>
+  > {
     try {
       if (!campaignId || campaignId === 'undefined') {
         logger.warn('Invalid campaignId provided for transactions', { campaignId });
@@ -561,10 +594,13 @@ export class CampaignService {
         params.push(options.offset);
       }
 
-      const transactions = await this.db.prepare(query).all(...params) as any[] || [];
+      const transactions = ((await this.db.prepare(query).all(...params)) as any[]) || [];
 
       if (!Array.isArray(transactions)) {
-        logger.warn('Database did not return an array for transactions', { type: typeof transactions, transactions });
+        logger.warn('Database did not return an array for transactions', {
+          type: typeof transactions,
+          transactions
+        });
         return [];
       }
 
@@ -583,10 +619,12 @@ export class CampaignService {
         blockHash: row.block_hash,
         recipientCount: row.recipient_count || 0,
         createdAt: row.created_at,
-        confirmedAt: row.confirmed_at,
+        confirmedAt: row.confirmed_at
       }));
     } catch (error) {
-      logger.error('[CampaignService] Failed to get campaign transactions', error as Error, { campaignId });
+      logger.error('[CampaignService] Failed to get campaign transactions', error as Error, {
+        campaignId
+      });
       return []; // Return empty array instead of throwing error
     }
   }
@@ -594,43 +632,57 @@ export class CampaignService {
   /**
    * Record transaction
    */
-  async recordTransaction(campaignId: string, transactionData: {
-    txHash: string;
-    txType: 'DEPLOY_CONTRACT' | 'TRANSFER_TO_CONTRACT' | 'APPROVE_TOKENS' | 'BATCH_SEND' | 'WITHDRAW_REMAINING';
-    fromAddress: string;
-    toAddress?: string;
-    amount?: string;
-    gasUsed?: number;
-    gasPrice?: string;
-    gasCost?: number;
-    status?: 'PENDING' | 'CONFIRMED' | 'FAILED';
-    blockNumber?: number;
-    blockHash?: string;
-  }): Promise<void> {
+  async recordTransaction(
+    campaignId: string,
+    transactionData: {
+      txHash: string;
+      txType:
+        | 'DEPLOY_CONTRACT'
+        | 'TRANSFER_TO_CONTRACT'
+        | 'APPROVE_TOKENS'
+        | 'BATCH_SEND'
+        | 'WITHDRAW_REMAINING';
+      fromAddress: string;
+      toAddress?: string;
+      amount?: string;
+      gasUsed?: number;
+      gasPrice?: string;
+      gasCost?: number;
+      status?: 'PENDING' | 'CONFIRMED' | 'FAILED';
+      blockNumber?: number;
+      blockHash?: string;
+    }
+  ): Promise<void> {
     try {
-      await this.db.prepare(`
+      await this.db
+        .prepare(
+          `
         INSERT OR REPLACE INTO transactions (
           campaign_id, tx_hash, tx_type, from_address, to_address, amount,
           gas_used, gas_price, gas_cost, status, block_number, block_hash, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `
+        )
+        .run(
+          campaignId,
+          transactionData.txHash,
+          transactionData.txType,
+          transactionData.fromAddress,
+          transactionData.toAddress || null,
+          transactionData.amount || null,
+          transactionData.gasUsed || 0,
+          transactionData.gasPrice || null,
+          transactionData.gasCost || 0,
+          transactionData.status || 'PENDING',
+          transactionData.blockNumber || null,
+          transactionData.blockHash || null,
+          new Date().toISOString()
+        );
+    } catch (error) {
+      logger.error('[CampaignService] Failed to record transaction', error as Error, {
         campaignId,
-        transactionData.txHash,
-        transactionData.txType,
-        transactionData.fromAddress,
-        transactionData.toAddress || null,
-        transactionData.amount || null,
-        transactionData.gasUsed || 0,
-        transactionData.gasPrice || null,
-        transactionData.gasCost || 0,
-        transactionData.status || 'PENDING',
-        transactionData.blockNumber || null,
-        transactionData.blockHash || null,
-        new Date().toISOString()
-      );
-
-          } catch (error) {
-      logger.error('[CampaignService] Failed to record transaction', error as Error, { campaignId, txHash: transactionData.txHash });
+        txHash: transactionData.txHash
+      });
       // Don't throw error - recording transaction failure shouldn't break the main flow
     }
   }
@@ -638,7 +690,12 @@ export class CampaignService {
   /**
    * Update transaction status
    */
-  async updateTransactionStatus(txHash: string, status: 'PENDING' | 'CONFIRMED' | 'FAILED', blockNumber?: number, blockHash?: string): Promise<void> {
+  async updateTransactionStatus(
+    txHash: string,
+    status: 'PENDING' | 'CONFIRMED' | 'FAILED',
+    blockNumber?: number,
+    blockHash?: string
+  ): Promise<void> {
     try {
       const updates: any[] = [status, new Date().toISOString(), txHash];
       let query = `
@@ -659,8 +716,11 @@ export class CampaignService {
       query += ` WHERE tx_hash = ?`;
 
       await this.db.prepare(query).run(...updates);
-          } catch (error) {
-      logger.error('[CampaignService] Failed to update transaction status', error as Error, { txHash, status });
+    } catch (error) {
+      logger.error('[CampaignService] Failed to update transaction status', error as Error, {
+        txHash,
+        status
+      });
     }
   }
 
@@ -691,7 +751,6 @@ export class CampaignService {
     }
   }
 
-  
   /**
    * Get campaign details (including statistics)
    */
@@ -714,7 +773,9 @@ export class CampaignService {
       }
 
       // Get recipient statistics
-      const recipientStats = await this.db.prepare(`
+      const recipientStats = (await this.db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'SENT' THEN 1 ELSE 0 END) as completed,
@@ -722,11 +783,12 @@ export class CampaignService {
           SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending
         FROM recipients
         WHERE campaign_id = ?
-      `).get(id) as any;
+      `
+        )
+        .get(id)) as any;
 
-      const successRate = recipientStats.total > 0
-        ? (recipientStats.completed / recipientStats.total) * 100
-        : 0;
+      const successRate =
+        recipientStats.total > 0 ? (recipientStats.completed / recipientStats.total) * 100 : 0;
 
       return {
         campaign,
@@ -737,8 +799,8 @@ export class CampaignService {
           pendingRecipients: recipientStats.pending || 0,
           successRate: Math.round(successRate * 100) / 100,
           totalGasUsed: campaign.gasUsed,
-          totalGasCost: campaign.gasCostUsd,
-        },
+          totalGasCost: campaign.gasCostUsd
+        }
       };
     } catch (error) {
       logger.error('[CampaignService] Failed to get campaign details', error as Error, { id });
@@ -768,11 +830,15 @@ export class CampaignService {
 
       // Reset all failed recipients to pending status
       // Only reset FAILED ones as PENDING ones are already pending
-      const result = await this.db.prepare(`
+      const result = await this.db
+        .prepare(
+          `
         UPDATE recipients
         SET status = 'PENDING', tx_hash = NULL, gas_used = NULL, error_message = NULL, updated_at = ?
         WHERE campaign_id = ? AND status = 'FAILED'
-      `).run(now, campaignId);
+      `
+        )
+        .run(now, campaignId);
 
       // Update campaign status to PAUSED so user can manually resume execution
       // This is critical: if campaign was COMPLETED/FAILED, we must reset it to PAUSED
@@ -781,9 +847,10 @@ export class CampaignService {
 
       return result.changes || 0;
     } catch (error) {
-      logger.error('[CampaignService] Failed to retry failed transactions', error as Error, { campaignId });
+      logger.error('[CampaignService] Failed to retry failed transactions', error as Error, {
+        campaignId
+      });
       throw error;
     }
   }
-
-  }
+}

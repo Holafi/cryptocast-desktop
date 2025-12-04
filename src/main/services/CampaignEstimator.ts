@@ -47,14 +47,14 @@ export class CampaignEstimator {
 
   // Chain-specific gas multipliers for better accuracy
   private readonly CHAIN_GAS_MULTIPLIERS: Record<string, number> = {
-    '1': 1.0,      // Ethereum - use actual gas
-    '56': 0.3,     // BSC - much lower gas costs
-    '137': 0.5,    // Polygon - lower gas costs
-    '42161': 0.2,  // Arbitrum - much lower gas costs
-    '10': 0.2,     // Optimism - much lower gas costs
-    '8453': 0.2,   // Base - much lower gas costs
-    '43114': 0.8,  // Avalanche - moderately lower gas costs
-    '11155111': 0.1, // Sepolia testnet - very low gas costs
+    '1': 1.0, // Ethereum - use actual gas
+    '56': 0.3, // BSC - much lower gas costs
+    '137': 0.5, // Polygon - lower gas costs
+    '42161': 0.2, // Arbitrum - much lower gas costs
+    '10': 0.2, // Optimism - much lower gas costs
+    '8453': 0.2, // Base - much lower gas costs
+    '43114': 0.8, // Avalanche - moderately lower gas costs
+    '11155111': 0.1 // Sepolia testnet - very low gas costs
   };
 
   constructor(databaseManager: DatabaseManager) {
@@ -76,7 +76,9 @@ export class CampaignEstimator {
 
       return this.estimateEVM(request);
     } catch (error) {
-      logger.error('[CampaignEstimator] Failed to estimate campaign', error as Error, { chain: request.chain });
+      logger.error('[CampaignEstimator] Failed to estimate campaign', error as Error, {
+        chain: request.chain
+      });
       throw new Error('Campaign estimation failed');
     }
   }
@@ -97,7 +99,6 @@ export class CampaignEstimator {
         throw new Error(`Chain configuration not found for chain ${request.chain}`);
       }
 
-      
       // Get real-time gas price from RPC with EIP-1559 support
       let gasPriceGwei: number;
       let maxFeePerGas: string | undefined;
@@ -110,15 +111,14 @@ export class CampaignEstimator {
         maxFeePerGas = gasData.maxFeePerGas;
         maxPriorityFeePerGas = gasData.maxPriorityFeePerGas;
         isEIP1559 = gasData.isEIP1559;
-
-              } catch (error) {
+      } catch (error) {
         logger.warn('[CampaignEstimator] Failed to get RPC gas price, using fallback', {
           chain: request.chain,
           error: error instanceof Error ? error.message : String(error)
         });
         const fallbackGasPrice = await this.gasService.getGasPrice(request.chain);
         gasPriceGwei = parseFloat(fallbackGasPrice);
-              }
+      }
 
       // Determine if it's ERC20 or native token
       const isNative = isNativeToken(request.tokenAddress);
@@ -127,23 +127,20 @@ export class CampaignEstimator {
       const chainMultiplier = this.CHAIN_GAS_MULTIPLIERS[request.chain] || 1.0;
 
       // Calculate gas estimates with chain-specific adjustments
-      const gasPerTransfer = isNative
-        ? this.GAS_PER_TRANSFER
-        : this.GAS_PER_ERC20_TRANSFER;
+      const gasPerTransfer = isNative ? this.GAS_PER_TRANSFER : this.GAS_PER_ERC20_TRANSFER;
 
       // Apply chain-specific multiplier for more accurate estimates
       const adjustedGasPerTransfer = Math.floor(gasPerTransfer * chainMultiplier);
       const adjustedOverhead = Math.floor(this.GAS_OVERHEAD_PER_BATCH * chainMultiplier);
-      const gasPerBatch = (adjustedGasPerTransfer * batchSize) + adjustedOverhead;
+      const gasPerBatch = adjustedGasPerTransfer * batchSize + adjustedOverhead;
       const totalGas = gasPerBatch * totalBatches;
 
-      
       // Calculate gas cost in native token
       const gasCostWei = BigInt(totalGas) * BigInt(Math.floor(gasPriceGwei * 1e9));
       const gasCostNative = Number(gasCostWei) / 1e18;
 
       const nativeTokenSymbol = chainConfig.symbol || 'ETH';
-      
+
       // Calculate duration
       const totalTimeSeconds = totalBatches * this.SECONDS_PER_BATCH;
       const totalTimeMinutes = totalTimeSeconds / 60;
@@ -170,14 +167,15 @@ export class CampaignEstimator {
         recommendations: {
           optimalBatchSize,
           estimatedTimePerBatch: this.SECONDS_PER_BATCH.toString(),
-          totalEstimatedTime: totalTimeMinutes.toFixed(1),
-        },
+          totalEstimatedTime: totalTimeMinutes.toFixed(1)
+        }
       };
-
 
       return result;
     } catch (error) {
-      logger.error('[CampaignEstimator] Failed to estimate EVM campaign', error as Error, { chain: request.chain });
+      logger.error('[CampaignEstimator] Failed to estimate EVM campaign', error as Error, {
+        chain: request.chain
+      });
       throw new Error('Campaign estimation failed');
     }
   }
@@ -235,13 +233,15 @@ export class CampaignEstimator {
         recommendations: {
           optimalBatchSize,
           estimatedTimePerBatch: SECONDS_PER_SOLANA_BATCH.toString(),
-          totalEstimatedTime: totalTimeMinutes.toFixed(1),
-        },
+          totalEstimatedTime: totalTimeMinutes.toFixed(1)
+        }
       };
 
       return result;
     } catch (error) {
-      logger.error('[CampaignEstimator] Failed to estimate Solana campaign', error as Error, { chain: request.chain });
+      logger.error('[CampaignEstimator] Failed to estimate Solana campaign', error as Error, {
+        chain: request.chain
+      });
       throw new Error('Solana campaign estimation failed');
     }
   }
@@ -271,17 +271,21 @@ export class CampaignEstimator {
   /**
    * Calculate optimal batch size based on recipient count, gas costs, and chain characteristics
    */
-  private calculateOptimalBatchSize(recipientCount: number, gasPerTransfer: number, chainId: string): number {
+  private calculateOptimalBatchSize(
+    recipientCount: number,
+    gasPerTransfer: number,
+    chainId: string
+  ): number {
     // Chain-specific maximum batch sizes (considering gas limits and block constraints)
     const chainMaxBatchSize: Record<string, number> = {
-      '1': 200,       // Ethereum - conservative due to high gas
-      '56': 500,      // BSC - can handle larger batches
-      '137': 300,     // Polygon - moderate batch sizes
-      '42161': 400,   // Arbitrum - good for larger batches
-      '10': 400,      // Optimism - good for larger batches
-      '8453': 400,    // Base - good for larger batches
-      '43114': 200,   // Avalanche - moderate batches
-      '11155111': 100, // Sepolia testnet - smaller batches
+      '1': 200, // Ethereum - conservative due to high gas
+      '56': 500, // BSC - can handle larger batches
+      '137': 300, // Polygon - moderate batch sizes
+      '42161': 400, // Arbitrum - good for larger batches
+      '10': 400, // Optimism - good for larger batches
+      '8453': 400, // Base - good for larger batches
+      '43114': 200, // Avalanche - moderate batches
+      '11155111': 100 // Sepolia testnet - smaller batches
     };
 
     const maxBatchSize = chainMaxBatchSize[chainId] || 200;
@@ -325,10 +329,13 @@ export class CampaignEstimator {
       return {
         requiredAmount: amount.toFixed(6),
         bufferAmount: buffer.toFixed(6),
-        totalWithBuffer: total.toFixed(6),
+        totalWithBuffer: total.toFixed(6)
       };
     } catch (error) {
-      logger.error('[CampaignEstimator] Failed to estimate token amount', error as Error, { totalAmount, bufferPercentage });
+      logger.error('[CampaignEstimator] Failed to estimate token amount', error as Error, {
+        totalAmount,
+        bufferPercentage
+      });
       throw new Error('Token amount estimation failed');
     }
   }

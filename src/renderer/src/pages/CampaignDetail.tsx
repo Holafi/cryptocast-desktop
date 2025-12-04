@@ -3,8 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { EVMChain, ChainInfo } from '../types';
 import BigNumber from 'bignumber.js';
-import { isSolanaChain, exportPrivateKey, isNativeToken, NATIVE_TOKEN_ADDRESSES } from '../utils/chainTypeUtils';
-
+import {
+  isSolanaChain,
+  exportPrivateKey,
+  isNativeToken,
+  NATIVE_TOKEN_ADDRESSES
+} from '../utils/chainTypeUtils';
 
 interface Campaign {
   id: string;
@@ -71,7 +75,10 @@ export default function CampaignDetail() {
   const [totalAirdropAmount, setTotalAirdropAmount] = useState<string>('0');
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [showPrivateKeyModal, setShowPrivateKeyModal] = useState(false);
-  const [exportedWallet, setExportedWallet] = useState<{ address: string; privateKey: string } | null>(null);
+  const [exportedWallet, setExportedWallet] = useState<{
+    address: string;
+    privateKey: string;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Withdrawal states
@@ -88,7 +95,10 @@ export default function CampaignDetail() {
   const [deploymentProgress, setDeploymentProgress] = useState('');
   const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [showDeploymentModal, setShowDeploymentModal] = useState(false);
-  const [deploymentResult, setDeploymentResult] = useState<{ contractAddress: string; transactionHash: string } | null>(null);
+  const [deploymentResult, setDeploymentResult] = useState<{
+    contractAddress: string;
+    transactionHash: string;
+  } | null>(null);
 
   // Utility function to get native token symbol from database
   const getNativeTokenSymbol = (chainId: string): string => {
@@ -97,7 +107,7 @@ export default function CampaignDetail() {
     const chain = chains.find(c => c.chainId === chainIdNum);
 
     // Return symbol from database or fallback to ETH
-    return chain?.symbol || "ETH";
+    return chain?.symbol || 'ETH';
   };
 
   useEffect(() => {
@@ -115,7 +125,7 @@ export default function CampaignDetail() {
         setChains(chainsData);
       }
     } catch (error) {
-      console.error('Failed to load chains:', error);
+      // Debug statement removed
     }
   };
 
@@ -130,7 +140,7 @@ export default function CampaignDetail() {
     const recipientCounts = {
       sent: recipientsData.filter(r => r.status === 'success').length,
       failed: recipientsData.filter(r => r.status === 'failed').length,
-      pending: recipientsData.filter(r => r.status === 'pending' || r.status === 'sending').length,
+      pending: recipientsData.filter(r => r.status === 'pending' || r.status === 'sending').length
     };
 
     // Safely get campaign values with fallbacks
@@ -161,27 +171,22 @@ export default function CampaignDetail() {
     }
 
     // Validate progress calculation (avoid division by zero and NaN)
-    const calculatedProgress = campaignTotal > 0 && !isNaN(campaignTotal) && !isNaN(campaignCompleted)
-      ? Math.round((campaignCompleted / campaignTotal) * 100)
-      : 0;
-    const actualProgress = totalInRecipients > 0
-      ? Math.round((recipientCounts.sent / totalInRecipients) * 100)
-      : 0;
+    const calculatedProgress =
+      campaignTotal > 0 && !isNaN(campaignTotal) && !isNaN(campaignCompleted)
+        ? Math.round((campaignCompleted / campaignTotal) * 100)
+        : 0;
+    const actualProgress =
+      totalInRecipients > 0 ? Math.round((recipientCounts.sent / totalInRecipients) * 100) : 0;
 
-    if (Math.abs(calculatedProgress - actualProgress) > 1) { // Allow 1% tolerance for rounding
+    if (Math.abs(calculatedProgress - actualProgress) > 1) {
+      // Allow 1% tolerance for rounding
       warnings.push(
         `[Progress inconsistency] Calculated progress=${calculatedProgress}%, Actual progress=${actualProgress}%, Difference=${Math.abs(calculatedProgress - actualProgress)}%`
       );
     }
 
     if (warnings.length > 0) {
-      console.warn('⚠️ Data consistency check found issues:', warnings);
-      console.warn('Campaign data:', {
-        totalRecipients: campaignData.totalRecipients,
-        completedRecipients: campaignData.completedRecipients,
-        failedRecipients: campaignData.failedRecipients,
-      });
-      console.warn('Recipients statistics:', recipientCounts);
+      // Debug statement removed
     }
 
     return warnings;
@@ -213,49 +218,61 @@ export default function CampaignDetail() {
         const campaignData = detailsResult.value.campaign || detailsResult.value;
         setCampaign({
           ...campaignData,
-          chainId: parseInt(campaignData.chain),
+          chainId: parseInt(campaignData.chain)
         });
       } else {
-        const error = detailsResult.status === 'rejected' ? detailsResult.reason : 'Campaign not found';
+        const error =
+          detailsResult.status === 'rejected' ? detailsResult.reason : 'Campaign not found';
         throw new Error(error instanceof Error ? error.message : String(error));
       }
 
       // Process transactions (non-critical)
       if (txResult.status === 'fulfilled' && txResult.value && Array.isArray(txResult.value)) {
         const batchTransactions = txResult.value.filter((tx: any) => tx.txType === 'BATCH_SEND');
-        setTransactions(batchTransactions.map((tx: any, index: number) => ({
-          id: tx.id.toString(),
-          batchNumber: index + 1, // Sequential batch number: first transaction = batch 1
-          status: tx.status === 'CONFIRMED' ? 'success' : tx.status === 'PENDING' ? 'sending' : 'failed',
-          addressCount: tx.recipientCount || 0,
-          txHash: tx.txHash,
-          gasUsed: tx.gasUsed?.toString(),
-          createdAt: tx.createdAt,
-        })));
+        setTransactions(
+          batchTransactions.map((tx: any, index: number) => ({
+            id: tx.id.toString(),
+            batchNumber: index + 1, // Sequential batch number: first transaction = batch 1
+            status:
+              tx.status === 'CONFIRMED'
+                ? 'success'
+                : tx.status === 'PENDING'
+                  ? 'sending'
+                  : 'failed',
+            addressCount: tx.recipientCount || 0,
+            txHash: tx.txHash,
+            gasUsed: tx.gasUsed?.toString(),
+            createdAt: tx.createdAt
+          }))
+        );
       } else {
-        const error = txResult.status === 'rejected' ? txResult.reason : 'Unknown error';
-        console.error('Failed to load transactions:', error);
-        console.error('Transaction error details:', {
-          campaignId: id,
-          error: error instanceof Error ? error.message : error,
-          stack: error instanceof Error ? error.stack : undefined
-        });
+        const error = txResult.status === 'rejected' ? txResult.reason : 'Unknown error'; // Debug statement removed
         setTransactions([]);
       }
 
       // Process recipients (non-critical)
-      if (recipientsResult.status === 'fulfilled' && recipientsResult.value && Array.isArray(recipientsResult.value)) {
+      if (
+        recipientsResult.status === 'fulfilled' &&
+        recipientsResult.value &&
+        Array.isArray(recipientsResult.value)
+      ) {
         const mappedRecipients = recipientsResult.value.map((r: any) => ({
           id: r.id,
           campaignId: r.campaignId,
           address: r.address,
           amount: r.amount,
-          status: (r.status === 'SENT' ? 'success' : r.status === 'PENDING' ? 'pending' : r.status === 'FAILED' ? 'failed' : 'sending') as 'pending' | 'failed' | 'success' | 'sending',
-          transactionHash: r.txHash,
+          status: (r.status === 'SENT'
+            ? 'success'
+            : r.status === 'PENDING'
+              ? 'pending'
+              : r.status === 'FAILED'
+                ? 'failed'
+                : 'sending') as 'pending' | 'failed' | 'success' | 'sending',
+          txHash: r.txHash,
           gasUsed: r.gasUsed,
           error: r.errorMessage,
           createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
+          updatedAt: r.updatedAt
         }));
         setRecipients(mappedRecipients);
 
@@ -265,8 +282,8 @@ export default function CampaignDetail() {
         }, new BigNumber(0));
         setTotalAirdropAmount(total.toString());
       } else {
-        const error = recipientsResult.status === 'rejected' ? recipientsResult.reason : 'Unknown error';
-        console.error('Failed to load recipients:', error);
+        const error =
+          recipientsResult.status === 'rejected' ? recipientsResult.reason : 'Unknown error'; // Debug statement removed
         setRecipients([]);
         setTotalAirdropAmount('0');
       }
@@ -274,8 +291,8 @@ export default function CampaignDetail() {
       // Refresh wallet balances after loading campaign data
       try {
         await refreshBalances();
-              } catch (balanceError) {
-        console.warn('Failed to refresh balances after loading campaign:', balanceError);
+      } catch (balanceError) {
+        // Debug statement removed
         // Don't block page load, just log the warning
       }
 
@@ -284,27 +301,36 @@ export default function CampaignDetail() {
         // Extract campaign data from the complex response
         const campaignData = {
           ...(detailsResult.value.campaign || detailsResult.value),
-          chainId: parseInt((detailsResult.value.campaign || detailsResult.value).chain),
+          chainId: parseInt((detailsResult.value.campaign || detailsResult.value).chain)
         };
         const recipientsData = recipientsResult.value.map((r: any) => ({
           id: r.id,
           campaignId: r.campaignId,
           address: r.address,
           amount: r.amount,
-          status: (r.status === 'SENT' ? 'success' : r.status === 'PENDING' ? 'pending' : r.status === 'FAILED' ? 'failed' : 'sending') as 'pending' | 'failed' | 'success' | 'sending',
-          transactionHash: r.txHash,
+          status: (r.status === 'SENT'
+            ? 'success'
+            : r.status === 'PENDING'
+              ? 'pending'
+              : r.status === 'FAILED'
+                ? 'failed'
+                : 'sending') as 'pending' | 'failed' | 'success' | 'sending',
+          txHash: r.txHash,
           gasUsed: r.gasUsed,
           error: r.errorMessage,
           createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
+          updatedAt: r.updatedAt
         }));
         validateDataConsistency(campaignData, recipientsData);
       }
-
     } catch (error) {
-      console.error('Failed to load campaign:', error);
+      // Debug statement removed
       if (!silent) {
-        alert(t('campaign.loadCampaignFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
+        alert(
+          t('campaign.loadCampaignFailed') +
+            ': ' +
+            (error instanceof Error ? error.message : t('campaign.unknownError'))
+        );
       }
     } finally {
       if (!silent) {
@@ -324,12 +350,18 @@ export default function CampaignDetail() {
           campaignId: r.campaignId,
           address: r.address,
           amount: r.amount,
-          status: (r.status === 'SENT' ? 'success' : r.status === 'PENDING' ? 'pending' : r.status === 'FAILED' ? 'failed' : 'sending') as 'pending' | 'failed' | 'success' | 'sending',
-          transactionHash: r.txHash,
+          status: (r.status === 'SENT'
+            ? 'success'
+            : r.status === 'PENDING'
+              ? 'pending'
+              : r.status === 'FAILED'
+                ? 'failed'
+                : 'sending') as 'pending' | 'failed' | 'success' | 'sending',
+          txHash: r.txHash,
           gasUsed: r.gasUsed,
           error: r.errorMessage,
           createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
+          updatedAt: r.updatedAt
         }));
         setRecipients(mappedRecipients);
 
@@ -340,7 +372,7 @@ export default function CampaignDetail() {
         setTotalAirdropAmount(total.toString());
       }
     } catch (error) {
-      console.error('Failed to load recipients:', error);
+      // Debug statement removed
     }
   };
 
@@ -365,13 +397,20 @@ export default function CampaignDetail() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED': return 'bg-green-100 text-green-800';
-      case 'SENDING': return 'bg-blue-100 text-blue-800';
-      case 'PAUSED': return 'bg-orange-100 text-orange-800';
-      case 'FAILED': return 'bg-red-100 text-red-800';
-      case 'READY': return 'bg-purple-100 text-purple-800';
-      case 'FUNDED': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'COMPLETED':
+        return 'bg-green-100 text-green-800';
+      case 'SENDING':
+        return 'bg-blue-100 text-blue-800';
+      case 'PAUSED':
+        return 'bg-orange-100 text-orange-800';
+      case 'FAILED':
+        return 'bg-red-100 text-red-800';
+      case 'READY':
+        return 'bg-purple-100 text-purple-800';
+      case 'FUNDED':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -393,8 +432,12 @@ export default function CampaignDetail() {
         }
       }
     } catch (error) {
-      console.error('Failed to pause/resume campaign:', error);
-      alert(t('campaign.operationFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
+      // Debug statement removed
+      alert(
+        t('campaign.operationFailed') +
+          ': ' +
+          (error instanceof Error ? error.message : t('campaign.unknownError'))
+      );
     }
   };
 
@@ -408,8 +451,12 @@ export default function CampaignDetail() {
         await loadCampaign(true);
       }
     } catch (error) {
-      console.error('Failed to retry transactions:', error);
-      alert(t('campaign.retryFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
+      // Debug statement removed
+      alert(
+        t('campaign.retryFailed') +
+          ': ' +
+          (error instanceof Error ? error.message : t('campaign.unknownError'))
+      );
     }
   };
 
@@ -417,7 +464,9 @@ export default function CampaignDetail() {
     if (!campaign || !id) return;
 
     // Confirmation dialog
-    const confirmed = confirm(`${t('campaign.confirmStart')}\n\n${t('campaign.campaignName')}: ${campaign.name}\n${t('campaign.sendCount')}: ${campaign.totalRecipients - campaign.completedRecipients - campaign.failedRecipients} ${t('campaign.recipients')}\n\n${t('campaign.clickOkToStart')}`);
+    const confirmed = confirm(
+      `${t('campaign.confirmStart')}\n\n${t('campaign.campaignName')}: ${campaign.name}\n${t('campaign.sendCount')}: ${campaign.totalRecipients - campaign.completedRecipients - campaign.failedRecipients} ${t('campaign.recipients')}\n\n${t('campaign.clickOkToStart')}`
+    );
 
     if (!confirmed) {
       return; // User cancelled
@@ -425,15 +474,19 @@ export default function CampaignDetail() {
 
     try {
       if (window.electronAPI?.campaign) {
-                await window.electronAPI.campaign.start(id);
+        await window.electronAPI.campaign.start(id);
 
         // Reload campaign status after successful start
         await loadCampaign(true); // Silent refresh after start
         alert(t('campaign.campaignStarted'));
       }
     } catch (error) {
-      console.error('Failed to start campaign:', error);
-      alert(t('campaign.startFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
+      // Debug statement removed
+      alert(
+        t('campaign.startFailed') +
+          ': ' +
+          (error instanceof Error ? error.message : t('campaign.unknownError'))
+      );
     }
   };
 
@@ -441,7 +494,7 @@ export default function CampaignDetail() {
     if (!campaign || !id || !campaign.walletAddress || !campaign.chain) return;
 
     let nativeBalance = 0;
-    let estimatedDeploymentCost = "0.0015"; // Default estimate value
+    let estimatedDeploymentCost = '0.0015'; // Default estimate value
     let minGasRequired = 0.0015; // Default minimum requirement
 
     // Get latest balance first
@@ -453,18 +506,19 @@ export default function CampaignDetail() {
 
       nativeBalance = parseFloat(freshBalance.native || '0');
     } catch (balanceError) {
-      console.error('Failed to check balance before deployment:', balanceError);
+      // Debug statement removed
       setDeploymentError(t('campaign.cannotGetBalance'));
       setShowDeploymentModal(true);
       return;
     }
 
-
     const nativeTokenSymbol = getNativeTokenSymbol(campaign.chain);
 
     // Check if balance is sufficient (using dynamically calculated minimum requirement)
     if (nativeBalance < minGasRequired) {
-      setDeploymentError(`${t('campaign.insufficientGas')} ${minGasRequired.toFixed(6)} ${nativeTokenSymbol} ${t('campaign.toPayDeployment')} ${nativeBalance.toFixed(6)} ${nativeTokenSymbol}`);
+      setDeploymentError(
+        `${t('campaign.insufficientGas')} ${minGasRequired.toFixed(6)} ${nativeTokenSymbol} ${t('campaign.toPayDeployment')} ${nativeBalance.toFixed(6)} ${nativeTokenSymbol}`
+      );
       setShowDeploymentModal(true);
       return;
     }
@@ -500,10 +554,9 @@ ${t('campaign.deploymentWarning')}`);
           await loadCampaign(true); // Silent refresh after deployment
           await refreshBalances();
         }, 1000);
-
       }
     } catch (error) {
-      console.error('Failed to deploy contract:', error);
+      // Debug statement removed
       const errorMessage = getSolanaSpecificErrorMessage(error);
       setDeploymentError(errorMessage);
       setDeploymentProgress(t('campaign.deploymentFailed'));
@@ -512,11 +565,13 @@ ${t('campaign.deploymentWarning')}`);
     }
   };
 
-
   const getSolanaSpecificErrorMessage = (error: any): string => {
     const errorMessage = error?.message || error?.toString() || '';
 
-    if (errorMessage.includes('insufficient funds') || errorMessage.includes('insufficient lamports')) {
+    if (
+      errorMessage.includes('insufficient funds') ||
+      errorMessage.includes('insufficient lamports')
+    ) {
       return t('campaign.solBalanceInsufficient');
     }
     if (errorMessage.includes('Invalid account') || errorMessage.includes('not found')) {
@@ -549,7 +604,9 @@ ${t('campaign.deploymentWarning')}`);
     return Math.ceil(items.length / itemsPerPage);
   };
 
-  const filteredTransactions = showFailedOnly ? transactions.filter(tx => tx.status === 'failed') : transactions;
+  const filteredTransactions = showFailedOnly
+    ? transactions.filter(tx => tx.status === 'failed')
+    : transactions;
   const paginatedTransactions = getPaginatedItems(filteredTransactions, txCurrentPage);
   const paginatedRecipients = getPaginatedItems(recipients, recipientsCurrentPage);
   const txTotalPages = getTotalPages(filteredTransactions);
@@ -561,7 +618,11 @@ ${t('campaign.deploymentWarning')}`);
     return `${t('campaign.showing')} ${startIndex} ${t('campaign.to')} ${endIndex} ${t('campaign.totalRecords')} ${items.length} ${t('campaign.records')}`;
   };
 
-  const renderPagination = (currentPage: number, totalPages: number, setCurrentPage: (page: number) => void) => {
+  const renderPagination = (
+    currentPage: number,
+    totalPages: number,
+    setCurrentPage: (page: number) => void
+  ) => {
     const getVisiblePages = () => {
       const pages: (number | string)[] = [];
 
@@ -664,7 +725,10 @@ ${t('campaign.deploymentWarning')}`);
 
     try {
       // Use unified private key export function
-      const privateKeyDisplay = await exportPrivateKey(campaign.walletPrivateKeyBase64 || '', campaign);
+      const privateKeyDisplay = await exportPrivateKey(
+        campaign.walletPrivateKeyBase64 || '',
+        campaign
+      );
 
       // Show custom private key popup
       setExportedWallet({
@@ -674,8 +738,12 @@ ${t('campaign.deploymentWarning')}`);
       setShowPrivateKeyModal(true);
       setCopied(false);
     } catch (error) {
-      console.error('Failed to export private key:', error);
-      alert(t('wallet.exportFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
+      // Debug statement removed
+      alert(
+        t('wallet.exportFailed') +
+          ': ' +
+          (error instanceof Error ? error.message : t('campaign.unknownError'))
+      );
     }
   };
 
@@ -715,18 +783,26 @@ ${t('campaign.deploymentWarning')}`);
       let result;
       if (withdrawType === 'tokens') {
         result = await window.electronAPI.campaign.withdrawTokens(campaign.id, withdrawRecipient);
-        alert(`${t('campaign.tokensWithdrawn')}\n${t('campaign.txHash')}: ${result.txHash}\n${t('campaign.withdrawnAmount')}: ${result.amount} ${campaign.tokenSymbol}`);
+        alert(
+          `${t('campaign.tokensWithdrawn')}\n${t('campaign.txHash')}: ${result.txHash}\n${t('campaign.withdrawnAmount')}: ${result.amount} ${campaign.tokenSymbol}`
+        );
       } else {
         result = await window.electronAPI.campaign.withdrawNative(campaign.id, withdrawRecipient);
         const nativeTokenSymbol = getNativeTokenSymbol(campaign.chain);
-        alert(`${nativeTokenSymbol} ${t('campaign.nativeWithdrawn')}\n${t('campaign.txHash')}: ${result.txHash}\n${t('campaign.withdrawnAmount')}: ${result.amount} ${nativeTokenSymbol}`);
+        alert(
+          `${nativeTokenSymbol} ${t('campaign.nativeWithdrawn')}\n${t('campaign.txHash')}: ${result.txHash}\n${t('campaign.withdrawnAmount')}: ${result.amount} ${nativeTokenSymbol}`
+        );
       }
       setShowWithdrawModal(false);
       // Refresh balance
       await refreshBalances();
     } catch (error) {
-      console.error('Withdrawal failed:', error);
-      alert(t('campaign.withdrawalFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
+      // Debug statement removed
+      alert(
+        t('campaign.withdrawalFailed') +
+          ': ' +
+          (error instanceof Error ? error.message : t('campaign.unknownError'))
+      );
     } finally {
       setIsWithdrawing(false);
     }
@@ -765,18 +841,35 @@ ${t('campaign.deploymentWarning')}`);
 
   // Transaction history handlers
   const handleExportTransactions = () => {
-    const dataToExport = showFailedOnly ? transactions.filter(tx => tx.status === 'failed') : transactions;
+    const dataToExport = showFailedOnly
+      ? transactions.filter(tx => tx.status === 'failed')
+      : transactions;
 
     const csvContent = [
-      [t('campaign.batch'), t('campaign.status'), t('campaign.addressCount'), t('campaign.txHash'), t('campaign.gasUsed'), t('campaign.createdAt')].join(','),
-      ...dataToExport.map(tx => [
-        `#${tx.batchNumber}`,
-        tx.status === 'success' ? t('common.success') : tx.status === 'failed' ? t('common.failed') : tx.status === 'sending' ? t('common.sending') : t('campaign.pending'),
-        tx.addressCount,
-        tx.txHash || '',
-        tx.gasUsed || '',
-        formatDate(tx.createdAt)
-      ].join(','))
+      [
+        t('campaign.batch'),
+        t('campaign.status'),
+        t('campaign.addressCount'),
+        t('campaign.txHash'),
+        t('campaign.gasUsed'),
+        t('campaign.createdAt')
+      ].join(','),
+      ...dataToExport.map(tx =>
+        [
+          `#${tx.batchNumber}`,
+          tx.status === 'success'
+            ? t('common.success')
+            : tx.status === 'failed'
+              ? t('common.failed')
+              : tx.status === 'sending'
+                ? t('common.sending')
+                : t('campaign.pending'),
+          tx.addressCount,
+          tx.txHash || '',
+          tx.gasUsed || '',
+          formatDate(tx.createdAt)
+        ].join(',')
+      )
     ].join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -792,19 +885,30 @@ ${t('campaign.deploymentWarning')}`);
       const txData = await window.electronAPI.campaign.getTransactions(id, { limit: 100 });
       if (txData && Array.isArray(txData)) {
         const batchTransactions = txData.filter((tx: any) => tx.txType === 'BATCH_SEND');
-        setTransactions(batchTransactions.map((tx: any, index: number) => ({
-          id: tx.id.toString(),
-          batchNumber: index + 1,
-          status: tx.status === 'CONFIRMED' ? 'success' : tx.status === 'PENDING' ? 'sending' : 'failed',
-          addressCount: tx.recipientCount || 0,
-          txHash: tx.txHash,
-          gasUsed: tx.gasUsed?.toString(),
-          createdAt: tx.createdAt,
-        })));
+        setTransactions(
+          batchTransactions.map((tx: any, index: number) => ({
+            id: tx.id.toString(),
+            batchNumber: index + 1,
+            status:
+              tx.status === 'CONFIRMED'
+                ? 'success'
+                : tx.status === 'PENDING'
+                  ? 'sending'
+                  : 'failed',
+            addressCount: tx.recipientCount || 0,
+            txHash: tx.txHash,
+            gasUsed: tx.gasUsed?.toString(),
+            createdAt: tx.createdAt
+          }))
+        );
       }
     } catch (error) {
-      console.error('Failed to refresh transactions:', error);
-      alert(t('campaign.refreshTxFailed') + ': ' + (error instanceof Error ? error.message : t('campaign.unknownError')));
+      // Debug statement removed
+      alert(
+        t('campaign.refreshTxFailed') +
+          ': ' +
+          (error instanceof Error ? error.message : t('campaign.unknownError'))
+      );
     }
   };
 
@@ -815,14 +919,32 @@ ${t('campaign.deploymentWarning')}`);
 
   const handleExportRecipients = () => {
     const csvContent = [
-      [t('campaign.address'), t('campaign.amount'), t('campaign.status'), t('campaign.txHash'), t('campaign.txTime')].join(','),
-      ...recipients.map(recipient => [
-        recipient.address,
-        recipient.amount,
-        recipient.status === 'success' ? t('common.success') : recipient.status === 'failed' ? t('common.failed') : recipient.status === 'sending' ? t('common.sending') : t('campaign.pending'),
-        recipient.txHash || '',
-        recipient.updatedAt ? formatDate(recipient.updatedAt) : recipient.createdAt ? formatDate(recipient.createdAt) : ''
-      ].join(','))
+      [
+        t('campaign.address'),
+        t('campaign.amount'),
+        t('campaign.status'),
+        t('campaign.txHash'),
+        t('campaign.txTime')
+      ].join(','),
+      ...recipients.map(recipient =>
+        [
+          recipient.address,
+          recipient.amount,
+          recipient.status === 'success'
+            ? t('common.success')
+            : recipient.status === 'failed'
+              ? t('common.failed')
+              : recipient.status === 'sending'
+                ? t('common.sending')
+                : t('campaign.pending'),
+          recipient.txHash || '',
+          recipient.updatedAt
+            ? formatDate(recipient.updatedAt)
+            : recipient.createdAt
+              ? formatDate(recipient.createdAt)
+              : ''
+        ].join(',')
+      )
     ].join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -874,7 +996,8 @@ ${t('campaign.deploymentWarning')}`);
     setIsRefreshingBalance(true);
     try {
       if (window.electronAPI?.wallet && campaign.walletAddress) {
-        let nativeBalance, tokenBalance = null;
+        let nativeBalance,
+          tokenBalance = null;
 
         if (isSolanaChain(campaign)) {
           // Solana logic
@@ -883,7 +1006,7 @@ ${t('campaign.deploymentWarning')}`);
               // Get SOL balance
               const chainRpcUrl = getChainByName(campaign.chain)?.rpcUrl;
               if (!chainRpcUrl) {
-                console.error('No RPC URL found for Solana chain');
+                // Debug statement removed
                 return;
               }
               const solBalance = await window.electronAPI.solana.getBalance(
@@ -894,12 +1017,14 @@ ${t('campaign.deploymentWarning')}`);
               nativeBalance = { native: solBalance.balance || '0' };
 
               // If it's an SPL token, get token balance
-              if (campaign.tokenAddress &&
-                  campaign.tokenAddress !== 'So11111111111111111111111111111111111111112') {
+              if (
+                campaign.tokenAddress &&
+                campaign.tokenAddress !== 'So11111111111111111111111111111111111111112'
+              ) {
                 try {
                   const chainRpcUrl = getChainByName(campaign.chain)?.rpcUrl;
                   if (!chainRpcUrl) {
-                    console.error('No RPC URL found for Solana chain');
+                    // Debug statement removed
                     return;
                   }
                   const splBalance = await window.electronAPI.solana.getBalance(
@@ -909,20 +1034,22 @@ ${t('campaign.deploymentWarning')}`);
                   );
                   tokenBalance = { token: splBalance.balance || '0' };
                 } catch (tokenError) {
-                  console.warn('Failed to get SPL token balance:', tokenError);
+                  // Debug statement removed
                   tokenBalance = null;
                 }
               }
             } catch (error) {
-              console.error('Failed to get Solana balances:', error);
+              // Debug statement removed
               // If Solana API fails, try using generic API as fallback
               try {
                 nativeBalance = await window.electronAPI.wallet.getBalance(
                   campaign.walletAddress,
                   campaign.chain
                 );
-                if (campaign.tokenAddress &&
-                    campaign.tokenAddress !== 'So11111111111111111111111111111111111111112') {
+                if (
+                  campaign.tokenAddress &&
+                  campaign.tokenAddress !== 'So11111111111111111111111111111111111111112'
+                ) {
                   tokenBalance = await window.electronAPI.wallet.getBalance(
                     campaign.walletAddress,
                     campaign.chain,
@@ -931,13 +1058,13 @@ ${t('campaign.deploymentWarning')}`);
                   );
                 }
               } catch (fallbackError) {
-                console.error('Fallback balance query also failed:', fallbackError);
+                // Debug statement removed
                 nativeBalance = { native: '0' };
                 tokenBalance = null;
               }
             }
           } else {
-            console.warn('Solana API not available, skipping balance refresh');
+            // Debug statement removed
             nativeBalance = { native: '0' };
             tokenBalance = null;
           }
@@ -958,7 +1085,7 @@ ${t('campaign.deploymentWarning')}`);
                 campaign.tokenDecimals
               );
             } catch (tokenError) {
-              console.warn('Failed to get token balance:', tokenError);
+              // Debug statement removed
               tokenBalance = null;
             }
           }
@@ -974,10 +1101,9 @@ ${t('campaign.deploymentWarning')}`);
             total: campaign.totalAmount || '0'
           }
         });
-
-              }
+      }
     } catch (error) {
-      console.error('Failed to refresh balances:', error);
+      // Debug statement removed
       // Set fallback values on error
       setWalletBalances({
         native: {
@@ -1019,7 +1145,6 @@ ${t('campaign.deploymentWarning')}`);
     }
   }, [campaign?.status, campaign?.walletAddress, id]);
 
-  
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('zh-CN', {
       year: 'numeric',
@@ -1042,8 +1167,18 @@ ${t('campaign.deploymentWarning')}`);
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="alert alert-error max-w-md">
-          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <span>{t('campaign.noCampaign')}</span>
         </div>
@@ -1052,12 +1187,18 @@ ${t('campaign.deploymentWarning')}`);
   }
 
   // Safely calculate progress percentage with fallbacks to avoid NaN
-  const progressPercentage = campaign.totalRecipients > 0 && !isNaN(campaign.totalRecipients) && !isNaN(campaign.completedRecipients)
-    ? Math.round((campaign.completedRecipients / campaign.totalRecipients) * 100)
-    : 0;
+  const progressPercentage =
+    campaign.totalRecipients > 0 &&
+    !isNaN(campaign.totalRecipients) &&
+    !isNaN(campaign.completedRecipients)
+      ? Math.round((campaign.completedRecipients / campaign.totalRecipients) * 100)
+      : 0;
 
   // Safely calculate remaining recipients with fallbacks
-  const remainingRecipients = (campaign.totalRecipients || 0) - (campaign.completedRecipients || 0) - (campaign.failedRecipients || 0);
+  const remainingRecipients =
+    (campaign.totalRecipients || 0) -
+    (campaign.completedRecipients || 0) -
+    (campaign.failedRecipients || 0);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -1067,80 +1208,83 @@ ${t('campaign.deploymentWarning')}`);
           <h1 className="text-3xl font-bold">{campaign.name}</h1>
         </div>
       </div>
-        <div className="flex gap-2">
-          {campaign && (campaign.status === 'CREATED' || campaign.status === 'FUNDED') && !isSolanaChain(campaign) && (
-            <button
-              onClick={handleDeployContract}
-              className="btn btn-primary"
-            >
-                🚀 {t('campaign.deployContract')}
+      <div className="flex gap-2">
+        {campaign &&
+          (campaign.status === 'CREATED' || campaign.status === 'FUNDED') &&
+          !isSolanaChain(campaign) && (
+            <button onClick={handleDeployContract} className="btn btn-primary">
+              🚀 {t('campaign.deployContract')}
             </button>
           )}
-          {campaign && campaign.status === 'CREATED' && isSolanaChain(campaign) && (
-            <button
-              onClick={async () => {
-                if (!id) return;
-                try {
-                  await window.electronAPI.campaign.updateStatus(id, 'READY');
-                  await loadCampaign(true); // Silent refresh after status update
-                  alert(t('campaign.statusUpdated'));
-                } catch (error) {
-                  console.error('Failed to update status:', error);
-                  alert(t('campaign.updateStatusFailed'));
-                }
-              }}
-              className="btn btn-primary"
-            >
-              ✅ {t('campaign.markAsFunded')}
-            </button>
-          )}
-          {campaign && campaign.status === 'READY' && (
-            <button
-              onClick={handleStartCampaign}
-              className="btn btn-success"
-            >
-                🚀 {t('campaign.startSending')}
-            </button>
-          )}
-          {campaign && (campaign.status === 'SENDING' || campaign.status === 'PAUSED') && (
-            <>
-              <button
-                onClick={handlePauseResume}
-                className={`btn ${campaign.status === 'PAUSED' ? 'btn-success' : 'btn-warning'}`}
-              >
-                {campaign.status === 'PAUSED' ? `▶️ ${t('campaign.resume')}` : `⏸️ ${t('campaign.pause')}`}
-              </button>
-              {campaign.status === 'PAUSED' && campaign.failedRecipients > 0 && (
-                <button
-                  onClick={handleRetryFailedTransactions}
-                  className="btn btn-info"
-                >
-                  🔄 {t('campaign.retryFailedTx')}
-                </button>
-              )}
-            </>
-          )}
+        {campaign && campaign.status === 'CREATED' && isSolanaChain(campaign) && (
           <button
-            onClick={() => navigate('/')}
-            className="btn btn-ghost"
+            onClick={async () => {
+              if (!id) return;
+              try {
+                await window.electronAPI.campaign.updateStatus(id, 'READY');
+                await loadCampaign(true); // Silent refresh after status update
+                alert(t('campaign.statusUpdated'));
+              } catch (error) {
+                // Debug statement removed
+                alert(t('campaign.updateStatusFailed'));
+              }
+            }}
+            className="btn btn-primary"
           >
-            ← {t('campaign.backToDashboard')}
+            ✅ {t('campaign.markAsFunded')}
           </button>
-        </div>
+        )}
+        {campaign && campaign.status === 'READY' && (
+          <button onClick={handleStartCampaign} className="btn btn-success">
+            🚀 {t('campaign.startSending')}
+          </button>
+        )}
+        {campaign && (campaign.status === 'SENDING' || campaign.status === 'PAUSED') && (
+          <>
+            <button
+              onClick={handlePauseResume}
+              className={`btn ${campaign.status === 'PAUSED' ? 'btn-success' : 'btn-warning'}`}
+            >
+              {campaign.status === 'PAUSED'
+                ? `▶️ ${t('campaign.resume')}`
+                : `⏸️ ${t('campaign.pause')}`}
+            </button>
+            {campaign.status === 'PAUSED' && campaign.failedRecipients > 0 && (
+              <button onClick={handleRetryFailedTransactions} className="btn btn-info">
+                🔄 {t('campaign.retryFailedTx')}
+              </button>
+            )}
+          </>
+        )}
+        <button onClick={() => navigate('/')} className="btn btn-ghost">
+          ← {t('campaign.backToDashboard')}
+        </button>
+      </div>
 
       {/* Progress Section */}
       <div className="card bg-base-100 shadow-sm mb-8">
         <div className="card-body">
           <div className="flex items-center justify-between mb-4">
             <h2 className="card-title">{t('campaign.sendingProgress')}</h2>
-            <div className="text-2xl font-bold text-primary">{isNaN(progressPercentage) ? 0 : progressPercentage}%</div>
+            <div className="text-2xl font-bold text-primary">
+              {isNaN(progressPercentage) ? 0 : progressPercentage}%
+            </div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>{t('campaign.completed')} {campaign.completedRecipients} / {campaign.totalRecipients} {t('campaign.addressUnit')}</span>
-              <span className="text-success">{t('campaign.successCount')} {campaign.completedRecipients}</span>
-              <span className="text-error">{t('campaign.failedCount')} {campaign.failedRecipients}</span>
-              <span className="text-warning">{t('campaign.pendingCount')} {remainingRecipients}</span>
+              <span>
+                {t('campaign.completed')} {campaign.completedRecipients} /{' '}
+                {campaign.totalRecipients} {t('campaign.addressUnit')}
+              </span>
+              <span className="text-success">
+                {t('campaign.successCount')} {campaign.completedRecipients}
+              </span>
+              <span className="text-error">
+                {t('campaign.failedCount')} {campaign.failedRecipients}
+              </span>
+              <span className="text-warning">
+                {t('campaign.pendingCount')} {remainingRecipients}
+              </span>
             </div>
             <progress
               className="progress progress-success w-full"
@@ -1154,39 +1298,40 @@ ${t('campaign.deploymentWarning')}`);
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-primary">
-            📋
-          </div>
+          <div className="stat-figure text-primary">📋</div>
           <div className="stat-title">{t('campaign.totalAddresses')}</div>
           <div className="stat-value text-primary">{campaign.totalRecipients || 0}</div>
           <div className="stat-desc text-info">100% {t('campaign.target')}</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-success">
-            ✅
-          </div>
+          <div className="stat-figure text-success">✅</div>
           <div className="stat-title">{t('campaign.successfullySent')}</div>
           <div className="stat-value text-success">{campaign.completedRecipients || 0}</div>
-          <div className="stat-desc text-success">↑ {isNaN(progressPercentage) ? 0 : progressPercentage}%</div>
+          <div className="stat-desc text-success">
+            ↑ {isNaN(progressPercentage) ? 0 : progressPercentage}%
+          </div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-error">
-            ❌
-          </div>
+          <div className="stat-figure text-error">❌</div>
           <div className="stat-title">{t('campaign.failedAmount')}</div>
           <div className="stat-value text-error">{campaign.failedRecipients || 0}</div>
-          <div className="stat-desc text-error">{(campaign.totalRecipients && campaign.failedRecipients) ? Math.round((campaign.failedRecipients / campaign.totalRecipients) * 100) : 0}%</div>
+          <div className="stat-desc text-error">
+            {campaign.totalRecipients && campaign.failedRecipients
+              ? Math.round((campaign.failedRecipients / campaign.totalRecipients) * 100)
+              : 0}
+            %
+          </div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-warning">
-            ⏳
-          </div>
+          <div className="stat-figure text-warning">⏳</div>
           <div className="stat-title">{t('campaign.pending')}</div>
           <div className="stat-value text-warning">{remainingRecipients || 0}</div>
-          <div className="stat-desc text-warning">{100 - (isNaN(progressPercentage) ? 0 : progressPercentage)}%</div>
+          <div className="stat-desc text-warning">
+            {100 - (isNaN(progressPercentage) ? 0 : progressPercentage)}%
+          </div>
         </div>
       </div>
 
@@ -1203,21 +1348,28 @@ ${t('campaign.deploymentWarning')}`);
               {/* Main information */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">{t('campaign.campaignStatus')}:</span>
+                  <span className="text-sm font-medium text-base-content/70">
+                    {t('campaign.campaignStatus')}:
+                  </span>
                   <div>{getStatusBadge(campaign.status)}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">{t('campaign.blockchainNetwork')}:</span>
+                  <span className="text-sm font-medium text-base-content/70">
+                    {t('campaign.blockchainNetwork')}:
+                  </span>
                   <div>
                     {(() => {
                       const chain = getChainByName(campaign.chain);
                       if (chain) {
                         return (
-                          <div className="badge text-xs font-medium px-2 py-1 gap-1 border-0" style={{
-                            backgroundColor: `${chain.color}20`,
-                            color: chain.color,
-                            border: `1px solid ${chain.color}40`
-                          }}>
+                          <div
+                            className="badge text-xs font-medium px-2 py-1 gap-1 border-0"
+                            style={{
+                              backgroundColor: `${chain.color}20`,
+                              color: chain.color,
+                              border: `1px solid ${chain.color}40`
+                            }}
+                          >
                             {chain.name}
                           </div>
                         );
@@ -1232,12 +1384,14 @@ ${t('campaign.deploymentWarning')}`);
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">{t('campaign.airdropTotal')}:</span>
+                  <span className="text-sm font-medium text-base-content/70">
+                    {t('campaign.airdropTotal')}:
+                  </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-primary">
-                      {totalAirdropAmount}
+                    <span className="text-lg font-bold text-primary">{totalAirdropAmount}</span>
+                    <span className="text-sm text-base-content/70">
+                      {campaign.tokenSymbol || 'tokens'}
                     </span>
-                    <span className="text-sm text-base-content/70">{campaign.tokenSymbol || 'tokens'}</span>
                   </div>
                 </div>
               </div>
@@ -1246,24 +1400,36 @@ ${t('campaign.deploymentWarning')}`);
               <div className="divider"></div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">{t('campaign.campaignId')}:</span>
+                  <span className="text-sm font-medium text-base-content/70">
+                    {t('campaign.campaignId')}:
+                  </span>
                   <div className="text-sm font-mono bg-base-200 px-2 py-1 rounded">
-                    {campaign.id && typeof campaign.id === 'string' ? campaign.id : campaign.id && typeof campaign.id === 'number' ? String(campaign.id) : 'N/A'}
+                    {campaign.id && typeof campaign.id === 'string'
+                      ? campaign.id
+                      : campaign.id && typeof campaign.id === 'number'
+                        ? String(campaign.id)
+                        : 'N/A'}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">{t('campaign.createdAt')}:</span>
+                  <span className="text-sm font-medium text-base-content/70">
+                    {t('campaign.createdAt')}:
+                  </span>
                   <span className="text-sm">{formatDate(campaign.createdAt)}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-base-content/70">{t('campaign.tokenContract')}:</span>
+                  <span className="text-sm font-medium text-base-content/70">
+                    {t('campaign.tokenContract')}:
+                  </span>
                   <span className="text-sm font-mono bg-base-200 px-2 py-1 rounded whitespace-nowrap">
                     {campaign.tokenAddress}
                   </span>
                 </div>
                 {campaign.contractAddress && (
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-base-content/70">{t('campaign.batchContract')}:</span>
+                    <span className="text-sm font-medium text-base-content/70">
+                      {t('campaign.batchContract')}:
+                    </span>
                     <span className="text-sm font-mono bg-base-200 px-2 py-1 rounded whitespace-nowrap">
                       {campaign.contractAddress}
                     </span>
@@ -1317,10 +1483,11 @@ ${t('campaign.deploymentWarning')}`);
                       </span>
                     </div>
                     <div className="text-lg font-bold">
-                      {parseFloat(walletBalances.native.current).toFixed(4)} {(() => {
-                      const chain = getChainByName(campaign.chain);
-                      return chain ? chain.symbol : 'ETH';
-                    })()}
+                      {parseFloat(walletBalances.native.current).toFixed(4)}{' '}
+                      {(() => {
+                        const chain = getChainByName(campaign.chain);
+                        return chain ? chain.symbol : 'ETH';
+                      })()}
                     </div>
                   </div>
 
@@ -1341,13 +1508,25 @@ ${t('campaign.deploymentWarning')}`);
 
               <div className="divider"></div>
               <div>
-                <div className="text-sm text-base-content/60 mb-2">{t('campaign.privateKeyManagement')}</div>
+                <div className="text-sm text-base-content/60 mb-2">
+                  {t('campaign.privateKeyManagement')}
+                </div>
 
                 {campaign.walletPrivateKeyBase64 ? (
                   <>
                     <div className="alert alert-success">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="stroke-current shrink-0 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                       <div>
                         <div className="text-sm font-medium">{t('campaign.privateKeySaved')}</div>
@@ -1363,7 +1542,9 @@ ${t('campaign.deploymentWarning')}`);
 
                     {/* Withdrawal buttons */}
                     <div className="divider my-3"></div>
-                    <div className="text-sm text-base-content/60 mb-2">{t('campaign.fundsWithdrawal')}</div>
+                    <div className="text-sm text-base-content/60 mb-2">
+                      {t('campaign.fundsWithdrawal')}
+                    </div>
                     {/* Check if it's native token */}
                     {!isNativeToken(campaign.tokenAddress) ? (
                       // Non-native token: Show two buttons
@@ -1394,8 +1575,18 @@ ${t('campaign.deploymentWarning')}`);
                 ) : (
                   <>
                     <div className="alert alert-error">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="stroke-current shrink-0 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                       <div>
                         <div className="text-sm font-medium">{t('campaign.privateKeyLost')}</div>
@@ -1426,13 +1617,19 @@ ${t('campaign.deploymentWarning')}`);
               {t('campaign.transactionRecords')}
             </h2>
             <div className="flex gap-2">
-              <button onClick={handleExportTransactions} className="btn btn-ghost btn-sm">📥 {t('campaign.export')}</button>
-              <button onClick={handleRefreshTransactions} className="btn btn-ghost btn-sm">🔄 {t('campaign.refresh')}</button>
+              <button onClick={handleExportTransactions} className="btn btn-ghost btn-sm">
+                📥 {t('campaign.export')}
+              </button>
+              <button onClick={handleRefreshTransactions} className="btn btn-ghost btn-sm">
+                🔄 {t('campaign.refresh')}
+              </button>
               <button
                 onClick={handleToggleFilter}
                 className={`btn btn-sm ${showFailedOnly ? 'btn-error' : 'btn-ghost'}`}
               >
-                {showFailedOnly ? `✓ ${t('campaign.showFailedOnly')}` : `❌ ${t('campaign.showFailedOnly')}`}
+                {showFailedOnly
+                  ? `✓ ${t('campaign.showFailedOnly')}`
+                  : `❌ ${t('campaign.showFailedOnly')}`}
               </button>
             </div>
           </div>
@@ -1451,16 +1648,24 @@ ${t('campaign.deploymentWarning')}`);
                 </tr>
               </thead>
               <tbody>
-                {paginatedTransactions.map((tx) => (
+                {paginatedTransactions.map(tx => (
                   <tr key={tx.id} className="hover border-b border-base-200">
                     <td className="py-4">
                       <div className="font-bold text-base">#{tx.batchNumber}</div>
                     </td>
                     <td className="py-4">
-                      {tx.status === 'success' && <div className="badge badge-success gap-1">✅ {t('common.success')}</div>}
-                      {tx.status === 'sending' && <div className="badge badge-info gap-1">🔄 {t('common.sending')}</div>}
-                      {tx.status === 'pending' && <div className="badge badge-warning gap-1">⏳ {t('campaign.pending')}</div>}
-                      {tx.status === 'failed' && <div className="badge badge-error gap-1">❌ {t('common.failed')}</div>}
+                      {tx.status === 'success' && (
+                        <div className="badge badge-success gap-1">✅ {t('common.success')}</div>
+                      )}
+                      {tx.status === 'sending' && (
+                        <div className="badge badge-info gap-1">🔄 {t('common.sending')}</div>
+                      )}
+                      {tx.status === 'pending' && (
+                        <div className="badge badge-warning gap-1">⏳ {t('campaign.pending')}</div>
+                      )}
+                      {tx.status === 'failed' && (
+                        <div className="badge badge-error gap-1">❌ {t('common.failed')}</div>
+                      )}
                     </td>
                     <td className="py-4">
                       <div className="font-medium">{tx.addressCount}</div>
@@ -1487,7 +1692,9 @@ ${t('campaign.deploymentWarning')}`);
                       )}
                     </td>
                     <td className="py-4">
-                      <div className="text-sm text-base-content/70 whitespace-nowrap">{formatDate(tx.createdAt)}</div>
+                      <div className="text-sm text-base-content/70 whitespace-nowrap">
+                        {formatDate(tx.createdAt)}
+                      </div>
                     </td>
                     <td className="py-4 text-center">
                       <div className="flex gap-2 justify-center">
@@ -1539,7 +1746,9 @@ ${t('campaign.deploymentWarning')}`);
               {t('campaign.recipientList')}
             </h2>
             <div className="flex gap-2">
-              <button onClick={handleExportRecipients} className="btn btn-primary btn-sm">📥 {t('campaign.exportCSV')}</button>
+              <button onClick={handleExportRecipients} className="btn btn-primary btn-sm">
+                📥 {t('campaign.exportCSV')}
+              </button>
             </div>
           </div>
 
@@ -1556,7 +1765,10 @@ ${t('campaign.deploymentWarning')}`);
               </thead>
               <tbody>
                 {paginatedRecipients.map((recipient, index) => (
-                  <tr key={`${recipient.address}-${index}`} className="hover border-b border-base-200">
+                  <tr
+                    key={`${recipient.address}-${index}`}
+                    className="hover border-b border-base-200"
+                  >
                     <td className="py-4 max-w-md">
                       <div className="font-mono text-sm bg-base-200 px-3 py-2 rounded whitespace-normal break-all">
                         {recipient.address}
@@ -1566,10 +1778,18 @@ ${t('campaign.deploymentWarning')}`);
                       <div className="font-medium">{recipient.amount}</div>
                     </td>
                     <td className="py-4">
-                      {recipient.status === 'success' && <div className="badge badge-success gap-1">✅</div>}
-                      {recipient.status === 'sending' && <div className="badge badge-info gap-1">🔄</div>}
-                      {recipient.status === 'pending' && <div className="badge badge-warning gap-1">⏳</div>}
-                      {recipient.status === 'failed' && <div className="badge badge-error gap-1">❌</div>}
+                      {recipient.status === 'success' && (
+                        <div className="badge badge-success gap-1">✅</div>
+                      )}
+                      {recipient.status === 'sending' && (
+                        <div className="badge badge-info gap-1">🔄</div>
+                      )}
+                      {recipient.status === 'pending' && (
+                        <div className="badge badge-warning gap-1">⏳</div>
+                      )}
+                      {recipient.status === 'failed' && (
+                        <div className="badge badge-error gap-1">❌</div>
+                      )}
                     </td>
                     <td className="py-4 max-w-xs">
                       {recipient.txHash ? (
@@ -1587,8 +1807,11 @@ ${t('campaign.deploymentWarning')}`);
                     </td>
                     <td className="py-4">
                       <div className="text-sm text-base-content/70 whitespace-nowrap">
-                        {recipient.updatedAt ? formatDate(recipient.updatedAt) :
-                         recipient.createdAt ? formatDate(recipient.createdAt) : '-'}
+                        {recipient.updatedAt
+                          ? formatDate(recipient.updatedAt)
+                          : recipient.createdAt
+                            ? formatDate(recipient.createdAt)
+                            : '-'}
                       </div>
                     </td>
                   </tr>
@@ -1601,7 +1824,11 @@ ${t('campaign.deploymentWarning')}`);
             <div className="text-sm text-base-content/60">
               {formatPaginationInfo(recipientsCurrentPage, recipients)}
             </div>
-            {renderPagination(recipientsCurrentPage, recipientsTotalPages, setRecipientsCurrentPage)}
+            {renderPagination(
+              recipientsCurrentPage,
+              recipientsTotalPages,
+              setRecipientsCurrentPage
+            )}
           </div>
         </div>
       </div>
@@ -1617,11 +1844,22 @@ ${t('campaign.deploymentWarning')}`);
 
             {/* Warning Alert */}
             <div className="alert alert-warning mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
               <span className="text-sm">
-                <strong>{t('campaign.securityWarning')}</strong>{t('campaign.securityWarningText')}
+                <strong>{t('campaign.securityWarning')}</strong>
+                {t('campaign.securityWarningText')}
               </span>
             </div>
 
@@ -1714,10 +1952,10 @@ ${t('campaign.deploymentWarning')}`);
             {/* Progress Section */}
             <div className="mb-6">
               <div className="flex items-center gap-3">
-                {isDeploying && (
-                  <div className="loading loading-spinner loading-sm"></div>
-                )}
-                <div className={`text-sm ${isDeploying ? 'text-info' : deploymentError ? 'text-error' : 'text-success'}`}>
+                {isDeploying && <div className="loading loading-spinner loading-sm"></div>}
+                <div
+                  className={`text-sm ${isDeploying ? 'text-info' : deploymentError ? 'text-error' : 'text-success'}`}
+                >
                   {deploymentProgress}
                 </div>
               </div>
@@ -1725,7 +1963,10 @@ ${t('campaign.deploymentWarning')}`);
               {/* Progress Bar */}
               {isDeploying && (
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                  <div
+                    className="bg-blue-600 h-2 rounded-full animate-pulse"
+                    style={{ width: '60%' }}
+                  ></div>
                 </div>
               )}
             </div>
@@ -1733,8 +1974,18 @@ ${t('campaign.deploymentWarning')}`);
             {/* Error Section */}
             {deploymentError && (
               <div className="alert alert-error mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="stroke-current shrink-0 h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <div>
                   <h3 className="font-bold">{t('campaign.deploymentFailedTitle')}</h3>
@@ -1746,8 +1997,18 @@ ${t('campaign.deploymentWarning')}`);
             {/* Success Section */}
             {deploymentResult && (
               <div className="alert alert-success mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="stroke-current shrink-0 h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <div>
                   <h3 className="font-bold">{t('campaign.deploymentSuccessTitle')}</h3>
@@ -1818,7 +2079,10 @@ ${t('campaign.deploymentWarning')}`);
               )}
             </div>
           </div>
-          <div className="modal-backdrop" onClick={() => !isDeploying && setShowDeploymentModal(false)}></div>
+          <div
+            className="modal-backdrop"
+            onClick={() => !isDeploying && setShowDeploymentModal(false)}
+          ></div>
         </div>
       )}
 
@@ -1827,13 +2091,25 @@ ${t('campaign.deploymentWarning')}`);
         <div className="modal modal-open">
           <div className="modal-box">
             <h3 className="font-bold text-lg mb-4">
-              {withdrawType === 'tokens' ? `💰 ${t('campaign.withdrawRemainingTokens')}` : `💎 ${t('campaign.withdrawRemainingNative')}`}
+              {withdrawType === 'tokens'
+                ? `💰 ${t('campaign.withdrawRemainingTokens')}`
+                : `💎 ${t('campaign.withdrawRemainingNative')}`}
             </h3>
 
             {/* Warning */}
             <div className="alert alert-warning mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
               </svg>
               <span className="text-sm">
                 {withdrawType === 'tokens'
@@ -1862,7 +2138,7 @@ ${t('campaign.deploymentWarning')}`);
                 placeholder={t('campaign.enterRecipient')}
                 className="input input-bordered w-full"
                 value={withdrawRecipient}
-                onChange={(e) => setWithdrawRecipient(e.target.value)}
+                onChange={e => setWithdrawRecipient(e.target.value)}
                 disabled={isWithdrawing}
               />
             </div>
@@ -1885,7 +2161,10 @@ ${t('campaign.deploymentWarning')}`);
               </button>
             </div>
           </div>
-          <div className="modal-backdrop" onClick={() => !isWithdrawing && setShowWithdrawModal(false)}></div>
+          <div
+            className="modal-backdrop"
+            onClick={() => !isWithdrawing && setShowWithdrawModal(false)}
+          ></div>
         </div>
       )}
     </div>

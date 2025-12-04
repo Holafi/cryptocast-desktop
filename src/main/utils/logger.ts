@@ -23,7 +23,7 @@ const levelMap: Record<LogLevel, string> = {
   [LogLevel.INFO]: 'info',
   [LogLevel.WARN]: 'warn',
   [LogLevel.ERROR]: 'error',
-  [LogLevel.FATAL]: 'error', // Winston doesn't have FATAL by default, map to error
+  [LogLevel.FATAL]: 'error' // Winston doesn't have FATAL by default, map to error
 };
 
 export interface LogEntry {
@@ -82,32 +82,37 @@ export class Logger {
 
     // Add Console Transport
     if (this.config.enableConsole) {
-      this.logger.add(new winston.transports.Console({
-        format: winston.format.combine(
-          winston.format.timestamp(),
-          this.config.enableColors ? winston.format.colorize() : winston.format.uncolorize(),
-          winston.format.printf((info) => {
-            const { timestamp, level, message, category, ...meta } = info;
-            const cat = category ? `[${category}]` : '';
-            const metaStr = Object.keys(meta).length > 0 ? `\n${JSON.stringify(meta, null, 2)}` : '';
-            return `${timestamp} ${level} ${cat}: ${message}${metaStr}`;
-          })
-        )
-      }));
+      this.logger.add(
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.timestamp(),
+            this.config.enableColors ? winston.format.colorize() : winston.format.uncolorize(),
+            winston.format.printf(info => {
+              const { timestamp, level, message, category, ...meta } = info;
+              const cat = category ? `[${category}]` : '';
+              const metaStr =
+                Object.keys(meta).length > 0 ? `\n${JSON.stringify(meta, null, 2)}` : '';
+              return `${timestamp} ${level} ${cat}: ${message}${metaStr}`;
+            })
+          )
+        })
+      );
     }
 
     // Add File Transport
     if (this.config.enableFile) {
-      const logFilename = path.join(this.config.logDirectory!, `cryptocast-${this.getDateString()}.log`);
-      this.logger.add(new winston.transports.File({
-        filename: logFilename,
-        maxsize: this.config.maxFileSize,
-        maxFiles: this.config.maxFiles,
-        format: winston.format.combine(
-          winston.format.timestamp(),
-          winston.format.json()
-        )
-      }));
+      const logFilename = path.join(
+        this.config.logDirectory!,
+        `cryptocast-${this.getDateString()}.log`
+      );
+      this.logger.add(
+        new winston.transports.File({
+          filename: logFilename,
+          maxsize: this.config.maxFileSize,
+          maxFiles: this.config.maxFiles,
+          format: winston.format.combine(winston.format.timestamp(), winston.format.json())
+        })
+      );
     }
   }
 
@@ -145,14 +150,24 @@ export class Logger {
   /**
    * Record error log
    */
-  error(message: string, error?: Error, data?: Record<string, unknown>, category: string = 'ERROR'): void {
+  error(
+    message: string,
+    error?: Error,
+    data?: Record<string, unknown>,
+    category: string = 'ERROR'
+  ): void {
     this.log(LogLevel.ERROR, message, data, category, error);
   }
 
   /**
    * Record fatal error log
    */
-  fatal(message: string, error?: Error, data?: Record<string, unknown>, category: string = 'FATAL'): void {
+  fatal(
+    message: string,
+    error?: Error,
+    data?: Record<string, unknown>,
+    category: string = 'FATAL'
+  ): void {
     this.log(LogLevel.FATAL, message, data, category, error);
   }
 
@@ -203,10 +218,10 @@ export class Logger {
   ): void {
     // Sanitize sensitive data
     const sanitizedData = data ? this.sanitizeData(data) : undefined;
-    
+
     const meta: any = {
       category,
-      data: sanitizedData,
+      data: sanitizedData
     };
 
     if (error) {
@@ -226,9 +241,18 @@ export class Logger {
    */
   private sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
     const sensitiveKeys = [
-      'privatekey', 'private_key', 'privatekeybase64', 'private_key_base64',
-      'secret', 'password', 'apikey', 'api_key', 'token', 'authorization',
-      'walletprivatekey', 'wallet_private_key'
+      'privatekey',
+      'private_key',
+      'privatekeybase64',
+      'private_key_base64',
+      'secret',
+      'password',
+      'apikey',
+      'api_key',
+      'token',
+      'authorization',
+      'walletprivatekey',
+      'wallet_private_key'
     ];
 
     const sanitize = (obj: unknown): unknown => {
@@ -276,7 +300,7 @@ export class Logger {
         fs.mkdirSync(this.config.logDirectory!, { recursive: true });
       }
     } catch (error) {
-      console.error('Failed to create log directory:', error);
+      // Directory doesn't exist, created above
     }
   }
 
@@ -292,11 +316,16 @@ export class Logger {
   } {
     // Return a wrapper that behaves like the parent but adds the module category/meta
     return {
-      debug: (message: string, data?: Record<string, unknown>) => this.log(LogLevel.DEBUG, `[${moduleName}] ${message}`, data, moduleName),
-      info: (message: string, data?: Record<string, unknown>) => this.log(LogLevel.INFO, `[${moduleName}] ${message}`, data, moduleName),
-      warn: (message: string, data?: Record<string, unknown>) => this.log(LogLevel.WARN, `[${moduleName}] ${message}`, data, moduleName),
-      error: (message: string, error?: Error, data?: Record<string, unknown>) => this.log(LogLevel.ERROR, `[${moduleName}] ${message}`, data, moduleName, error),
-      fatal: (message: string, error?: Error, data?: Record<string, unknown>) => this.log(LogLevel.FATAL, `[${moduleName}] ${message}`, data, moduleName, error)
+      debug: (message: string, data?: Record<string, unknown>) =>
+        this.log(LogLevel.DEBUG, `[${moduleName}] ${message}`, data, moduleName),
+      info: (message: string, data?: Record<string, unknown>) =>
+        this.log(LogLevel.INFO, `[${moduleName}] ${message}`, data, moduleName),
+      warn: (message: string, data?: Record<string, unknown>) =>
+        this.log(LogLevel.WARN, `[${moduleName}] ${message}`, data, moduleName),
+      error: (message: string, error?: Error, data?: Record<string, unknown>) =>
+        this.log(LogLevel.ERROR, `[${moduleName}] ${message}`, data, moduleName, error),
+      fatal: (message: string, error?: Error, data?: Record<string, unknown>) =>
+        this.log(LogLevel.FATAL, `[${moduleName}] ${message}`, data, moduleName, error)
     };
   }
 

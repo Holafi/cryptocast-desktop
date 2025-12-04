@@ -5,6 +5,9 @@
 
 import { ChainUtils } from './chain-utils';
 import { RetryUtils } from './retry-utils';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance().child('transaction-utils');
 
 export interface TransactionConfirmationOptions {
   maxWaitTime?: number;
@@ -35,17 +38,17 @@ export class TransactionUtils {
   private static readonly NETWORK_CONFIGS = {
     // EVM network configuration
     ethereum: { averageBlockTime: 12000, baseTimeout: 300000 }, // 12s block time, 5min base timeout
-    polygon: { averageBlockTime: 2000, baseTimeout: 120000 },   // 2s block time, 2min base timeout
-    arbitrum: { averageBlockTime: 250, baseTimeout: 60000 },     // 0.25s block time, 1min base timeout
-    optimism: { averageBlockTime: 2000, baseTimeout: 120000 },    // 2s block time, 2min base timeout
-    base: { averageBlockTime: 2000, baseTimeout: 120000 },       // 2s block time, 2min base timeout
-    bsc: { averageBlockTime: 3000, baseTimeout: 180000 },       // 3s block time, 3min base timeout
-    avalanche: { averageBlockTime: 2000, baseTimeout: 120000 },  // 2s block time, 2min base timeout
+    polygon: { averageBlockTime: 2000, baseTimeout: 120000 }, // 2s block time, 2min base timeout
+    arbitrum: { averageBlockTime: 250, baseTimeout: 60000 }, // 0.25s block time, 1min base timeout
+    optimism: { averageBlockTime: 2000, baseTimeout: 120000 }, // 2s block time, 2min base timeout
+    base: { averageBlockTime: 2000, baseTimeout: 120000 }, // 2s block time, 2min base timeout
+    bsc: { averageBlockTime: 3000, baseTimeout: 180000 }, // 3s block time, 3min base timeout
+    avalanche: { averageBlockTime: 2000, baseTimeout: 120000 }, // 2s block time, 2min base timeout
 
     // Solana network configuration
     'solana-mainnet-beta': { averageBlockTime: 400, baseTimeout: 30000 }, // 0.4s slot time, 30s base timeout
-    'solana-devnet': { averageBlockTime: 400, baseTimeout: 15000 },        // 0.4s slot time, 15s base timeout
-    'solana-testnet': { averageBlockTime: 400, baseTimeout: 15000 },       // 0.4s slot time, 15s base timeout
+    'solana-devnet': { averageBlockTime: 400, baseTimeout: 15000 }, // 0.4s slot time, 15s base timeout
+    'solana-testnet': { averageBlockTime: 400, baseTimeout: 15000 } // 0.4s slot time, 15s base timeout
   };
 
   /**
@@ -66,7 +69,8 @@ export class TransactionUtils {
       ? networkStatus.recommendedTimeout * (options.networkCongestionMultiplier || 1)
       : options.maxWaitTime || config.baseTimeout;
 
-    const checkInterval = options.checkInterval || this.calculateCheckInterval(chain, networkStatus);
+    const checkInterval =
+      options.checkInterval || this.calculateCheckInterval(chain, networkStatus);
 
     let attempts = 0;
     let finalStatus: 'confirmed' | 'failed' | 'timeout' = 'timeout';
@@ -111,9 +115,8 @@ export class TransactionUtils {
         );
 
         await this.sleep(dynamicInterval);
-
       } catch (error) {
-        console.warn(`[Transaction Confirmation] Check ${attempts} failed:`, error);
+        logger.warn(`[Transaction Confirmation] Check ${attempts} failed: ${error}`);
 
         // Use retry mechanism to handle network errors
         const retryResult = await RetryUtils.executeWithRetry(
@@ -125,8 +128,8 @@ export class TransactionUtils {
           {
             ...RetryUtils.NETWORK_RETRY_OPTIONS,
             maxAttempts: 2,
-            onRetry: (attempt, error, delay) => {
-              console.warn(`[Transaction Confirmation] Network retry ${attempt}:`, error.message);
+            onRetry: (attempt, error, _delay) => {
+              logger.warn(`[Transaction Confirmation] Network retry ${attempt}: ${error.message}`);
             }
           }
         );
@@ -166,7 +169,8 @@ export class TransactionUtils {
 
     // Simulate network congestion detection (based on time, etc.)
     const currentHour = new Date().getHours();
-    const isPeakHours = (currentHour >= 9 && currentHour <= 17) || (currentHour >= 20 && currentHour <= 23);
+    const isPeakHours =
+      (currentHour >= 9 && currentHour <= 17) || (currentHour >= 20 && currentHour <= 23);
 
     const isCongested = isPeakHours;
     const gasPriceLevel = isCongested ? 'high' : isSolana ? 'low' : 'medium';
@@ -190,7 +194,10 @@ export class TransactionUtils {
     const normalizedChain = ChainUtils.normalizeChainIdentifier(chain);
 
     if (ChainUtils.isSolanaChain(chain)) {
-      return this.NETWORK_CONFIGS[normalizedChain as keyof typeof this.NETWORK_CONFIGS] || this.NETWORK_CONFIGS['solana-mainnet-beta'];
+      return (
+        this.NETWORK_CONFIGS[normalizedChain as keyof typeof this.NETWORK_CONFIGS] ||
+        this.NETWORK_CONFIGS['solana-mainnet-beta']
+      );
     }
 
     // EVM chain configuration mapping
@@ -198,15 +205,15 @@ export class TransactionUtils {
       '1': 'ethereum',
       '11155111': 'ethereum', // Sepolia uses same configuration
       '137': 'polygon',
-      '80001': 'polygon',     // Mumbai
+      '80001': 'polygon', // Mumbai
       '42161': 'arbitrum',
-      '421614': 'arbitrum',  // Arbitrum Sepolia
+      '421614': 'arbitrum', // Arbitrum Sepolia
       '10': 'optimism',
       '11155420': 'optimism', // OP Sepolia
       '8453': 'base',
-      '84532': 'base',      // Base Sepolia
+      '84532': 'base', // Base Sepolia
       '56': 'bsc',
-      '97': 'bsc',         // BSC Testnet
+      '97': 'bsc', // BSC Testnet
       '43114': 'avalanche',
       '43113': 'avalanche' // Avalanche Fuji
     };
@@ -229,7 +236,7 @@ export class TransactionUtils {
 
     // EVM chains adjust based on congestion
     return networkStatus.isCongested
-      ? baseInterval * 1.5  // Reduce check frequency during congestion
+      ? baseInterval * 1.5 // Reduce check frequency during congestion
       : baseInterval * 0.8; // Increase check frequency normally
   }
 
@@ -287,8 +294,13 @@ export class TransactionUtils {
     for (let i = 0; i < txHashes.length; i += concurrencyLimit) {
       const batch = txHashes.slice(i, i + concurrencyLimit);
 
-      const batchPromises = batch.map(async (txHash) => {
-        return await this.waitForTransactionConfirmation(chain, txHash, getTransactionStatus, options);
+      const batchPromises = batch.map(async txHash => {
+        return await this.waitForTransactionConfirmation(
+          chain,
+          txHash,
+          getTransactionStatus,
+          options
+        );
       });
 
       const batchResults = await Promise.all(batchPromises);

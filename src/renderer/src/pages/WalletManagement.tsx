@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ActivityWallet, WalletBalance, EVMChain, ChainInfo } from '../types';
 import {
-  ActivityWallet,
-  WalletBalance,
-  EVMChain,
-  ChainInfo
-} from '../types';
-import { isSolanaChain, exportPrivateKey, getChainDisplayName, getChainDisplayBadge } from '../utils/chainTypeUtils';
+  isSolanaChain,
+  exportPrivateKey,
+  getChainDisplayName,
+  getChainDisplayBadge
+} from '../utils/chainTypeUtils';
 
 export default function WalletManagement() {
   const navigate = useNavigate();
@@ -19,7 +19,10 @@ export default function WalletManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [showPrivateKeyModal, setShowPrivateKeyModal] = useState(false);
-  const [exportedWallet, setExportedWallet] = useState<{ address: string; privateKey: string } | null>(null);
+  const [exportedWallet, setExportedWallet] = useState<{
+    address: string;
+    privateKey: string;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -34,20 +37,20 @@ export default function WalletManagement() {
       if (window.electronAPI?.wallet) {
         const response = await window.electronAPI.wallet.list({
           limit: pageSize,
-          offset: (currentPage - 1) * pageSize,
+          offset: (currentPage - 1) * pageSize
         });
-        
+
         // Handle both old array format (for backward compatibility) and new object format
         if (Array.isArray(response)) {
-           setWallets(response);
-           setTotalWallets(response.length); // Fallback if no total returned
+          setWallets(response);
+          setTotalWallets(response.length); // Fallback if no total returned
         } else {
-           setWallets(response.wallets);
-           setTotalWallets(response.total);
+          setWallets(response.wallets);
+          setTotalWallets(response.total);
         }
       }
     } catch (error) {
-      console.error('Failed to load wallets:', error);
+      // Debug statement removed
       // Fallback to empty array
       setWallets([]);
       setTotalWallets(0);
@@ -63,10 +66,9 @@ export default function WalletManagement() {
         setChains(chainsData);
       }
     } catch (error) {
-      console.error('Failed to load chains:', error);
+      // Debug statement removed
     }
   };
-
 
   // Calculate pagination data
   const totalPages = Math.ceil(totalWallets / pageSize);
@@ -75,7 +77,6 @@ export default function WalletManagement() {
   // Data is already paginated from backend, so we display all loaded wallets
   const displayWallets = wallets;
 
-  
   const handleViewDetails = (wallet: ActivityWallet) => {
     // Navigate directly to the corresponding campaign details page
     navigate(`/campaign/${wallet.campaignId}`);
@@ -89,7 +90,10 @@ export default function WalletManagement() {
 
     try {
       // Use unified private key export function
-      const privateKeyDisplay = await exportPrivateKey(wallet.privateKeyBase64 || '', wallet as any);
+      const privateKeyDisplay = await exportPrivateKey(
+        wallet.privateKeyBase64 || '',
+        wallet as any
+      );
 
       // Show custom private key popup
       setExportedWallet({
@@ -99,7 +103,7 @@ export default function WalletManagement() {
       setShowPrivateKeyModal(true);
       setCopied(false);
     } catch (error) {
-      console.error('Failed to export wallet:', error);
+      // Debug statement removed
       alert(t('wallet.exportFailed'));
     }
   };
@@ -154,7 +158,10 @@ export default function WalletManagement() {
   const formatNumber = (num: string, decimals = 2) => {
     const number = parseFloat(num);
     if (isNaN(number)) return '0';
-    return number.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    return number.toLocaleString('zh-CN', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -175,10 +182,7 @@ export default function WalletManagement() {
           <h1 className="text-2xl font-bold">{t('wallet.management')}</h1>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => navigate('/')}
-            className="btn btn-ghost"
-          >
+          <button onClick={() => navigate('/')} className="btn btn-ghost">
             ← {t('wallet.backToDashboard')}
           </button>
         </div>
@@ -186,38 +190,49 @@ export default function WalletManagement() {
 
       {/* Activity Wallet Management Explanation */}
       <div className="alert alert-info mb-8">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          className="stroke-current shrink-0 w-6 h-6"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          ></path>
         </svg>
         <div>
           <h3 className="font-bold">{t('wallet.activityWalletManagement')}</h3>
-          <div className="text-sm">
-            {t('wallet.activityWalletDesc')}
-          </div>
+          <div className="text-sm">{t('wallet.activityWalletDesc')}</div>
         </div>
       </div>
 
       {/* Wallet Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-primary">
-            👛
-          </div>
+          <div className="stat-figure text-primary">👛</div>
           <div className="stat-title">{t('wallet.totalWallets')}</div>
           <div className="stat-value text-primary">{totalWallets}</div>
           <div className="stat-desc text-info">{t('wallet.allActivityWallets')}</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-success">
-            ✅
-          </div>
+          <div className="stat-figure text-success">✅</div>
           <div className="stat-title">{t('wallet.activeWallets')}</div>
           <div className="stat-value text-success">
-            {wallets.filter(w => {
-              const status = w.status.toUpperCase();
-              return status === 'SENDING' || status === 'FUNDED' || status === 'READY' || status === 'ACTIVE';
-            }).length}
+            {
+              wallets.filter(w => {
+                const status = w.status.toUpperCase();
+                return (
+                  status === 'SENDING' ||
+                  status === 'FUNDED' ||
+                  status === 'READY' ||
+                  status === 'ACTIVE'
+                );
+              }).length
+            }
           </div>
           <div className="stat-desc text-success">{t('wallet.inProgressCurrentPage')}</div>
         </div>
@@ -236,12 +251,14 @@ export default function WalletManagement() {
               </tr>
             </thead>
             <tbody>
-              {displayWallets.map((wallet) => (
+              {displayWallets.map(wallet => (
                 <tr key={wallet.id} className="hover">
                   <td>
                     <div>
                       <div className="font-medium">{wallet.campaignName}</div>
-                      <div className="text-sm text-base-content/60">{getStatusBadge(wallet.status)}</div>
+                      <div className="text-sm text-base-content/60">
+                        {getStatusBadge(wallet.status)}
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -327,15 +344,26 @@ export default function WalletManagement() {
           </div>
 
           <div className="ml-4 text-sm text-base-content/60">
-            {t('wallet.showing')} {startIndex + 1}-{endIndex} / {t('wallet.total')} {totalWallets} {t('wallet.wallets')}
+            {t('wallet.showing')} {startIndex + 1}-{endIndex} / {t('wallet.total')} {totalWallets}{' '}
+            {t('wallet.wallets')}
           </div>
         </div>
       )}
 
       {/* Security Tips */}
       <div className="alert alert-warning mt-8">
-        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="stroke-current shrink-0 h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+          />
         </svg>
         <div>
           <h3 className="font-bold">{t('wallet.securityTips')}</h3>
@@ -361,11 +389,22 @@ export default function WalletManagement() {
 
             {/* Warning Alert */}
             <div className="alert alert-warning mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
               <span className="text-sm">
-                <strong>{t('wallet.securityWarning')}</strong>{t('wallet.securityWarningText')}
+                <strong>{t('wallet.securityWarning')}</strong>
+                {t('wallet.securityWarningText')}
               </span>
             </div>
 

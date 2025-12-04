@@ -4,7 +4,7 @@ import { GasService } from './GasService';
 import { BlockchainService } from './BlockchainService';
 import { SolanaService } from './SolanaService';
 import { ChainUtils } from '../utils/chain-utils';
-import { RetryUtils } from '../utils/retry-utils';
+// import { RetryUtils } from '../utils/retry-utils';
 import { TransactionUtils } from '../utils/transaction-utils';
 import { Logger } from '../utils/logger';
 import { isNativeToken } from '../config/constants';
@@ -14,7 +14,6 @@ import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 
 const logger = Logger.getInstance().child('CampaignExecutor');
-
 
 export interface ExecutionProgress {
   campaignId: string;
@@ -78,7 +77,9 @@ export class CampaignExecutor {
 
       // Validate campaign status
       if (campaign.status !== 'READY' && campaign.status !== 'PAUSED') {
-        throw new Error(`Campaign must be in READY or PAUSED status to execute (current: ${campaign.status})`);
+        throw new Error(
+          `Campaign must be in READY or PAUSED status to execute (current: ${campaign.status})`
+        );
       }
 
       // Prepare wallet with private key
@@ -140,21 +141,28 @@ export class CampaignExecutor {
 
             // Check native balance for gas
             const nativeBalance = await provider.getBalance(walletInstance.address);
-            logger.debug(`[Batch ${batchNumber}] Native balance: ${ethers.formatEther(nativeBalance)} ETH`);
+            logger.debug(
+              `[Batch ${batchNumber}] Native balance: ${ethers.formatEther(nativeBalance)} ETH`
+            );
 
             // Early warning if balance is running low
-            if (nativeBalance < ethers.parseEther("0.001")) { // Less than 0.001 ETH
-              console.warn(`[Batch ${batchNumber}] ⚠️ Low native balance warning: ${ethers.formatEther(nativeBalance)} ETH remaining`);
+            if (nativeBalance < ethers.parseEther('0.001')) {
+              // Less than 0.001 ETH
+              logger.warn(
+                `[Batch ${batchNumber}] ⚠️ Low native balance warning: ${ethers.formatEther(nativeBalance)} ETH remaining`
+              );
             }
           } catch (balanceError) {
-            console.warn(`[Batch ${batchNumber}] Balance check failed:`, balanceError);
+            logger.warn(`[Batch ${batchNumber}] Balance check failed: ${balanceError}`);
           }
         }
 
         try {
           // Execute batch transfer directly without retry to avoid duplicate transactions
           // For financial operations, we prefer safety over automatic retry
-          logger.info(`[Batch ${batchNumber}] Executing pre-allocated batch of ${batch.length} recipients`);
+          logger.info(
+            `[Batch ${batchNumber}] Executing pre-allocated batch of ${batch.length} recipients`
+          );
 
           const result = await this.executeBatch(
             campaignId,
@@ -183,7 +191,7 @@ export class CampaignExecutor {
               failedRecipients: failedCount,
               status: 'EXECUTING',
               currentBatch: batchNumber,
-              totalBatches,
+              totalBatches
             });
           }
 
@@ -240,17 +248,23 @@ export class CampaignExecutor {
           batchNumber++;
 
           // Provide specific guidance based on error type
-          console.error(`❌ [Batch ${batchNumber - 1}] Failed with ${errorCategory}: ${errorMessage}`);
+          console.error(
+            `❌ [Batch ${batchNumber - 1}] Failed with ${errorCategory}: ${errorMessage}`
+          );
 
           switch (suggestedAction) {
             case 'STOP_CAMPAIGN':
               console.error(`🛑 [Batch ${batchNumber - 1}] CRITICAL: Insufficient funds detected.`);
-              console.error(`💡 Recommendation: Add more funds to wallet before retrying failed batches`);
+              console.error(
+                `💡 Recommendation: Add more funds to wallet before retrying failed batches`
+              );
               console.error(`💡 Use the "Retry Failed Transactions" feature after adding funds`);
               break;
             case 'ADJUST_GAS':
               console.error(`⚙️ [Batch ${batchNumber - 1}] Gas-related error detected.`);
-              console.error(`💡 Recommendation: Wait for gas prices to decrease or manually retry with higher gas`);
+              console.error(
+                `💡 Recommendation: Wait for gas prices to decrease or manually retry with higher gas`
+              );
               break;
             case 'CHECK_NONCE':
               console.error(`🔢 [Batch ${batchNumber - 1}] Nonce issue detected.`);
@@ -258,26 +272,36 @@ export class CampaignExecutor {
               break;
             case 'WAIT_AND_RETRY':
               console.error(`🌐 [Batch ${batchNumber - 1}] Network issue detected.`);
-              console.error(`💡 Recommendation: Wait for network stability and manually retry this batch`);
+              console.error(
+                `💡 Recommendation: Wait for network stability and manually retry this batch`
+              );
               break;
             case 'CHECK_CONTRACT':
               console.error(`📋 [Batch ${batchNumber - 1}] Contract execution failed.`);
               console.error(`💡 Recommendation: Verify contract state and token balances`);
               break;
             default:
-              console.error(`❓ [Batch ${batchNumber - 1}] Unknown error. Manual investigation required`);
+              console.error(
+                `❓ [Batch ${batchNumber - 1}] Unknown error. Manual investigation required`
+              );
           }
 
           // For critical errors, consider stopping the campaign
           if (suggestedAction === 'STOP_CAMPAIGN') {
-            console.error(`🚨 [Batch ${batchNumber - 1}] Campaign execution stopped due to critical error`);
+            console.error(
+              `🚨 [Batch ${batchNumber - 1}] Campaign execution stopped due to critical error`
+            );
             await this.updateCampaignStatus(campaignId, 'PAUSED');
-            logger.info('Campaign has been paused. Fix the issue and use "Resume Campaign" to continue');
+            logger.info(
+              'Campaign has been paused. Fix the issue and use "Resume Campaign" to continue'
+            );
             break; // Exit the batch processing loop
           }
 
           // For other errors, continue to next batch
-          logger.warn(`[Batch ${batchNumber - 1}] Continuing to next batch. Manual retry recommended for failed batch.`);
+          logger.warn(
+            `[Batch ${batchNumber - 1}] Continuing to next batch. Manual retry recommended for failed batch.`
+          );
         }
       }
 
@@ -294,10 +318,11 @@ export class CampaignExecutor {
         } else {
           await this.updateCampaignStatus(campaignId, 'COMPLETED');
           // Campaign completed with errors
-          logger.warn(`Campaign completed with errors. ${finalCompleted} succeeded, ${finalFailed} failed.`);
+          logger.warn(
+            `Campaign completed with errors. ${finalCompleted} succeeded, ${finalFailed} failed.`
+          );
         }
       }
-
     } catch (error) {
       console.error('[CampaignExecutor] ❌ Campaign execution failed:', {
         campaignId,
@@ -347,7 +372,7 @@ export class CampaignExecutor {
           addresses,
           amounts,
           campaign.tokenAddress,
-          campaign.batchSize  // Pass user-set batch size
+          campaign.batchSize // Pass user-set batch size
         );
       } else {
         // EVM batch transfer process
@@ -363,9 +388,11 @@ export class CampaignExecutor {
 
       // Record batch transfer transaction
       // Calculate total amount using BigNumber to avoid precision loss
-      const totalAmount = amounts.reduce((sum, amt) => {
-        return sum.plus(new BigNumber(amt || '0'));
-      }, new BigNumber(0)).toString();
+      const totalAmount = amounts
+        .reduce((sum, amt) => {
+          return sum.plus(new BigNumber(amt || '0'));
+        }, new BigNumber(0))
+        .toString();
 
       await this.recordTransaction(campaignId, {
         txHash: result.transactionHash,
@@ -389,7 +416,8 @@ export class CampaignExecutor {
 
       const getStatus = ChainUtils.isSolanaChain(campaign.chain)
         ? (txHash: string) => this.solanaService.getTransactionStatus(rpcUrl, txHash)
-        : (txHash: string) => this.blockchainService.getTransactionStatus(txHash, campaign.chain, rpcUrl);
+        : (txHash: string) =>
+            this.blockchainService.getTransactionStatus(txHash, campaign.chain, rpcUrl);
 
       const confirmationResult = await TransactionUtils.waitForTransactionConfirmation(
         campaign.chain,
@@ -408,12 +436,15 @@ export class CampaignExecutor {
 
       if (confirmationResult.confirmed) {
         // Batch confirmed - recipient status will be updated in the main execution loop
-        logger.info(`Batch ${batchNumber}/${totalBatches} confirmed. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`);
+        logger.info(
+          `Batch ${batchNumber}/${totalBatches} confirmed. Attempts: ${confirmationResult.attempts}, Time: ${confirmationResult.totalTime}ms`
+        );
       } else {
         // Transaction failed or timeout - recipient status will be updated in the main execution loop
-        const errorMessage = confirmationResult.finalStatus === 'failed'
-          ? 'Transaction failed'
-          : 'Transaction confirmation timeout';
+        const errorMessage =
+          confirmationResult.finalStatus === 'failed'
+            ? 'Transaction failed'
+            : 'Transaction confirmation timeout';
         console.error(`Batch ${batchNumber}/${totalBatches} failed: ${errorMessage}`);
       }
 
@@ -434,9 +465,8 @@ export class CampaignExecutor {
         txHash: result.transactionHash,
         gasUsed: parseFloat(result.gasUsed || '0')
       };
-
     } catch (error) {
-      console.error('Batch execution failed:', error);
+      logger.error('Batch execution failed:', error as Error);
       throw error;
     }
   }
@@ -464,7 +494,9 @@ export class CampaignExecutor {
     }
 
     if (campaign.status !== 'PAUSED') {
-      console.warn(`Campaign ${campaignId} is not paused (status: ${campaign.status}), cannot resume`);
+      logger.warn(
+        `Campaign ${campaignId} is not paused (status: ${campaign.status}), cannot resume`
+      );
       return;
     }
 
@@ -475,14 +507,15 @@ export class CampaignExecutor {
       return;
     }
 
-    logger.info(`Resuming campaign ${campaignId} with ${pendingRecipients.length} pending recipients`);
+    logger.info(
+      `Resuming campaign ${campaignId} with ${pendingRecipients.length} pending recipients`
+    );
 
     // Re-execute the campaign with remaining recipients
     // This will continue from where it left off since we only get pending recipients
     await this.executeCampaign(campaignId);
   }
 
-  
   /**
    * Check if campaign is currently executing
    */
@@ -571,12 +604,16 @@ export class CampaignExecutor {
   private async getPendingRecipients(campaignId: string): Promise<Recipient[]> {
     // Only query PENDING records, do not lock them
     // Locking operations should be done in getNextBatchRecipients
-    const pendingRecipients = await this.db.prepare(`
+    const pendingRecipients = (await this.db
+      .prepare(
+        `
       SELECT id, address, amount, created_at
       FROM recipients
       WHERE campaign_id = ? AND status = 'PENDING'
       ORDER BY batch_number, id
-    `).all(campaignId) as Recipient[];
+    `
+      )
+      .all(campaignId)) as Recipient[];
 
     return pendingRecipients;
   }
@@ -588,21 +625,29 @@ export class CampaignExecutor {
     batchNumber: number;
     recipients: Recipient[];
   } | null> {
-    return await this.db.transaction(async (tx) => {
+    return await this.db.transaction(async tx => {
       // Recover stuck PROCESSING records (older than 5 minutes)
-      await tx.prepare(`
+      await tx
+        .prepare(
+          `
         UPDATE recipients
         SET status = 'PENDING', updated_at = datetime('now')
         WHERE campaign_id = ? AND status = 'PROCESSING'
         AND datetime(updated_at) < datetime('now', '-5 minutes')
-      `).run(campaignId);
+      `
+        )
+        .run(campaignId);
 
       // Get the minimum batch number
-      const batchInfo = await tx.prepare(`
+      const batchInfo = (await tx
+        .prepare(
+          `
         SELECT MIN(batch_number) as next_batch_number
         FROM recipients
         WHERE campaign_id = ? AND status = 'PENDING'
-      `).get(campaignId) as any;
+      `
+        )
+        .get(campaignId)) as any;
 
       if (!batchInfo || !batchInfo.next_batch_number) {
         return null;
@@ -611,12 +656,16 @@ export class CampaignExecutor {
       const nextBatchNumber = batchInfo.next_batch_number;
 
       // Atomically retrieve and lock all PENDING records for this batch
-      const lockedRecipients = await tx.prepare(`
+      const lockedRecipients = (await tx
+        .prepare(
+          `
         UPDATE recipients
         SET status = 'PROCESSING', updated_at = datetime('now')
         WHERE campaign_id = ? AND batch_number = ? AND status = 'PENDING'
         RETURNING id, address, amount, created_at
-      `).all(campaignId, nextBatchNumber) as Recipient[];
+      `
+        )
+        .all(campaignId, nextBatchNumber)) as Recipient[];
 
       if (lockedRecipients.length === 0) {
         return null;
@@ -632,31 +681,31 @@ export class CampaignExecutor {
   }
 
   private async getCompletedRecipientCount(campaignId: string): Promise<number> {
-    const result = await this.db.prepare(
-      'SELECT COUNT(*) as count FROM recipients WHERE campaign_id = ? AND status = ?'
-    ).get(campaignId, 'SENT') as { count: number };
+    const result = (await this.db
+      .prepare('SELECT COUNT(*) as count FROM recipients WHERE campaign_id = ? AND status = ?')
+      .get(campaignId, 'SENT')) as { count: number };
     return result.count;
   }
 
   private async getFailedRecipientCount(campaignId: string): Promise<number> {
-    const result = await this.db.prepare(
-      'SELECT COUNT(*) as count FROM recipients WHERE campaign_id = ? AND status = ?'
-    ).get(campaignId, 'FAILED') as { count: number };
+    const result = (await this.db
+      .prepare('SELECT COUNT(*) as count FROM recipients WHERE campaign_id = ? AND status = ?')
+      .get(campaignId, 'FAILED')) as { count: number };
     return result.count;
   }
 
   private async getPendingRecipientCount(campaignId: string): Promise<number> {
-    const result = await this.db.prepare(
-      'SELECT COUNT(*) as count FROM recipients WHERE campaign_id = ? AND status = ?'
-    ).get(campaignId, 'PENDING') as { count: number };
+    const result = (await this.db
+      .prepare('SELECT COUNT(*) as count FROM recipients WHERE campaign_id = ? AND status = ?')
+      .get(campaignId, 'PENDING')) as { count: number };
     return result.count;
   }
 
   private async updateCampaignStatus(campaignId: string, status: string): Promise<void> {
     const now = new Date().toISOString();
-    await this.db.prepare(
-      'UPDATE campaigns SET status = ?, updated_at = ? WHERE id = ?'
-    ).run(status, now, campaignId);
+    await this.db
+      .prepare('UPDATE campaigns SET status = ?, updated_at = ? WHERE id = ?')
+      .run(status, now, campaignId);
   }
 
   private async updateRecipientStatus(
@@ -665,63 +714,77 @@ export class CampaignExecutor {
     status: string,
     txHash?: string
   ): Promise<void> {
-    await this.db.prepare(
-      'UPDATE recipients SET status = ?, tx_hash = ? WHERE campaign_id = ? AND address = ?'
-    ).run(status, txHash || null, campaignId, address);
+    await this.db
+      .prepare(
+        'UPDATE recipients SET status = ?, tx_hash = ? WHERE campaign_id = ? AND address = ?'
+      )
+      .run(status, txHash || null, campaignId, address);
   }
 
   private async updateRecipientStatusesTransaction(
     campaignId: string,
     updates: Array<{ address: string; status: string; txHash?: string }>
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
+    await this.db.transaction(async tx => {
       for (const update of updates) {
-        await tx.prepare(
-          'UPDATE recipients SET status = ?, tx_hash = ?, updated_at = datetime("now") WHERE campaign_id = ? AND address = ? AND status = "PROCESSING"'
-        ).run(update.status, update.txHash || null, campaignId, update.address);
+        await tx
+          .prepare(
+            'UPDATE recipients SET status = ?, tx_hash = ?, updated_at = datetime("now") WHERE campaign_id = ? AND address = ? AND status = "PROCESSING"'
+          )
+          .run(update.status, update.txHash || null, campaignId, update.address);
       }
 
       // Update campaigns table with real-time counts
-      const counts = await tx.prepare(`
+      const counts = (await tx
+        .prepare(
+          `
         SELECT
           COUNT(CASE WHEN status = 'SENT' THEN 1 END) as completed,
           COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed
         FROM recipients
         WHERE campaign_id = ?
-      `).get(campaignId) as any;
+      `
+        )
+        .get(campaignId)) as any;
 
       if (counts) {
-        await tx.prepare(
-          'UPDATE campaigns SET completed_recipients = ?, failed_recipients = ?, updated_at = datetime("now") WHERE id = ?'
-        ).run(counts.completed || 0, counts.failed || 0, campaignId);
+        await tx
+          .prepare(
+            'UPDATE campaigns SET completed_recipients = ?, failed_recipients = ?, updated_at = datetime("now") WHERE id = ?'
+          )
+          .run(counts.completed || 0, counts.failed || 0, campaignId);
       }
     });
   }
 
   private async recoverStuckProcessingRecords(campaignId: string): Promise<void> {
     // Recover stuck PROCESSING records
-    await this.db.prepare(`
+    await this.db
+      .prepare(
+        `
       UPDATE recipients
       SET status = 'PENDING', updated_at = datetime('now')
       WHERE campaign_id = ? AND status = 'PROCESSING'
       AND datetime(updated_at) < datetime('now', '-10 minutes')
-    `).run(campaignId);
+    `
+      )
+      .run(campaignId);
   }
 
   private async updateCampaignGasCost(campaignId: string, gasUsed: string): Promise<void> {
     const campaign = await this.getCampaign(campaignId);
     const newGasUsed = Number(campaign.gasUsed || 0) + Number(gasUsed);
 
-    await this.db.prepare(
-      'UPDATE campaigns SET total_gas_used = ? WHERE id = ?'
-    ).run(newGasUsed, campaignId);
+    await this.db
+      .prepare('UPDATE campaigns SET total_gas_used = ? WHERE id = ?')
+      .run(newGasUsed, campaignId);
   }
 
   private async getRpcUrlForChain(chain: string): Promise<string> {
     if (ChainUtils.isSolanaChain(chain)) {
-      const rpc = await this.db.prepare(
-        'SELECT rpc_url FROM chains WHERE type = ? ORDER BY name ASC LIMIT 1'
-      ).get('solana') as { rpc_url: string } | undefined;
+      const rpc = (await this.db
+        .prepare('SELECT rpc_url FROM chains WHERE type = ? ORDER BY name ASC LIMIT 1')
+        .get('solana')) as { rpc_url: string } | undefined;
       return rpc?.rpc_url || 'https://api.mainnet-beta.solana.com';
     } else {
       // Try to find chain by chain_id first (most reliable)
@@ -729,16 +792,16 @@ export class CampaignExecutor {
       let evmChain;
 
       if (!isNaN(chainId)) {
-        evmChain = await this.db.prepare(
-          'SELECT rpc_url FROM chains WHERE type = ? AND chain_id = ?'
-        ).get('evm', chainId) as { rpc_url: string } | undefined;
+        evmChain = (await this.db
+          .prepare('SELECT rpc_url FROM chains WHERE type = ? AND chain_id = ?')
+          .get('evm', chainId)) as { rpc_url: string } | undefined;
       }
 
       // Fallback to name-based search
       if (!evmChain) {
-        evmChain = await this.db.prepare(
-          'SELECT rpc_url FROM chains WHERE type = ? AND name LIKE ?'
-        ).get('evm', `%${chain}%`) as { rpc_url: string } | undefined;
+        evmChain = (await this.db
+          .prepare('SELECT rpc_url FROM chains WHERE type = ? AND name LIKE ?')
+          .get('evm', `%${chain}%`)) as { rpc_url: string } | undefined;
       }
 
       if (!evmChain || !evmChain.rpc_url) {
@@ -762,10 +825,7 @@ export class CampaignExecutor {
     }
   }
 
-  private async waitForSolanaConfirmation(
-    txHash: string,
-    rpcUrl: string
-  ): Promise<void> {
+  private async waitForSolanaConfirmation(txHash: string, rpcUrl: string): Promise<void> {
     const maxWaitTime = 30000; // 30 second timeout
     const checkInterval = 1000; // Check every 1 second
     const startTime = Date.now();
@@ -814,7 +874,11 @@ export class CampaignExecutor {
   ): Promise<void> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const status = await this.blockchainService.getTransactionStatus(txHash, 'ethereum', rpcUrl);
+        const status = await this.blockchainService.getTransactionStatus(
+          txHash,
+          'ethereum',
+          rpcUrl
+        );
 
         if (status.status === 'confirmed') {
           return;
@@ -837,36 +901,48 @@ export class CampaignExecutor {
   /**
    * Record transaction
    */
-  private async recordTransaction(campaignId: string, transactionData: {
-    txHash: string;
-    txType: 'DEPLOY_CONTRACT' | 'TRANSFER_TO_CONTRACT' | 'APPROVE_TOKENS' | 'BATCH_SEND' | 'WITHDRAW_REMAINING';
-    fromAddress: string;
-    toAddress?: string;
-    amount?: string;
-    gasUsed?: number;
-    status?: 'PENDING' | 'CONFIRMED' | 'FAILED';
-  }): Promise<void> {
+  private async recordTransaction(
+    campaignId: string,
+    transactionData: {
+      txHash: string;
+      txType:
+        | 'DEPLOY_CONTRACT'
+        | 'TRANSFER_TO_CONTRACT'
+        | 'APPROVE_TOKENS'
+        | 'BATCH_SEND'
+        | 'WITHDRAW_REMAINING';
+      fromAddress: string;
+      toAddress?: string;
+      amount?: string;
+      gasUsed?: number;
+      status?: 'PENDING' | 'CONFIRMED' | 'FAILED';
+    }
+  ): Promise<void> {
     try {
-      await this.db.prepare(`
+      await this.db
+        .prepare(
+          `
         INSERT OR REPLACE INTO transactions (
           campaign_id, tx_hash, tx_type, from_address, to_address, amount,
           gas_used, status, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        campaignId,
-        transactionData.txHash,
-        transactionData.txType,
-        transactionData.fromAddress,
-        transactionData.toAddress || null,
-        transactionData.amount || null,
-        transactionData.gasUsed || 0,
-        transactionData.status || 'PENDING',
-        new Date().toISOString()
-      );
+      `
+        )
+        .run(
+          campaignId,
+          transactionData.txHash,
+          transactionData.txType,
+          transactionData.fromAddress,
+          transactionData.toAddress || null,
+          transactionData.amount || null,
+          transactionData.gasUsed || 0,
+          transactionData.status || 'PENDING',
+          new Date().toISOString()
+        );
 
       logger.debug(`Transaction recorded: ${transactionData.txType} - ${transactionData.txHash}`);
     } catch (error) {
-      console.error('Failed to record transaction:', error);
+      logger.error('Failed to record transaction:', error as Error);
       // Don't throw error - recording transaction failure shouldn't break the main flow
     }
   }
@@ -902,7 +978,7 @@ export class CampaignExecutor {
       await this.db.prepare(query).run(...updates);
       logger.debug(`Transaction status updated: ${txHash} -> ${status}`);
     } catch (error) {
-      console.error('Failed to update transaction status:', error);
+      logger.error('Failed to update transaction status:', error as Error);
     }
   }
 }

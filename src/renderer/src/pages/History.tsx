@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCampaign } from '../contexts/CampaignContext';
 import { Campaign, CampaignStatus, EVMChain, ChainInfo } from '../types';
-import { isSolanaChain, getChainType, getChainDisplayName, getChainDisplayBadge } from '../utils/chainTypeUtils';
+import {
+  isSolanaChain,
+  getChainType,
+  getChainDisplayName,
+  getChainDisplayBadge
+} from '../utils/chainTypeUtils';
 
 interface HistoryFilters {
   timeRange: 'all' | 'today' | 'week' | 'month' | 'custom';
@@ -16,7 +21,6 @@ interface HistoryFilters {
   };
 }
 
-
 export default function History() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -25,31 +29,30 @@ export default function History() {
     timeRange: 'all',
     chain: 'all',
     status: 'all',
-    search: '',
+    search: ''
   });
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 10,
+    limit: 10
   });
-    const [chains, setChains] = useState<ChainInfo[]>([]);
+  const [chains, setChains] = useState<ChainInfo[]>([]);
 
   // Load campaigns and chains on mount and set up auto-refresh
   useEffect(() => {
     loadData();
     loadChains();
-
-    }, []);
+  }, []);
 
   // Load chains from database
   const loadChains = async () => {
     try {
-          if (window.electronAPI?.chain) {
+      if (window.electronAPI?.chain) {
         const chainsData = await window.electronAPI.chain.getAllChains();
         setChains(chainsData);
       } else {
-              }
+      }
     } catch (error) {
-      console.error('🔍 [History] loadChains: Failed to load chains:', error);
+      // Debug statement removed
     }
   };
 
@@ -57,14 +60,13 @@ export default function History() {
     try {
       await actions.loadCampaigns();
     } catch (error) {
-      console.error('Failed to load campaigns:', error);
+      // Debug statement removed
     }
   };
 
   // Use real data from state
   const displayCampaigns = state.campaigns;
 
-  
   // Helper function to get chain icon based on chain name (dynamically generated)
   const getChainIcon = (chainName: string): string => {
     // Solana special icon
@@ -121,7 +123,6 @@ export default function History() {
   const filteredCampaigns = useMemo(() => {
     let filtered = [...displayCampaigns];
 
-    
     // Time range filter
     if (filters.timeRange !== 'all') {
       const now = new Date();
@@ -158,10 +159,9 @@ export default function History() {
 
     // Chain filter - use simplified matching
     if (filters.chain !== 'all') {
-      
       // Get the selected chain from database
       const selectedChain = getChainByName(filters.chain);
-      
+
       filtered = filtered.filter(campaign => {
         // Try to match campaign using our enhanced chain resolution
         const campaignChain = getChainByName(campaign.chain);
@@ -192,9 +192,7 @@ export default function History() {
     // Search filter
     if (filters.search.trim()) {
       const searchTerm = filters.search.toLowerCase();
-      filtered = filtered.filter(campaign =>
-        campaign.name.toLowerCase().includes(searchTerm)
-      );
+      filtered = filtered.filter(campaign => campaign.name.toLowerCase().includes(searchTerm));
     }
 
     return filtered;
@@ -209,22 +207,50 @@ export default function History() {
   const totalPages = Math.ceil(filteredCampaigns.length / pagination.limit);
 
   const getStatusBadge = (status: CampaignStatus) => {
-    const baseClasses = "badge gap-1 text-xs font-medium px-3 py-2";
+    const baseClasses = 'badge gap-1 text-xs font-medium px-3 py-2';
     switch (status) {
       case 'COMPLETED':
-        return <div className={`${baseClasses} bg-green-100 text-green-800 border-green-200`}>✅ {t('history.completed')}</div>;
+        return (
+          <div className={`${baseClasses} bg-green-100 text-green-800 border-green-200`}>
+            ✅ {t('history.completed')}
+          </div>
+        );
       case 'FAILED':
-        return <div className={`${baseClasses} bg-red-100 text-red-800 border-red-200`}>❌ {t('history.failed')}</div>;
+        return (
+          <div className={`${baseClasses} bg-red-100 text-red-800 border-red-200`}>
+            ❌ {t('history.failed')}
+          </div>
+        );
       case 'SENDING':
-        return <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>🔄 {t('status.sending')}</div>;
+        return (
+          <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>
+            🔄 {t('status.sending')}
+          </div>
+        );
       case 'PAUSED':
-        return <div className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200`}>⏸️ {t('history.paused')}</div>;
+        return (
+          <div className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200`}>
+            ⏸️ {t('history.paused')}
+          </div>
+        );
       case 'READY':
-        return <div className={`${baseClasses} bg-orange-100 text-orange-800 border-orange-200`}>⚡ {t('status.ready')}</div>;
+        return (
+          <div className={`${baseClasses} bg-orange-100 text-orange-800 border-orange-200`}>
+            ⚡ {t('status.ready')}
+          </div>
+        );
       case 'FUNDED':
-        return <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>💰 {t('history.funded')}</div>;
+        return (
+          <div className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>
+            💰 {t('history.funded')}
+          </div>
+        );
       default:
-        return <div className={`${baseClasses} bg-gray-100 text-gray-600 border-gray-200`}>📝 {t('status.created')}</div>;
+        return (
+          <div className={`${baseClasses} bg-gray-100 text-gray-600 border-gray-200`}>
+            📝 {t('status.created')}
+          </div>
+        );
     }
   };
 
@@ -261,11 +287,7 @@ export default function History() {
 
     // If not found, use simple display name
     const displayName = getChainDisplayName(chainValue, chains);
-    return (
-      <div className="badge badge-neutral text-xs font-medium px-2 py-1">
-        {displayName}
-      </div>
-    );
+    return <div className="badge badge-neutral text-xs font-medium px-2 py-1">{displayName}</div>;
   };
 
   const formatNumber = (num: number | undefined | null) => {
@@ -293,7 +315,10 @@ export default function History() {
   // Calculate average success rate
   const averageSuccessRate = useMemo(() => {
     const totalRecipients = displayCampaigns.reduce((sum, c) => sum + (c.totalRecipients || 0), 0);
-    const completedRecipients = displayCampaigns.reduce((sum, c) => sum + (c.completedRecipients || 0), 0);
+    const completedRecipients = displayCampaigns.reduce(
+      (sum, c) => sum + (c.completedRecipients || 0),
+      0
+    );
 
     if (totalRecipients === 0) return 0;
     return (completedRecipients / totalRecipients) * 100;
@@ -306,33 +331,24 @@ export default function History() {
         <div className="flex items-center gap-3">
           <span className="text-3xl">📜</span>
           <h1 className="text-2xl font-bold">{t('history.title')}</h1>
-          {state.isLoading && (
-            <span className="loading loading-spinner loading-sm"></span>
-          )}
+          {state.isLoading && <span className="loading loading-spinner loading-sm"></span>}
         </div>
-        <button
-            onClick={() => navigate('/')}
-            className="btn btn-sm btn-ghost"
-          >
-            ← {t('history.backToDashboard')}
-          </button>
+        <button onClick={() => navigate('/')} className="btn btn-sm btn-ghost">
+          ← {t('history.backToDashboard')}
+        </button>
       </div>
 
       {/* Statistical Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-primary">
-            📋
-          </div>
+          <div className="stat-figure text-primary">📋</div>
           <div className="stat-title">{t('history.totalHistorical')}</div>
           <div className="stat-value text-primary">{displayCampaigns.length}</div>
           <div className="stat-desc text-info">{t('history.totalCreated')}</div>
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-secondary">
-            👥
-          </div>
+          <div className="stat-figure text-secondary">👥</div>
           <div className="stat-title">{t('history.totalRecipients')}</div>
           <div className="stat-value text-secondary">
             {formatNumber(displayCampaigns.reduce((sum, c) => sum + (c.totalRecipients || 0), 0))}
@@ -341,16 +357,24 @@ export default function History() {
         </div>
 
         <div className="stat bg-base-100 rounded-lg shadow-sm">
-          <div className="stat-figure text-success">
-            ✅
-          </div>
+          <div className="stat-figure text-success">✅</div>
           <div className="stat-title">{t('history.averageSuccessRate')}</div>
           <div className="stat-value text-success">{averageSuccessRate.toFixed(1)}%</div>
           <div className="stat-desc">
             <div className="flex items-center gap-2">
-              <progress className="progress progress-success w-20" value={averageSuccessRate} max="100"></progress>
+              <progress
+                className="progress progress-success w-20"
+                value={averageSuccessRate}
+                max="100"
+              ></progress>
               <span className="text-xs text-success">
-                {averageSuccessRate >= 95 ? t('history.excellent') : averageSuccessRate >= 80 ? t('history.good') : averageSuccessRate >= 60 ? t('history.fair') : t('history.needsImprovement')}
+                {averageSuccessRate >= 95
+                  ? t('history.excellent')
+                  : averageSuccessRate >= 80
+                    ? t('history.good')
+                    : averageSuccessRate >= 60
+                      ? t('history.fair')
+                      : t('history.needsImprovement')}
               </span>
             </div>
           </div>
@@ -373,7 +397,7 @@ export default function History() {
               </label>
               <select
                 value={filters.timeRange}
-                onChange={(e) => setFilters({ ...filters, timeRange: e.target.value as any })}
+                onChange={e => setFilters({ ...filters, timeRange: e.target.value as any })}
                 className="select select-bordered"
               >
                 <option value="all">{t('history.allTime')}</option>
@@ -391,11 +415,11 @@ export default function History() {
               </label>
               <select
                 value={filters.chain}
-                onChange={(e) => setFilters({ ...filters, chain: e.target.value })}
+                onChange={e => setFilters({ ...filters, chain: e.target.value })}
                 className="select select-bordered"
               >
                 <option value="all">{t('history.allChains')}</option>
-                {chains.map((chain) => (
+                {chains.map(chain => (
                   <option key={chain.name} value={chain.name}>
                     {getChainIcon(chain.name)} {chain.name}
                   </option>
@@ -410,7 +434,7 @@ export default function History() {
               </label>
               <select
                 value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
+                onChange={e => setFilters({ ...filters, status: e.target.value as any })}
                 className="select select-bordered"
               >
                 <option value="all">{t('history.allStatus')}</option>
@@ -429,63 +453,69 @@ export default function History() {
               <input
                 type="text"
                 value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                onChange={e => setFilters({ ...filters, search: e.target.value })}
                 placeholder={t('history.searchPlaceholder')}
                 className="input input-bordered"
               />
             </div>
           </div>
 
-        {/* Custom Date Range */}
-        {filters.timeRange === 'custom' && (
-          <div className="collapse collapse-arrow bg-base-200 mt-4">
-            <input type="checkbox" defaultChecked />
-            <div className="collapse-title text-sm font-medium">
-              {t('history.customDateRange')}
-            </div>
-            <div className="collapse-content">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">{t('history.startDate')}</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.dateRange?.start || ''}
-                    onChange={(e) => setFilters({
-                      ...filters,
-                      dateRange: { ...filters.dateRange!, start: e.target.value }
-                    })}
-                    className="input input-bordered"
-                  />
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">{t('history.endDate')}</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.dateRange?.end || ''}
-                    min={filters.dateRange?.start}
-                    onChange={(e) => setFilters({
-                      ...filters,
-                      dateRange: { ...filters.dateRange!, end: e.target.value }
-                    })}
-                    className="input input-bordered"
-                  />
+          {/* Custom Date Range */}
+          {filters.timeRange === 'custom' && (
+            <div className="collapse collapse-arrow bg-base-200 mt-4">
+              <input type="checkbox" defaultChecked />
+              <div className="collapse-title text-sm font-medium">
+                {t('history.customDateRange')}
+              </div>
+              <div className="collapse-content">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">{t('history.startDate')}</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.dateRange?.start || ''}
+                      onChange={e =>
+                        setFilters({
+                          ...filters,
+                          dateRange: { ...filters.dateRange!, start: e.target.value }
+                        })
+                      }
+                      className="input input-bordered"
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">{t('history.endDate')}</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.dateRange?.end || ''}
+                      min={filters.dateRange?.start}
+                      onChange={e =>
+                        setFilters({
+                          ...filters,
+                          dateRange: { ...filters.dateRange!, end: e.target.value }
+                        })
+                      }
+                      className="input input-bordered"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
 
       {/* Results Summary */}
       <div className="flex justify-start items-center mb-4">
         <div className="text-sm text-base-content/60">
-          {t('history.showing')} <span className="font-medium">{formatNumber(paginatedCampaigns.length)}</span> /{' '}
-          <span className="font-medium">{formatNumber(filteredCampaigns.length)}</span> {t('history.records')}
+          {t('history.showing')}{' '}
+          <span className="font-medium">{formatNumber(paginatedCampaigns.length)}</span> /{' '}
+          <span className="font-medium">{formatNumber(filteredCampaigns.length)}</span>{' '}
+          {t('history.records')}
         </div>
       </div>
 
@@ -495,12 +525,24 @@ export default function History() {
           <table className="table-zebra table-hover">
             <thead>
               <tr>
-                <th className="bg-base-200 font-semibold text-sm w-2/5 px-4 py-3">{t('history.name')}</th>
-                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">{t('history.chain')}</th>
-                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">{t('history.status')}</th>
-                <th className="bg-base-200 font-semibold text-sm text-right w-1/6 px-3 py-3">{t('history.addresses')}</th>
-                <th className="bg-base-200 font-semibold text-sm w-1/5 px-3 py-3">{t('history.createdAt')}</th>
-                <th className="bg-base-200 font-semibold text-sm text-center w-1/12 px-2 py-3">{t('history.actions')}</th>
+                <th className="bg-base-200 font-semibold text-sm w-2/5 px-4 py-3">
+                  {t('history.name')}
+                </th>
+                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">
+                  {t('history.chain')}
+                </th>
+                <th className="bg-base-200 font-semibold text-sm w-1/6 px-3 py-3">
+                  {t('history.status')}
+                </th>
+                <th className="bg-base-200 font-semibold text-sm text-right w-1/6 px-3 py-3">
+                  {t('history.addresses')}
+                </th>
+                <th className="bg-base-200 font-semibold text-sm w-1/5 px-3 py-3">
+                  {t('history.createdAt')}
+                </th>
+                <th className="bg-base-200 font-semibold text-sm text-center w-1/12 px-2 py-3">
+                  {t('history.actions')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -513,25 +555,28 @@ export default function History() {
                   </td>
                 </tr>
               ) : (
-                paginatedCampaigns.map((campaign) => (
-                  <tr key={campaign.id} className="border-b border-base-200/50 hover:bg-base-50 transition-colors">
+                paginatedCampaigns.map(campaign => (
+                  <tr
+                    key={campaign.id}
+                    className="border-b border-base-200/50 hover:bg-base-50 transition-colors"
+                  >
                     <td className="px-4 py-4">
                       <div className="font-medium text-base-content">{campaign.name}</div>
                     </td>
-                    <td className="px-3 py-4">
-                      {getChainBadge(campaign.chain, campaign.chainId)}
-                    </td>
-                    <td className="px-3 py-4">
-                      {getStatusBadge(campaign.status)}
-                    </td>
+                    <td className="px-3 py-4">{getChainBadge(campaign.chain, campaign.chainId)}</td>
+                    <td className="px-3 py-4">{getStatusBadge(campaign.status)}</td>
                     <td className="px-3 py-4 text-right">
-                      <div className="font-medium text-base-content">{formatNumber(campaign.totalRecipients)}</div>
+                      <div className="font-medium text-base-content">
+                        {formatNumber(campaign.totalRecipients)}
+                      </div>
                       <div className="text-xs text-success mt-1">
                         +{formatNumber(campaign.completedRecipients)} {t('history.successful')}
                       </div>
                     </td>
                     <td className="px-3 py-4">
-                      <div className="text-sm text-base-content/80">{formatDate(campaign.createdAt)}</div>
+                      <div className="text-sm text-base-content/80">
+                        {formatDate(campaign.createdAt)}
+                      </div>
                     </td>
                     <td className="px-2 py-4">
                       <div className="flex justify-center">
@@ -556,7 +601,9 @@ export default function History() {
         <div className="flex justify-center items-center mt-6">
           <div className="join">
             <button
-              onClick={() => setPagination({ ...pagination, page: Math.max(1, pagination.page - 1) })}
+              onClick={() =>
+                setPagination({ ...pagination, page: Math.max(1, pagination.page - 1) })
+              }
               disabled={pagination.page === 1}
               className="join-item btn btn-sm"
             >
@@ -578,7 +625,9 @@ export default function History() {
             })}
 
             <button
-              onClick={() => setPagination({ ...pagination, page: Math.min(totalPages, pagination.page + 1) })}
+              onClick={() =>
+                setPagination({ ...pagination, page: Math.min(totalPages, pagination.page + 1) })
+              }
               disabled={pagination.page === totalPages}
               className="join-item btn btn-sm"
             >
@@ -587,7 +636,8 @@ export default function History() {
           </div>
 
           <div className="ml-4 text-sm text-base-content/60">
-            {t('history.page')} {pagination.page} {t('history.of')} {totalPages} {t('history.pages')}
+            {t('history.page')} {pagination.page} {t('history.of')} {totalPages}{' '}
+            {t('history.pages')}
           </div>
         </div>
       )}

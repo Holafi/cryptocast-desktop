@@ -40,7 +40,10 @@ export const NATIVE_TOKEN_ADDRESSES = {
 /**
  * Detect if the token is a native token (ETH/BNB/SOL, etc.)
  */
-export function isNativeToken(tokenAddress: string | undefined, chainType?: 'evm' | 'solana'): boolean {
+export function isNativeToken(
+  tokenAddress: string | undefined,
+  chainType?: 'evm' | 'solana'
+): boolean {
   if (!tokenAddress) return true; // Empty address is treated as native token
 
   // Check if it's the zero address
@@ -58,14 +61,18 @@ export function isNativeToken(tokenAddress: string | undefined, chainType?: 'evm
 export function isSolanaChainById(chainId: string | number | undefined): boolean {
   if (!chainId) return false;
   const chainIdStr = chainId.toString();
-  return chainIdStr === '501' || chainIdStr === '502' || chainIdStr.toLowerCase().includes('solana');
+  return (
+    chainIdStr === '501' || chainIdStr === '502' || chainIdStr.toLowerCase().includes('solana')
+  );
 }
 
 /**
  * Detect if it's a Solana chain
  * Supports objects or chain IDs
  */
-export function isSolanaChain(info: ChainInfo | WalletInfo | CampaignInfo | string | number | any): boolean {
+export function isSolanaChain(
+  info: ChainInfo | WalletInfo | CampaignInfo | string | number | any
+): boolean {
   // If it's a string or number, check directly by chain ID
   if (typeof info === 'string' || typeof info === 'number') {
     return isSolanaChainById(info);
@@ -99,14 +106,19 @@ export function isEVMChain(info: ChainInfo | WalletInfo | CampaignInfo | string 
 /**
  * Get chain type
  */
-export function getChainType(info: ChainInfo | WalletInfo | CampaignInfo | string | number): 'evm' | 'solana' {
+export function getChainType(
+  info: ChainInfo | WalletInfo | CampaignInfo | string | number
+): 'evm' | 'solana' {
   return isSolanaChain(info) ? 'solana' : 'evm';
 }
 
 /**
  * Validate address format for chain
  */
-export function validateAddressForChain(address: string, info: ChainInfo | WalletInfo | CampaignInfo | string | number): boolean {
+export function validateAddressForChain(
+  address: string,
+  info: ChainInfo | WalletInfo | CampaignInfo | string | number
+): boolean {
   if (!address) return false;
 
   const isSolana = isSolanaChain(info);
@@ -144,7 +156,10 @@ function bytesToHex(bytes: Uint8Array): string {
 /**
  * Export private key - convert format based on chain type
  */
-export function exportPrivateKey(privateKeyBase64: string, info: ChainInfo | WalletInfo | CampaignInfo | string | number): string {
+export function exportPrivateKey(
+  privateKeyBase64: string,
+  info: ChainInfo | WalletInfo | CampaignInfo | string | number
+): string {
   if (!privateKeyBase64) return '';
 
   try {
@@ -159,7 +174,7 @@ export function exportPrivateKey(privateKeyBase64: string, info: ChainInfo | Wal
       return `0x${privateKeyHex}`;
     }
   } catch (error) {
-    console.error('Failed to export private key:', error);
+    // Debug statement removed
     return 'Export failed';
   }
 }
@@ -178,9 +193,10 @@ export function getChainDisplayName(
 
   // Prioritize provided chain information
   if (chains) {
-    const chainInfo = chains.find(c =>
-      (c.chainId && c.chainId.toString() === chainStr) ||
-      c.name.toLowerCase().includes(chainStr.toLowerCase())
+    const chainInfo = chains.find(
+      c =>
+        (c.chainId && c.chainId.toString() === chainStr) ||
+        c.name.toLowerCase().includes(chainStr.toLowerCase())
     );
     if (chainInfo) {
       return chainInfo.name;
@@ -212,9 +228,10 @@ export function getChainDisplayBadge(
 
   // Use color configuration from database
   if (chains) {
-    const chainInfo = chains.find(chain =>
-      chain.name.toLowerCase() === displayName.toLowerCase() ||
-      chain.name.toLowerCase().includes(displayName.toLowerCase())
+    const chainInfo = chains.find(
+      chain =>
+        chain.name.toLowerCase() === displayName.toLowerCase() ||
+        chain.name.toLowerCase().includes(displayName.toLowerCase())
     );
 
     if (chainInfo?.color && chainInfo?.badge_color) {

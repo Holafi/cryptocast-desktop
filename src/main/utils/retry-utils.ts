@@ -3,6 +3,10 @@
  * Implements exponential backoff retry strategy and error classification
  */
 
+import { Logger } from './logger';
+
+const logger = Logger.getInstance().child('RetryUtils');
+
 export interface RetryOptions {
   maxAttempts?: number;
   baseDelay?: number;
@@ -111,7 +115,7 @@ export class RetryUtils {
         try {
           config.onRetry(attempt, lastError, Math.round(finalDelay));
         } catch (callbackError) {
-          console.warn('Retry callback failed:', callbackError);
+          logger.warn(`Retry callback failed: ${callbackError}`);
         }
 
         // Wait and retry
@@ -214,7 +218,9 @@ export class RetryUtils {
       'invalid recipient'
     ],
     onRetry: (attempt, error, delay) => {
-      console.warn(`[Blockchain Retry] Attempt ${attempt} failed, retrying in ${delay}ms:`, error.message);
+      logger.warn(
+        `[Blockchain Retry] Attempt ${attempt} failed, retrying in ${delay}ms: ${error.message}`
+      );
     }
   };
 
@@ -241,16 +247,11 @@ export class RetryUtils {
       'gateway timeout',
       'bad gateway'
     ],
-    nonRetryableErrors: [
-      '404',
-      '401',
-      '403',
-      '400',
-      '405',
-      '422'
-    ],
+    nonRetryableErrors: ['404', '401', '403', '400', '405', '422'],
     onRetry: (attempt, error, delay) => {
-      console.warn(`[Network Retry] Attempt ${attempt} failed, retrying in ${delay}ms:`, error.message);
+      logger.warn(
+        `[Network Retry] Attempt ${attempt} failed, retrying in ${delay}ms: ${error.message}`
+      );
     }
   };
 
@@ -262,11 +263,7 @@ export class RetryUtils {
     baseDelay: 500,
     maxDelay: 2000,
     backoffMultiplier: 2,
-    retryableErrors: [
-      'database is locked',
-      'busy',
-      'timeout'
-    ],
+    retryableErrors: ['database is locked', 'busy', 'timeout'],
     nonRetryableErrors: [
       'no such table',
       'syntax error',
@@ -274,7 +271,9 @@ export class RetryUtils {
       'foreign key constraint'
     ],
     onRetry: (attempt, error, delay) => {
-      console.warn(`[Database Retry] Attempt ${attempt} failed, retrying in ${delay}ms:`, error.message);
+      logger.warn(
+        `[Database Retry] Attempt ${attempt} failed, retrying in ${delay}ms: ${error.message}`
+      );
     }
   };
 }

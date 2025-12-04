@@ -41,18 +41,23 @@ export class GasService {
       if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
         // EIP-1559 transaction (Ethereum, Polygon, etc.)
         // Calculate adjusted fees with multipliers
-        const adjustedMaxFee = (feeData.maxFeePerGas * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
-        const adjustedPriorityFee = (feeData.maxPriorityFeePerGas * BigInt(Math.floor(this.PRIORITY_FEE_MULTIPLIER * 100))) / 100n;
+        const adjustedMaxFee =
+          (feeData.maxFeePerGas * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
+        const adjustedPriorityFee =
+          (feeData.maxPriorityFeePerGas * BigInt(Math.floor(this.PRIORITY_FEE_MULTIPLIER * 100))) /
+          100n;
 
         // Ensure maxPriorityFeePerGas never exceeds maxFeePerGas (EIP-1559 requirement)
-        const finalPriorityFee = adjustedPriorityFee > adjustedMaxFee ? adjustedMaxFee : adjustedPriorityFee;
+        const finalPriorityFee =
+          adjustedPriorityFee > adjustedMaxFee ? adjustedMaxFee : adjustedPriorityFee;
 
         maxFeePerGas = ethers.formatUnits(adjustedMaxFee, 'gwei');
         maxPriorityFeePerGas = ethers.formatUnits(finalPriorityFee, 'gwei');
         gasPrice = maxFeePerGas;
       } else if (feeData.gasPrice) {
         // Legacy transaction
-        const adjustedGasPrice = (feeData.gasPrice * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
+        const adjustedGasPrice =
+          (feeData.gasPrice * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
         gasPrice = ethers.formatUnits(adjustedGasPrice, 'gwei');
       }
 
@@ -64,9 +69,8 @@ export class GasService {
       const estimatedGasLimitBigInt = BigInt(estimatedGasLimit);
       const estimatedCostWei = gasPriceWei * estimatedGasLimitBigInt;
       const estimatedCost = ethers.formatEther(estimatedCostWei);
-      const estimatedCostUsd = tokenPrice > 0
-        ? (parseFloat(estimatedCost) * tokenPrice).toFixed(2)
-        : '0.00';
+      const estimatedCostUsd =
+        tokenPrice > 0 ? (parseFloat(estimatedCost) * tokenPrice).toFixed(2) : '0.00';
 
       return {
         network,
@@ -87,7 +91,10 @@ export class GasService {
   /**
    * Estimate gas limit for different transaction types
    */
-  private async estimateGasLimit(provider: ethers.JsonRpcProvider, network: string): Promise<string> {
+  private async estimateGasLimit(
+    provider: ethers.JsonRpcProvider,
+    network: string
+  ): Promise<string> {
     try {
       // Standard ERC20 transfer
       const erc20TransferGas = 65000;
@@ -112,27 +119,27 @@ export class GasService {
    */
   private getFallbackGasInfo(network: string, tokenPrice: number = 0): GasInfo {
     const fallbackGasPrices: Record<string, number> = {
-      'ethereum': 30,      // 30 Gwei
-      'sepolia': 10,       // 10 Gwei base + 20% buffer = 12 Gwei (Sepolia Testnet)
-      'polygon': 30,       // 30 Gwei
-      'arbitrum': 0.5,    // 0.5 Gwei
-      'optimism': 0.5,    // 0.5 Gwei
-      'bsc': 5,           // 5 Gwei
-      'avalanche': 25,    // 25 Gwei
-      'fantom': 20,       // 20 Gwei
-      'default': 20       // 20 Gwei default
+      ethereum: 30, // 30 Gwei
+      sepolia: 10, // 10 Gwei base + 20% buffer = 12 Gwei (Sepolia Testnet)
+      polygon: 30, // 30 Gwei
+      arbitrum: 0.5, // 0.5 Gwei
+      optimism: 0.5, // 0.5 Gwei
+      bsc: 5, // 5 Gwei
+      avalanche: 25, // 25 Gwei
+      fantom: 20, // 20 Gwei
+      default: 20 // 20 Gwei default
     };
 
-    const gasPrice = (fallbackGasPrices[network.toLowerCase()] || fallbackGasPrices['default'])
-      * this.GAS_MULTIPLIER;
+    const gasPrice =
+      (fallbackGasPrices[network.toLowerCase()] || fallbackGasPrices['default']) *
+      this.GAS_MULTIPLIER;
 
     const estimatedGasLimit = '200000';
     const gasPriceWei = ethers.parseUnits(gasPrice.toString(), 'gwei');
     const estimatedCostWei = gasPriceWei * BigInt(estimatedGasLimit);
     const estimatedCost = ethers.formatEther(estimatedCostWei);
-    const estimatedCostUsd = tokenPrice > 0
-      ? (parseFloat(estimatedCost) * tokenPrice).toFixed(2)
-      : '0.00';
+    const estimatedCostUsd =
+      tokenPrice > 0 ? (parseFloat(estimatedCost) * tokenPrice).toFixed(2) : '0.00';
 
     return {
       network,
@@ -164,8 +171,12 @@ export class GasService {
       const feeData = await provider.getFeeData();
 
       logger.debug('Raw fee data received', {
-        maxFeePerGas: feeData.maxFeePerGas ? ethers.formatUnits(feeData.maxFeePerGas, 'gwei') : null,
-        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei') : null,
+        maxFeePerGas: feeData.maxFeePerGas
+          ? ethers.formatUnits(feeData.maxFeePerGas, 'gwei')
+          : null,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
+          ? ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei')
+          : null,
         gasPrice: feeData.gasPrice ? ethers.formatUnits(feeData.gasPrice, 'gwei') : null
       });
 
@@ -182,9 +193,9 @@ export class GasService {
       // - Standard ERC20 with storage updates: ~65,000 per recipient
       // - Optimized tokens (cached storage): ~25,000 per recipient
       // - Test tokens (minimal logic): ~15,000 per recipient
-      const baseGas = 80000;       // Base: 21k transaction + 50k contract overhead + buffer
+      const baseGas = 80000; // Base: 21k transaction + 50k contract overhead + buffer
       const perRecipientGas = 65000; // Conservative: Standard ERC20 transferFrom (worst case)
-      const totalGasLimit = (baseGas + (perRecipientGas * recipientCount)).toString();
+      const totalGasLimit = (baseGas + perRecipientGas * recipientCount).toString();
 
       logger.debug('Gas limit calculation', {
         baseGas,
@@ -199,18 +210,23 @@ export class GasService {
 
       if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
         // EIP-1559 - use same logic as getGasInfo to ensure consistency
-        const adjustedMaxFee = (feeData.maxFeePerGas * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
-        const adjustedPriorityFee = (feeData.maxPriorityFeePerGas * BigInt(Math.floor(this.PRIORITY_FEE_MULTIPLIER * 100))) / 100n;
+        const adjustedMaxFee =
+          (feeData.maxFeePerGas * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
+        const adjustedPriorityFee =
+          (feeData.maxPriorityFeePerGas * BigInt(Math.floor(this.PRIORITY_FEE_MULTIPLIER * 100))) /
+          100n;
 
         // Ensure maxPriorityFeePerGas never exceeds maxFeePerGas (EIP-1559 requirement)
-        const finalPriorityFee = adjustedPriorityFee > adjustedMaxFee ? adjustedMaxFee : adjustedPriorityFee;
+        const finalPriorityFee =
+          adjustedPriorityFee > adjustedMaxFee ? adjustedMaxFee : adjustedPriorityFee;
 
         maxFeePerGas = ethers.formatUnits(adjustedMaxFee, 'gwei');
         maxPriorityFeePerGas = ethers.formatUnits(finalPriorityFee, 'gwei');
         gasPrice = maxFeePerGas;
       } else if (feeData.gasPrice) {
         // Legacy transaction
-        const adjustedGasPrice = (feeData.gasPrice * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
+        const adjustedGasPrice =
+          (feeData.gasPrice * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
         gasPrice = ethers.formatUnits(adjustedGasPrice, 'gwei');
       }
 
@@ -219,9 +235,8 @@ export class GasService {
       const totalGasLimitBigInt = BigInt(totalGasLimit);
       const estimatedCostWei = gasPriceWei * totalGasLimitBigInt;
       const estimatedCost = ethers.formatEther(estimatedCostWei);
-      const estimatedCostUsd = tokenPrice > 0
-        ? (parseFloat(estimatedCost) * tokenPrice).toFixed(2)
-        : '0.00';
+      const estimatedCostUsd =
+        tokenPrice > 0 ? (parseFloat(estimatedCost) * tokenPrice).toFixed(2) : '0.00';
 
       return {
         network,
@@ -235,9 +250,13 @@ export class GasService {
         totalRecipients: recipientCount
       };
     } catch (error) {
-      logger.error('Failed to get batch gas estimate', error as Error, { network, recipientCount, tokenPrice });
+      logger.error('Failed to get batch gas estimate', error as Error, {
+        network,
+        recipientCount,
+        tokenPrice
+      });
       const fallback = this.getFallbackGasInfo(network, tokenPrice);
-      const totalGasLimit = (80000 + (12000 * recipientCount)).toString();
+      const totalGasLimit = (80000 + 12000 * recipientCount).toString();
 
       return {
         ...fallback,
@@ -251,17 +270,19 @@ export class GasService {
    * Get real-time gas price from RPC for a specific chain
    * Supports both EIP-1559 and legacy transactions with safety buffer
    */
-  async getGasPriceFromRPC(rpcUrl: string, chainId: string): Promise<{
+  async getGasPriceFromRPC(
+    rpcUrl: string,
+    chainId: string
+  ): Promise<{
     gasPrice: string;
     maxFeePerGas?: string;
     maxPriorityFeePerGas?: string;
     isEIP1559: boolean;
   }> {
     try {
-      
       const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
         batchMaxCount: 1,
-        polling: false,
+        polling: false
       });
 
       // Set timeout for RPC call
@@ -269,10 +290,10 @@ export class GasService {
         setTimeout(() => reject(new Error('Gas price RPC request timeout')), 10000);
       });
 
-      const feeData = await Promise.race([
+      const feeData = (await Promise.race([
         provider.getFeeData(),
         timeoutPromise
-      ]) as ethers.FeeData;
+      ])) as ethers.FeeData;
 
       // Check if network supports EIP-1559
       // Special handling for testnets and networks that don't properly support EIP-1559
@@ -286,12 +307,17 @@ export class GasService {
         hasMaxFeePerGas: !!feeData.maxFeePerGas,
         hasMaxPriorityFeePerGas: !!feeData.maxPriorityFeePerGas,
         maxFeePerGasPositive: feeData.maxFeePerGas && feeData.maxFeePerGas > 0n,
-        maxPriorityFeePerGasPositive: feeData.maxPriorityFeePerGas && feeData.maxPriorityFeePerGas > 0n
+        maxPriorityFeePerGasPositive:
+          feeData.maxPriorityFeePerGas && feeData.maxPriorityFeePerGas > 0n
       });
 
-      if (!isNonEIP1559Chain && feeData.maxFeePerGas && feeData.maxPriorityFeePerGas &&
-          feeData.maxFeePerGas > 0n && feeData.maxPriorityFeePerGas > 0n) {
-
+      if (
+        !isNonEIP1559Chain &&
+        feeData.maxFeePerGas &&
+        feeData.maxPriorityFeePerGas &&
+        feeData.maxFeePerGas > 0n &&
+        feeData.maxPriorityFeePerGas > 0n
+      ) {
         logger.debug('Using EIP-1559 path', {
           rawMaxFeePerGas: ethers.formatUnits(feeData.maxFeePerGas, 'gwei'),
           rawMaxPriorityFeePerGas: ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei'),
@@ -300,8 +326,11 @@ export class GasService {
         });
 
         // Apply safety buffer (20% on maxFee, 50% on priority)
-        const adjustedMaxFee = (feeData.maxFeePerGas * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
-        const adjustedPriorityFee = (feeData.maxPriorityFeePerGas * BigInt(Math.floor(this.PRIORITY_FEE_MULTIPLIER * 100))) / 100n;
+        const adjustedMaxFee =
+          (feeData.maxFeePerGas * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
+        const adjustedPriorityFee =
+          (feeData.maxPriorityFeePerGas * BigInt(Math.floor(this.PRIORITY_FEE_MULTIPLIER * 100))) /
+          100n;
 
         logger.debug('After buffers applied', {
           adjustedMaxFeePerGas: ethers.formatUnits(adjustedMaxFee, 'gwei'),
@@ -309,7 +338,8 @@ export class GasService {
         });
 
         // Ensure maxPriorityFeePerGas never exceeds maxFeePerGas (EIP-1559 requirement)
-        const finalPriorityFee = adjustedPriorityFee > adjustedMaxFee ? adjustedMaxFee : adjustedPriorityFee;
+        const finalPriorityFee =
+          adjustedPriorityFee > adjustedMaxFee ? adjustedMaxFee : adjustedPriorityFee;
 
         const maxFeePerGas = ethers.formatUnits(adjustedMaxFee, 'gwei');
         const maxPriorityFeePerGas = ethers.formatUnits(finalPriorityFee, 'gwei');
@@ -323,24 +353,24 @@ export class GasService {
           gasPrice: maxFeePerGas,
           maxFeePerGas,
           maxPriorityFeePerGas,
-          isEIP1559: true,
+          isEIP1559: true
         };
       } else if (feeData.gasPrice && feeData.gasPrice > 0n) {
-
         logger.debug('Using legacy path (EIP-1559 not available)', {
           rawGasPrice: ethers.formatUnits(feeData.gasPrice, 'gwei'),
           gasMultiplier: this.GAS_MULTIPLIER
         });
 
         // Legacy transaction with 20% buffer
-        const adjustedGasPrice = (feeData.gasPrice * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
+        const adjustedGasPrice =
+          (feeData.gasPrice * BigInt(Math.floor(this.GAS_MULTIPLIER * 100))) / 100n;
         const gasPrice = ethers.formatUnits(adjustedGasPrice, 'gwei');
 
         logger.debug('After buffer applied', { adjustedGasPrice: gasPrice });
 
         return {
           gasPrice,
-          isEIP1559: false,
+          isEIP1559: false
         };
       } else {
         logger.warn('No gas price data available from RPC');
@@ -378,20 +408,19 @@ export class GasService {
    */
   private getFallbackGasPriceForChain(chainId: string): string {
     const fallbackGasPrices: Record<string, number> = {
-      '1': 30,         // Ethereum Mainnet
-      '11155111': 10,  // Sepolia Testnet (10 Gwei base + 20% buffer = 12 Gwei)
-      '137': 30,       // Polygon
-      '42161': 0.1,    // Arbitrum One
-      '10': 0.1,       // Optimism
-      '8453': 0.1,     // Base
-      '56': 5,         // BSC
-      '43114': 25,     // Avalanche C-Chain
+      '1': 30, // Ethereum Mainnet
+      '11155111': 10, // Sepolia Testnet (10 Gwei base + 20% buffer = 12 Gwei)
+      '137': 30, // Polygon
+      '42161': 0.1, // Arbitrum One
+      '10': 0.1, // Optimism
+      '8453': 0.1, // Base
+      '56': 5, // BSC
+      '43114': 25 // Avalanche C-Chain
     };
 
     const basePrice = fallbackGasPrices[chainId] || 20;
     const priceWithBuffer = basePrice * this.GAS_MULTIPLIER;
 
-    
     return priceWithBuffer.toFixed(2);
   }
 
@@ -429,17 +458,20 @@ export class GasService {
     let totalCostWei = BigInt(0);
 
     for (let i = 0; i < batchesNeeded; i++) {
-      const recipientsInBatch = Math.min(batchSize, totalRecipients - (i * batchSize));
-      const gasInfo = await this.getBatchGasEstimate(rpcUrl, network, recipientsInBatch, tokenPrice);
+      const recipientsInBatch = Math.min(batchSize, totalRecipients - i * batchSize);
+      const gasInfo = await this.getBatchGasEstimate(
+        rpcUrl,
+        network,
+        recipientsInBatch,
+        tokenPrice
+      );
       const gasPriceWei = ethers.parseUnits(gasInfo.gasPrice, 'gwei');
       const batchCost = gasPriceWei * BigInt(gasInfo.estimatedGasLimit);
       totalCostWei += batchCost;
     }
 
     const totalCost = ethers.formatEther(totalCostWei);
-    const totalCostUsd = tokenPrice > 0
-      ? (parseFloat(totalCost) * tokenPrice).toFixed(2)
-      : '0.00';
+    const totalCostUsd = tokenPrice > 0 ? (parseFloat(totalCost) * tokenPrice).toFixed(2) : '0.00';
 
     return {
       totalBatches: batchesNeeded,

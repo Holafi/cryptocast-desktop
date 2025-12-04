@@ -1,90 +1,200 @@
+// Campaign creation data
+export interface CreateCampaignData {
+  name: string;
+  description?: string;
+  chain: string;
+  chainType: 'evm' | 'solana';
+  tokenAddress: string;
+  tokenSymbol?: string;
+  batchSize: number;
+  sendInterval: number;
+  recipients: Array<{
+    address: string;
+    amount: string;
+  }>;
+}
+
+// Campaign filters
+export interface CampaignFilters {
+  status?: CampaignStatus;
+  chain?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+// Campaign estimate data
+export interface EstimateCampaignData {
+  chain: string;
+  chainType: 'evm' | 'solana';
+  tokenAddress: string;
+  recipientCount: number;
+  batchSize: number;
+}
+
 // Electron API types
 export interface ElectronAPI {
   campaign: {
-    create: (data: any) => Promise<Campaign>;
-    list: (filters?: any) => Promise<Campaign[]>;
+    create: (data: CreateCampaignData) => Promise<Campaign>;
+    list: (filters?: CampaignFilters) => Promise<Campaign[]>;
     getById: (id: string) => Promise<Campaign | null>;
     getDetails: (id: string) => Promise<Campaign | null>;
-    getTransactions: (id: string, options?: { limit?: number; offset?: number; status?: string }) => Promise<Transaction[]>;
+    getTransactions: (
+      id: string,
+      options?: { limit?: number; offset?: number; status?: string }
+    ) => Promise<Transaction[]>;
     getRecipients: (id: string) => Promise<Recipient[]>;
     updateStatus: (id: string, status: CampaignStatus) => Promise<{ success: boolean }>;
     start: (id: string) => Promise<{ success: boolean }>;
     pause: (id: string) => Promise<{ success: boolean }>;
     resume: (id: string) => Promise<{ success: boolean }>;
-    deployContract: (campaignId: string) => Promise<{ success: boolean; contractAddress: string; transactionHash: string; gasUsed: string }>;
+    deployContract: (campaignId: string) => Promise<{
+      success: boolean;
+      contractAddress: string;
+      transactionHash: string;
+      gasUsed: string;
+    }>;
     onProgress: (callback: (data: ProgressData) => void) => void;
-    estimate: (data: any) => Promise<CampaignEstimate>;
+    estimate: (data: EstimateCampaignData) => Promise<CampaignEstimate>;
     retryFailedTransactions: (campaignId: string) => Promise<{ success: boolean; retried: number }>;
-    withdrawTokens: (campaignId: string, recipientAddress: string) => Promise<{ txHash: string; amount: string }>;
-    withdrawNative: (campaignId: string, recipientAddress: string) => Promise<{ txHash: string; amount: string }>;
+    withdrawTokens: (
+      campaignId: string,
+      recipientAddress: string
+    ) => Promise<{ txHash: string; amount: string }>;
+    withdrawNative: (
+      campaignId: string,
+      recipientAddress: string
+    ) => Promise<{ txHash: string; amount: string }>;
   };
   wallet: {
     create: (type?: string) => Promise<{ address: string; privateKeyBase64: string }>;
-    list: (options?: any) => Promise<{ wallets: ActivityWallet[]; total: number } | ActivityWallet[]>;
-    getBalance: (address: string, chain: string, tokenAddress?: string, tokenDecimals?: number) => Promise<BalanceData>;
-    exportEVMPrivateKey: (privateKeyBase64: string) => Promise<{ success: boolean; privateKey: string }>;
-    exportSolanaPrivateKey: (privateKeyBase64: string) => Promise<{ success: boolean; privateKey: string }>;
+    list: (
+      options?: WalletListOptions
+    ) => Promise<{ wallets: ActivityWallet[]; total: number } | ActivityWallet[]>;
+    getBalance: (
+      address: string,
+      chain: string,
+      tokenAddress?: string,
+      tokenDecimals?: number
+    ) => Promise<BalanceData>;
+    exportEVMPrivateKey: (
+      privateKeyBase64: string
+    ) => Promise<{ success: boolean; privateKey: string }>;
+    exportSolanaPrivateKey: (
+      privateKeyBase64: string
+    ) => Promise<{ success: boolean; privateKey: string }>;
   };
   chain: {
     getEVMChains: (onlyEnabled?: boolean) => Promise<EVMChain[]>;
     getAllChains: () => Promise<ChainInfo[]>;
-    addEVMChain: (chainData: any) => Promise<number>;
-    updateEVMChain: (chainId: number, updates: any) => Promise<void>;
+    addEVMChain: (chainData: AddEVMChainData) => Promise<number>;
+    updateEVMChain: (chainId: number, updates: UpdateEVMChainData) => Promise<void>;
     deleteEVMChain: (chainId: number) => Promise<void>;
     testEVMLatency: (rpcUrl: string) => Promise<{ latency: number; blockNumber: number }>;
     getSolanaRPCs: (network?: string, onlyEnabled?: boolean) => Promise<SolanaRPC[]>;
-        addSolanaRPC: (rpcData: any) => Promise<number>;
+    addSolanaRPC: (rpcData: AddSolanaRPCData) => Promise<number>;
     testSolanaRPC: (rpcUrl: string) => Promise<{ success: boolean; latency?: number }>;
     updateSolanaRPCPriority: (id: number, priority: number) => Promise<void>;
     deleteSolanaRPC: (id: number) => Promise<void>;
-      };
+  };
   blockchain: {
-    getBalance: (address: string, chainId: string, tokenAddress?: string, tokenDecimals?: number) => Promise<BalanceData>;
-    estimateGas: (config: any) => Promise<any>;
-    getTransactionStatus: (txHash: string, rpcUrl: string) => Promise<any>;
-    batchTransfer: (config: any) => Promise<any>;
+    getBalance: (
+      address: string,
+      chainId: string,
+      tokenAddress?: string,
+      tokenDecimals?: number
+    ) => Promise<BalanceData>;
+    estimateGas: (config: EstimateGasConfig) => Promise<GasEstimateResult>;
+    getTransactionStatus: (txHash: string, rpcUrl: string) => Promise<TransactionStatusResult>;
+    batchTransfer: (config: BatchTransferConfig) => Promise<BatchTransferResult>;
   };
   solana: {
-    getBalance: (address: string, rpcUrl: string, tokenAddress?: string) => Promise<{ success: boolean; balance: string }>;
-    batchTransfer: (config: any) => Promise<any>;
-    getTransactionStatus: (signature: string, rpcUrl: string) => Promise<any>;
+    getBalance: (
+      address: string,
+      rpcUrl: string,
+      tokenAddress?: string
+    ) => Promise<{ success: boolean; balance: string }>;
+    batchTransfer: (config: SolanaBatchTransferConfig) => Promise<SolanaBatchTransferResult>;
+    getTransactionStatus: (
+      signature: string,
+      rpcUrl: string
+    ) => Promise<SolanaTransactionStatusResult>;
     getTokenInfo: (tokenAddress: string, rpcUrl: string) => Promise<TokenInfo | null>;
   };
   file: {
-    readCSV: (filePath: string) => Promise<any[]>;
-    exportReport: (campaignId: string, format?: string) => Promise<{ success: boolean; filePath: string }>;
+    readCSV: (filePath: string) => Promise<CSVRow[]>;
+    exportReport: (
+      campaignId: string,
+      format?: string
+    ) => Promise<{ success: boolean; filePath: string }>;
   };
   price: {
     getPrice: (symbol: string) => Promise<{ symbol: string; price: number }>;
     getPrices: (symbols: string[]) => Promise<Record<string, number>>;
-    getSummary: () => Promise<any>;
+    getSummary: () => Promise<PriceSummaryResult>;
   };
   gas: {
-    getInfo: (rpcUrl: string, network: string, tokenPrice?: number) => Promise<any>;
-    estimateBatch: (rpcUrl: string, network: string, recipientCount: number, tokenPrice?: number) => Promise<any>;
+    getInfo: (rpcUrl: string, network: string, tokenPrice?: number) => Promise<GasInfo>;
+    estimateBatch: (
+      rpcUrl: string,
+      network: string,
+      recipientCount: number,
+      tokenPrice?: number
+    ) => Promise<BatchGasEstimate>;
   };
   contract: {
-    deploy: (config: any) => Promise<any>;
-    batchTransfer: (contractAddress: string, rpcUrl: string, privateKey: string, recipients: string[], amounts: string[], tokenAddress: string) => Promise<{ success: boolean; data: any }>;
-    approveTokens: (rpcUrl: string, privateKey: string, tokenAddress: string, contractAddress: string, amount: string) => Promise<{ success: boolean; txHash: string }>;
-    checkApproval: (rpcUrl: string, privateKey: string, tokenAddress: string, contractAddress: string, requiredAmount: string) => Promise<{ approved: boolean }>;
-    getTokenInfo: (rpcUrl: string, tokenAddress: string) => Promise<{ symbol: string; name: string; decimals: number }>;
+    deploy: (config: DeployContractConfig) => Promise<DeployContractResult>;
+    batchTransfer: (
+      contractAddress: string,
+      rpcUrl: string,
+      privateKey: string,
+      recipients: string[],
+      amounts: string[],
+      tokenAddress: string
+    ) => Promise<{ success: boolean; data: ContractBatchTransferData }>;
+    approveTokens: (
+      rpcUrl: string,
+      privateKey: string,
+      tokenAddress: string,
+      contractAddress: string,
+      amount: string
+    ) => Promise<{ success: boolean; txHash: string }>;
+    checkApproval: (
+      rpcUrl: string,
+      privateKey: string,
+      tokenAddress: string,
+      contractAddress: string,
+      requiredAmount: string
+    ) => Promise<{ approved: boolean }>;
+    getTokenInfo: (
+      rpcUrl: string,
+      tokenAddress: string
+    ) => Promise<{ symbol: string; name: string; decimals: number }>;
   };
   token: {
     getInfo: (tokenAddress: string, chainId: string) => Promise<TokenInfo | null>;
-    validateAddress: (tokenAddress: string, chainId: string) => Promise<{ isValid: boolean; chainType?: 'evm' | 'solana'; error?: string }>;
+    validateAddress: (
+      tokenAddress: string,
+      chainId: string
+    ) => Promise<{ isValid: boolean; chainType?: 'evm' | 'solana'; error?: string }>;
     getMultipleInfo: (tokenAddresses: string[], chainId: string) => Promise<TokenInfo[]>;
   };
 }
+
+// Type exports
+export type CampaignStatus =
+  | 'CREATED'
+  | 'FUNDED'
+  | 'READY'
+  | 'SENDING'
+  | 'PAUSED'
+  | 'COMPLETED'
+  | 'FAILED';
 
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
   }
 }
-
-// Type exports
-export type CampaignStatus = 'CREATED' | 'FUNDED' | 'READY' | 'SENDING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
 
 // Settings types
 export interface AppSettings {
@@ -161,7 +271,7 @@ export interface Recipient {
   address: string;
   amount: string;
   status: 'pending' | 'failed' | 'success' | 'sending';
-  transactionHash?: string;
+  txHash?: string;
   gasUsed?: string;
   error?: string;
   createdAt: string;
@@ -301,8 +411,6 @@ export interface SolanaRPC {
   uptime24h?: number;
 }
 
-
-
 // Wallet Management types
 export interface ActivityWallet {
   id: string;
@@ -394,3 +502,146 @@ export interface NetworkTestResult {
   timestamp: string;
 }
 
+// Additional type definitions for API parameters
+
+export interface WalletListOptions {
+  type?: 'evm' | 'solana';
+  limit?: number;
+  offset?: number;
+}
+
+export interface AddEVMChainData {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  rpcBackup?: string;
+  explorerUrl: string;
+  symbol: string;
+  decimals: number;
+  color?: string;
+  badgeColor?: string;
+}
+
+export interface UpdateEVMChainData {
+  name?: string;
+  rpcUrl?: string;
+  rpcBackup?: string;
+  explorerUrl?: string;
+  symbol?: string;
+  decimals?: number;
+  color?: string;
+  badgeColor?: string;
+}
+
+export interface AddSolanaRPCData {
+  network: 'mainnet-beta' | 'devnet' | 'testnet';
+  name: string;
+  rpcUrl: string;
+  wsUrl?: string;
+}
+
+export interface EstimateGasConfig {
+  chain: string;
+  fromAddress: string;
+  toAddress: string;
+  tokenAddress: string;
+  recipientCount: number;
+}
+
+export interface GasEstimateResult {
+  gasLimit: string;
+  gasPrice: string;
+  gasCost: string;
+  gasCostUsd: string;
+}
+
+export interface TransactionStatusResult {
+  hash: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  confirmations?: number;
+  blockNumber?: number;
+  gasUsed?: string;
+  error?: string;
+}
+
+export interface BatchTransferConfig {
+  rpcUrl: string;
+  privateKey: string;
+  recipients: string[];
+  amounts: string[];
+  tokenAddress: string;
+}
+
+export interface BatchTransferResult {
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}
+
+export interface SolanaBatchTransferConfig {
+  rpcUrl: string;
+  privateKeyBase64: string;
+  recipients: string[];
+  amounts: string[];
+  tokenAddress: string;
+}
+
+export interface SolanaBatchTransferResult {
+  success: boolean;
+  signature?: string;
+  error?: string;
+}
+
+export interface SolanaTransactionStatusResult {
+  signature: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  confirmations?: number;
+  slot?: number;
+  error?: string;
+}
+
+export interface PriceSummaryResult {
+  [symbol: string]: {
+    symbol: string;
+    price: number;
+    timestamp: number;
+  };
+}
+
+export interface GasInfo {
+  gasPrice: string;
+  baseFee?: string;
+  priorityFee?: string;
+  maxFeePerGas?: string;
+  estimatedCost: string;
+  estimatedCostUsd: string;
+}
+
+export interface BatchGasEstimate {
+  totalGasEstimate: string;
+  totalGasCostUsd: string;
+  perTransactionGas: string;
+  perTransactionCostUsd: string;
+  numberOfBatches: number;
+}
+
+export interface DeployContractConfig {
+  rpcUrl: string;
+  privateKey: string;
+  tokenAddress: string;
+}
+
+export interface DeployContractResult {
+  success: boolean;
+  contractAddress?: string;
+  transactionHash?: string;
+  gasUsed?: string;
+  error?: string;
+}
+
+export interface ContractBatchTransferData {
+  txHash: string;
+  recipients: number;
+  totalAmount: string;
+  gasUsed: string;
+}

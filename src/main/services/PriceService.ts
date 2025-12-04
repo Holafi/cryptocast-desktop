@@ -17,7 +17,6 @@ export interface PriceData {
   lastUpdated: number;
 }
 
-
 export interface NetworkConfig {
   name: string;
   chainId: number;
@@ -33,14 +32,56 @@ export class PriceService {
 
   // Supported networks
   private readonly networks: NetworkConfig[] = [
-    { name: 'ethereum', chainId: 1, currency: 'USD', nativeTokenSymbol: 'ETH', coingeckoId: 'ethereum' },
-    { name: 'polygon', chainId: 137, currency: 'USD', nativeTokenSymbol: 'POL', coingeckoId: 'polygon-ecosystem-token' },
-    { name: 'arbitrum', chainId: 42161, currency: 'USD', nativeTokenSymbol: 'ETH', coingeckoId: 'ethereum' },
-    { name: 'optimism', chainId: 10, currency: 'USD', nativeTokenSymbol: 'ETH', coingeckoId: 'ethereum' },
-    { name: 'base', chainId: 8453, currency: 'USD', nativeTokenSymbol: 'ETH', coingeckoId: 'ethereum' },
-    { name: 'bsc', chainId: 56, currency: 'USD', nativeTokenSymbol: 'BNB', coingeckoId: 'binancecoin' },
-    { name: 'avalanche', chainId: 43114, currency: 'USD', nativeTokenSymbol: 'AVAX', coingeckoId: 'avalanche-2' },
-    { name: 'solana', chainId: 0, currency: 'USD', nativeTokenSymbol: 'SOL', coingeckoId: 'solana' },
+    {
+      name: 'ethereum',
+      chainId: 1,
+      currency: 'USD',
+      nativeTokenSymbol: 'ETH',
+      coingeckoId: 'ethereum'
+    },
+    {
+      name: 'polygon',
+      chainId: 137,
+      currency: 'USD',
+      nativeTokenSymbol: 'POL',
+      coingeckoId: 'polygon-ecosystem-token'
+    },
+    {
+      name: 'arbitrum',
+      chainId: 42161,
+      currency: 'USD',
+      nativeTokenSymbol: 'ETH',
+      coingeckoId: 'ethereum'
+    },
+    {
+      name: 'optimism',
+      chainId: 10,
+      currency: 'USD',
+      nativeTokenSymbol: 'ETH',
+      coingeckoId: 'ethereum'
+    },
+    {
+      name: 'base',
+      chainId: 8453,
+      currency: 'USD',
+      nativeTokenSymbol: 'ETH',
+      coingeckoId: 'ethereum'
+    },
+    {
+      name: 'bsc',
+      chainId: 56,
+      currency: 'USD',
+      nativeTokenSymbol: 'BNB',
+      coingeckoId: 'binancecoin'
+    },
+    {
+      name: 'avalanche',
+      chainId: 43114,
+      currency: 'USD',
+      nativeTokenSymbol: 'AVAX',
+      coingeckoId: 'avalanche-2'
+    },
+    { name: 'solana', chainId: 0, currency: 'USD', nativeTokenSymbol: 'SOL', coingeckoId: 'solana' }
   ];
 
   constructor(database: DatabaseManager) {
@@ -77,18 +118,20 @@ export class PriceService {
   }
 
   private async updateAllPrices(): Promise<void> {
-    const coinIds = this.networks.map(n => n.coingeckoId).filter((id, index, self) => self.indexOf(id) === index);
+    const coinIds = this.networks
+      .map(n => n.coingeckoId)
+      .filter((id, index, self) => self.indexOf(id) === index);
 
     try {
       const url = 'https://api.coingecko.com/api/v3/simple/price';
       const params = {
         ids: coinIds.join(','),
-        vs_currencies: 'usd',
+        vs_currencies: 'usd'
       };
 
       const response = await axios.get(url, {
         params,
-        timeout: 10000,
+        timeout: 10000
       });
 
       const timestamp = Math.floor(Date.now() / 1000);
@@ -103,7 +146,7 @@ export class PriceService {
             changePercent24h: 0,
             marketCap: 0,
             volume24h: 0,
-            lastUpdated: timestamp,
+            lastUpdated: timestamp
           };
 
           this.priceCache.set(network.nativeTokenSymbol, priceData);
@@ -116,11 +159,14 @@ export class PriceService {
     }
   }
 
-  
   private async savePriceToDatabase(priceData: PriceData): Promise<void> {
     try {
       // Double-check price validity before database insertion
-      if (typeof priceData.price !== 'number' || priceData.price < 0 || !isFinite(priceData.price)) {
+      if (
+        typeof priceData.price !== 'number' ||
+        priceData.price < 0 ||
+        !isFinite(priceData.price)
+      ) {
         logger.warn('Invalid price value', { symbol: priceData.symbol, price: priceData.price });
         return;
       }
@@ -140,7 +186,9 @@ export class PriceService {
         priceData.lastUpdated
       );
     } catch (error) {
-      logger.error('Failed to save price to database', error as Error, { symbol: priceData.symbol });
+      logger.error('Failed to save price to database', error as Error, {
+        symbol: priceData.symbol
+      });
     }
   }
 
@@ -152,7 +200,10 @@ export class PriceService {
       try {
         await this.updateSinglePrice(symbol);
       } catch (error) {
-        logger.warn('Failed to refresh price', { symbol, error: error instanceof Error ? error.message : String(error) });
+        logger.warn('Failed to refresh price', {
+          symbol,
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     }
 
@@ -161,19 +212,24 @@ export class PriceService {
     if (cachedPrice) {
       // Check if price is recent (within 5 minutes)
       const ageSeconds = Math.floor(Date.now() / 1000) - cachedPrice.lastUpdated;
-      if (ageSeconds < 300) { // 5 minutes
+      if (ageSeconds < 300) {
+        // 5 minutes
         return cachedPrice.price;
       }
     }
 
     // Fallback to database
     try {
-      const result = await this.db.prepare(`
+      const result = (await this.db
+        .prepare(
+          `
         SELECT price FROM price_history
         WHERE symbol = ?
         ORDER BY timestamp DESC
         LIMIT 1
-      `).get(symbol) as { price: number } | undefined;
+      `
+        )
+        .get(symbol)) as { price: number } | undefined;
 
       if (result && result.price > 0) {
         return result.price;
@@ -184,11 +240,11 @@ export class PriceService {
 
     // Final fallback with hardcoded prices for major tokens
     const fallbackPrices: Record<string, number> = {
-      'ETH': 3500,  // Conservative ETH price
-      'BNB': 600,   // Conservative BNB price
-      'MATIC': 0.9, // Conservative MATIC price
-      'SOL': 150,   // Conservative SOL price
-      'AVAX': 35,   // Conservative AVAX price
+      ETH: 3500, // Conservative ETH price
+      BNB: 600, // Conservative BNB price
+      MATIC: 0.9, // Conservative MATIC price
+      SOL: 150, // Conservative SOL price
+      AVAX: 35 // Conservative AVAX price
     };
 
     return fallbackPrices[symbol] || 0;
@@ -207,12 +263,12 @@ export class PriceService {
       const url = 'https://api.coingecko.com/api/v3/simple/price';
       const params = {
         ids: network.coingeckoId,
-        vs_currencies: 'usd',
+        vs_currencies: 'usd'
       };
 
       const response = await axios.get(url, {
         params,
-        timeout: 5000, // Shorter timeout for single requests
+        timeout: 5000 // Shorter timeout for single requests
       });
 
       const coinData = response.data[network.coingeckoId];
@@ -225,7 +281,7 @@ export class PriceService {
           changePercent24h: 0,
           marketCap: 0,
           volume24h: 0,
-          lastUpdated: timestamp,
+          lastUpdated: timestamp
         };
 
         this.priceCache.set(symbol, priceData);
@@ -247,20 +303,26 @@ export class PriceService {
 
     // Fallback to database
     try {
-      const result = await this.db.prepare(`
+      const result = (await this.db
+        .prepare(
+          `
         SELECT * FROM price_history
         WHERE symbol = ?
         ORDER BY timestamp DESC
         LIMIT 1
-      `).get(symbol.toUpperCase()) as {
-        symbol: string;
-        price: number;
-        change_24h: number;
-        change_percent_24h: number;
-        market_cap: number;
-        volume_24h: number;
-        timestamp: number;
-      } | undefined;
+      `
+        )
+        .get(symbol.toUpperCase())) as
+        | {
+            symbol: string;
+            price: number;
+            change_24h: number;
+            change_percent_24h: number;
+            market_cap: number;
+            volume_24h: number;
+            timestamp: number;
+          }
+        | undefined;
 
       if (result) {
         return {
@@ -270,7 +332,7 @@ export class PriceService {
           changePercent24h: result.change_percent_24h,
           marketCap: result.market_cap,
           volume24h: result.volume_24h,
-          lastUpdated: result.timestamp,
+          lastUpdated: result.timestamp
         };
       }
       return null;
@@ -280,7 +342,6 @@ export class PriceService {
     }
   }
 
-  
   async getPricesForSymbols(symbols: string[]): Promise<Record<string, number>> {
     const prices: Record<string, number> = {};
 
@@ -307,15 +368,22 @@ export class PriceService {
     }
   }
 
-  async getPriceHistory(symbol: string, hours: number = 24): Promise<Array<{ timestamp: number; price: number }>> {
+  async getPriceHistory(
+    symbol: string,
+    hours: number = 24
+  ): Promise<Array<{ timestamp: number; price: number }>> {
     try {
-      const since = Math.floor(Date.now() / 1000) - (hours * 3600);
+      const since = Math.floor(Date.now() / 1000) - hours * 3600;
 
-      const results = await this.db.prepare(`
+      const results = (await this.db
+        .prepare(
+          `
         SELECT timestamp, price FROM price_history
         WHERE symbol = ? AND timestamp >= ?
         ORDER BY timestamp ASC
-      `).all(symbol.toUpperCase(), since) as Array<{ timestamp: number; price: number }>;
+      `
+        )
+        .all(symbol.toUpperCase(), since)) as Array<{ timestamp: number; price: number }>;
 
       return results;
     } catch (error) {
@@ -385,16 +453,20 @@ export class PriceService {
    */
   async saveHistoricalPrice(symbol: string, price: number, change24h: number): Promise<void> {
     try {
-      await this.db.prepare(`
+      await this.db
+        .prepare(
+          `
         INSERT INTO price_history (symbol, price, change_24h, change_percent_24h, market_cap, volume_24h, timestamp)
         VALUES (?, ?, ?, ?, 0, 0, ?)
-      `).run(
-        symbol.toUpperCase(),
-        price,
-        change24h,
-        0, // changePercent24h - calculate if needed
-        Date.now()
-      );
+      `
+        )
+        .run(
+          symbol.toUpperCase(),
+          price,
+          change24h,
+          0, // changePercent24h - calculate if needed
+          Date.now()
+        );
     } catch (error) {
       logger.error('Failed to save historical price', error as Error, { symbol, price });
       throw new Error(`Failed to save historical price: ${error}`);
@@ -404,15 +476,27 @@ export class PriceService {
   /**
    * Get historical prices for a symbol
    */
-  async getHistoricalPrices(symbol: string, days: number): Promise<Array<{ symbol: string; price: number; change: number; timestamp: string }>> {
+  async getHistoricalPrices(
+    symbol: string,
+    days: number
+  ): Promise<Array<{ symbol: string; price: number; change: number; timestamp: string }>> {
     try {
-      const results = await this.db.prepare(`
+      const results = (await this.db
+        .prepare(
+          `
         SELECT symbol, price, change_24h as change, timestamp
         FROM price_history
         WHERE symbol = ?
         ORDER BY timestamp DESC
         LIMIT ?
-      `).all(symbol.toUpperCase(), days) as Array<{ symbol: string; price: number; change: number; timestamp: number }>;
+      `
+        )
+        .all(symbol.toUpperCase(), days)) as Array<{
+        symbol: string;
+        price: number;
+        change: number;
+        timestamp: number;
+      }>;
 
       // Convert timestamp to ISO string
       return results.map(r => ({
@@ -448,29 +532,42 @@ export class PriceService {
     return {
       totalValue,
       tokenPrices,
-      lastUpdated: Math.floor(Date.now() / 1000),
+      lastUpdated: Math.floor(Date.now() / 1000)
     };
   }
 
   async exportPriceData(symbols: string[], days: number = 30): Promise<string> {
     try {
-      const since = Math.floor(Date.now() / 1000) - (days * 24 * 3600);
-      const exportData: Array<{ symbol: string; price: number; change_24h: number; change_percent_24h: number; timestamp: number }> = [];
+      const since = Math.floor(Date.now() / 1000) - days * 24 * 3600;
+      const exportData: Array<{
+        symbol: string;
+        price: number;
+        change_24h: number;
+        change_percent_24h: number;
+        timestamp: number;
+      }> = [];
 
       for (const symbol of symbols) {
-        const results = await this.db.prepare(`
+        const results = await this.db
+          .prepare(
+            `
           SELECT symbol, price, change_24h, change_percent_24h, timestamp
           FROM price_history
           WHERE symbol = ? AND timestamp >= ?
           ORDER BY timestamp ASC
-        `).all(symbol.toUpperCase(), since);
+        `
+          )
+          .all(symbol.toUpperCase(), since);
 
         exportData.push(...results);
       }
 
       return JSON.stringify(exportData, null, 2);
     } catch (error) {
-      logger.error('Failed to export price data', error as Error, { symbolCount: symbols.length, days });
+      logger.error('Failed to export price data', error as Error, {
+        symbolCount: symbols.length,
+        days
+      });
       return '[]';
     }
   }

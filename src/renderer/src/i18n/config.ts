@@ -34,21 +34,34 @@ const electronLanguageDetector = {
         const systemLocale = await electronAPI.app.getLocale();
         // Convert locale to language code (e.g., 'zh-CN' -> 'zh', 'en-US' -> 'en')
         const langCode = systemLocale.split('-')[0].toLowerCase();
-        const supportedLangs = ['en', 'zh', 'fr', 'de', 'ja', 'es', 'pt', 'ru', 'ar', 'ko', 'vi', 'tr'];
+        const supportedLangs = [
+          'en',
+          'zh',
+          'fr',
+          'de',
+          'ja',
+          'es',
+          'pt',
+          'ru',
+          'ar',
+          'ko',
+          'vi',
+          'tr'
+        ];
         const lang = supportedLangs.includes(langCode) ? langCode : 'en';
         callback(lang);
       } else {
         callback('en');
       }
     } catch (error) {
-      console.error('Failed to detect language:', error);
+      // Debug statement removed
       callback('en');
     }
   },
   init: () => {},
   cacheUserLanguage: (lng: string) => {
     localStorage.setItem('i18nextLng', lng);
-  },
+  }
 };
 
 // Initialize i18next
@@ -69,18 +82,18 @@ i18n
       ar: { translation: ar },
       ko: { translation: ko },
       vi: { translation: vi },
-      tr: { translation: tr },
+      tr: { translation: tr }
     },
     fallbackLng: 'en',
     debug: false,
     interpolation: {
-      escapeValue: false, // React already escapes values
+      escapeValue: false // React already escapes values
     },
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
-      lookupLocalStorage: 'i18nextLng',
-    },
+      lookupLocalStorage: 'i18nextLng'
+    }
   });
 
 export default i18n;

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCampaign } from '../contexts/CampaignContext';
+import type { ChainInfo } from '../types';
 
-const { electronAPI } = window as any;
+const { electronAPI } = window;
 
 // Get chain display initial letter
 function getChainInitial(name: string): string {
@@ -52,13 +53,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { state, actions } = useCampaign();
-  const [chains, setChains] = useState<any[]>([]);
+  const [chains, setChains] = useState<ChainInfo[]>([]);
 
   // Fetch chains from database on component mount
   useEffect(() => {
     const fetchChains = async () => {
       try {
-        const allChains: any[] = [];
+        const allChains: ChainInfo[] = [];
 
         if (electronAPI?.chain) {
           // Load EVM chains
@@ -68,17 +69,15 @@ export default function Dashboard() {
           // Load Solana chains
           try {
             const solanaChains = await electronAPI.chain.getSolanaRPCs();
-              allChains.push(...solanaChains);
+            allChains.push(...solanaChains);
           } catch (error) {
-            console.warn('🔍 [Dashboard] fetchChains: Failed to load Solana chains:', error);
+            // Silently handle Solana chain loading failure
           }
 
-  
           setChains(allChains);
-        } else {
-                  }
+        }
       } catch (error) {
-        console.error('🔍 [Dashboard] fetchChains: Failed to load chains:', error);
+        // Silently handle chain loading failure
       }
     };
 
@@ -129,10 +128,13 @@ export default function Dashboard() {
       '10': { badge: 'badge-error', name: 'Optimism' },
       '8453': { badge: 'badge-success', name: 'Base' },
       '56': { badge: 'badge-warning', name: 'BSC' },
-      'solana': { badge: 'badge-accent', name: 'Solana' }
+      solana: { badge: 'badge-accent', name: 'Solana' }
     };
 
-    const config = chainConfig[chain as keyof typeof chainConfig] || { badge: 'badge-neutral', name: chainName || chain };
+    const config = chainConfig[chain as keyof typeof chainConfig] || {
+      badge: 'badge-neutral',
+      name: chainName || chain
+    };
     return <div className={`badge ${config.badge} badge-sm`}>{config.name}</div>;
   };
 
@@ -145,19 +147,14 @@ export default function Dashboard() {
             <span className="text-2xl">📊</span>
             <h2 className="text-lg font-bold">{t('dashboard.title')}</h2>
           </div>
-          <button
-            onClick={() => navigate('/campaign/create')}
-            className="btn btn-primary"
-          >
+          <button onClick={() => navigate('/campaign/create')} className="btn btn-primary">
             ➕ {t('dashboard.newCampaign')}
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="stat bg-base-100 rounded-lg shadow-sm">
-            <div className="stat-figure text-primary">
-              📋
-            </div>
+            <div className="stat-figure text-primary">📋</div>
             <div className="stat-title">{t('dashboard.totalActivities')}</div>
             <div className="stat-value text-primary">{stats.totalActivities}</div>
             <div className="stat-desc">
@@ -169,9 +166,7 @@ export default function Dashboard() {
           </div>
 
           <div className="stat bg-base-100 rounded-lg shadow-sm">
-            <div className="stat-figure text-success">
-              ✅
-            </div>
+            <div className="stat-figure text-success">✅</div>
             <div className="stat-title">{t('dashboard.successfulActivities')}</div>
             <div className="stat-value text-success">{stats.successfulActivities}</div>
             <div className="stat-desc">
@@ -183,9 +178,7 @@ export default function Dashboard() {
           </div>
 
           <div className="stat bg-base-100 rounded-lg shadow-sm">
-            <div className="stat-figure text-info">
-              🔄
-            </div>
+            <div className="stat-figure text-info">🔄</div>
             <div className="stat-title">{t('dashboard.ongoingActivities')}</div>
             <div className="stat-value text-info">{stats.ongoingActivities}</div>
             <div className="stat-desc">
@@ -197,9 +190,7 @@ export default function Dashboard() {
           </div>
 
           <div className="stat bg-base-100 rounded-lg shadow-sm">
-            <div className="stat-figure text-warning">
-              📅
-            </div>
+            <div className="stat-figure text-warning">📅</div>
             <div className="stat-title">{t('dashboard.weeklyActivities')}</div>
             <div className="stat-value text-warning">{stats.weeklyActivities}</div>
             <div className="stat-desc">
@@ -278,11 +269,14 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {(() => {
             // Calculate chain activity distribution from real campaign data
-            const chainActivity = state.campaigns.reduce((acc, campaign) => {
-              const chainId = campaign.chain;
-              acc[chainId] = (acc[chainId] || 0) + 1;
-              return acc;
-            }, {} as Record<string, number>);
+            const chainActivity = state.campaigns.reduce(
+              (acc, campaign) => {
+                const chainId = campaign.chain;
+                acc[chainId] = (acc[chainId] || 0) + 1;
+                return acc;
+              },
+              {} as Record<string, number>
+            );
 
             const totalActivities = state.campaigns.length;
 
@@ -295,15 +289,19 @@ export default function Dashboard() {
               if (chain.type === 'evm' && chain.chainId) {
                 activityCount = chainActivity[chain.chainId.toString()] || 0;
               }
-                // Fallback: try matching by the chainId string representation
+              // Fallback: try matching by the chainId string representation
               else if (chain.chainId) {
                 activityCount = chainActivity[chain.chainId.toString()] || 0;
               }
 
-              const percentage = totalActivities > 0 ? (activityCount / totalActivities * 100).toFixed(1) : '0.0';
+              const percentage =
+                totalActivities > 0 ? ((activityCount / totalActivities) * 100).toFixed(1) : '0.0';
 
               return (
-                <div key={chain.id || chain.chainId} className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20">
+                <div
+                  key={chain.id || chain.chainId}
+                  className="card bg-base-100 shadow-sm hover:shadow-md transition-all border-2 border-transparent hover:border-primary/20"
+                >
                   <div className="card-body p-3 text-center">
                     <div
                       className="text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold mx-auto mb-2"
@@ -312,8 +310,12 @@ export default function Dashboard() {
                       {getChainInitial(chain.name)}
                     </div>
                     <h3 className="card-title text-sm justify-center mb-1">{chain.name}</h3>
-                    <div className={`badge ${chain.badgeColor || 'badge-primary'} badge-sm mb-1`}>{activityCount}</div>
-                    <p className="text-xs text-base-content/60">{percentage}% {t('dashboard.activityVolume')}</p>
+                    <div className={`badge ${chain.badgeColor || 'badge-primary'} badge-sm mb-1`}>
+                      {activityCount}
+                    </div>
+                    <p className="text-xs text-base-content/60">
+                      {percentage}% {t('dashboard.activityVolume')}
+                    </p>
                   </div>
                 </div>
               );

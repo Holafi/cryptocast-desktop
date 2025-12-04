@@ -7,8 +7,8 @@ import {
   sendAndConfirmTransaction,
   SystemProgram
 } from '@solana/web3.js';
-import { TokenService } from './TokenService';
-import { ChainUtils } from '../utils/chain-utils';
+// import { TokenService } from './TokenService';
+// import { ChainUtils } from '../utils/chain-utils';
 import { DEFAULTS } from '../config/defaults';
 import { KeyUtils } from '../utils/keyUtils';
 import {
@@ -77,7 +77,10 @@ export class SolanaService {
   /**
    * Detect Token Program ID (Token Program v1 vs Token-2022)
    */
-  private async detectTokenProgram(connection: Connection, mintAddress: PublicKey): Promise<PublicKey> {
+  private async detectTokenProgram(
+    connection: Connection,
+    mintAddress: PublicKey
+  ): Promise<PublicKey> {
     const mintInfo = await connection.getAccountInfo(mintAddress);
     if (!mintInfo) {
       throw new Error('Mint account does not exist');
@@ -138,15 +141,24 @@ export class SolanaService {
         programId
       };
     } catch (error) {
-      logger.error('[SolanaService] Failed to get token info', error as Error, { tokenAddress, rpcUrl });
-      throw new Error(`Failed to get token info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error('[SolanaService] Failed to get token info', error as Error, {
+        tokenAddress,
+        rpcUrl
+      });
+      throw new Error(
+        `Failed to get token info: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
    * Get wallet balance
    */
-  async getBalance(rpcUrl: string, walletPublicKey: string, tokenAddress?: string): Promise<string> {
+  async getBalance(
+    rpcUrl: string,
+    walletPublicKey: string,
+    tokenAddress?: string
+  ): Promise<string> {
     try {
       const connection = this.initializeConnection(rpcUrl);
       const publicKey = new PublicKey(walletPublicKey);
@@ -159,7 +171,12 @@ export class SolanaService {
         // SPL token balance
         const tokenMint = new PublicKey(tokenAddress);
         const programId = await this.detectTokenProgram(connection, tokenMint);
-        const tokenAccount = await getAssociatedTokenAddress(tokenMint, publicKey, false, programId);
+        const tokenAccount = await getAssociatedTokenAddress(
+          tokenMint,
+          publicKey,
+          false,
+          programId
+        );
 
         try {
           const tokenBalance = await connection.getTokenAccountBalance(tokenAccount);
@@ -170,7 +187,10 @@ export class SolanaService {
         }
       }
     } catch (error) {
-      logger.error('[SolanaService] Failed to get balance', error as Error, { walletPublicKey, tokenAddress });
+      logger.error('[SolanaService] Failed to get balance', error as Error, {
+        walletPublicKey,
+        tokenAddress
+      });
       return '0';
     }
   }
@@ -189,7 +209,7 @@ export class SolanaService {
     recipients: string[],
     amounts: string[],
     tokenAddress: string,
-    batchSize: number = DEFAULTS.BATCH_SIZES.solana  // Read default batch size from config file
+    batchSize: number = DEFAULTS.BATCH_SIZES.solana // Read default batch size from config file
   ): Promise<SolanaBatchTransferResult> {
     try {
       const connection = this.initializeConnection(rpcUrl);
@@ -255,7 +275,8 @@ export class SolanaService {
         totalAmount: totalAmount.toString(),
         recipientCount: successCount,
         gasUsed: results.totalGasUsed.toString(),
-        status: successCount === recipients.length ? 'success' : successCount > 0 ? 'partial' : 'failed',
+        status:
+          successCount === recipients.length ? 'success' : successCount > 0 ? 'partial' : 'failed',
         details: allDetails
       };
     } catch (error) {
@@ -263,7 +284,7 @@ export class SolanaService {
         recipientCount: recipients.length,
         tokenAddress
       });
-      const errorMsg = error instanceof Error ? (error.message || error.toString()) : String(error);
+      const errorMsg = error instanceof Error ? error.message || error.toString() : String(error);
       throw new Error(`Solana batch transfer failed: ${errorMsg}`);
     }
   }
@@ -280,7 +301,9 @@ export class SolanaService {
     ataList: ATAInfo[];
     skipped: Array<{ address: string; amount: string; error: string }>;
   }> {
-    logger.debug('[SolanaService] Calculating all ATAs locally', { recipientCount: recipients.length });
+    logger.debug('[SolanaService] Calculating all ATAs locally', {
+      recipientCount: recipients.length
+    });
 
     const ataList: ATAInfo[] = [];
     const skipped: Array<{ address: string; amount: string; error: string }> = [];
@@ -296,22 +319,22 @@ export class SolanaService {
         const owner = new PublicKey(recipients[i]);
 
         if (tokenInfo.isNativeSOL) {
-        // SOL transfers don't need ATA, directly use user address
-        ataList.push({
-          owner,
-          ata: owner, // For SOL transfers, ATA is the user address
-          amount: amounts[i]
-        });
-      } else {
-        // SPL tokens need ATA calculation
-        const tokenMint = new PublicKey(tokenInfo.address);
-        const ata = await getAssociatedTokenAddress(
-          tokenMint,
-          owner,
-          false,
-          tokenInfo.programId,
-          ASSOCIATED_TOKEN_PROGRAM_ID
-        );
+          // SOL transfers don't need ATA, directly use user address
+          ataList.push({
+            owner,
+            ata: owner, // For SOL transfers, ATA is the user address
+            amount: amounts[i]
+          });
+        } else {
+          // SPL tokens need ATA calculation
+          const tokenMint = new PublicKey(tokenInfo.address);
+          const ata = await getAssociatedTokenAddress(
+            tokenMint,
+            owner,
+            false,
+            tokenInfo.programId,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          );
 
           ataList.push({
             owner,
@@ -344,10 +367,7 @@ export class SolanaService {
   /**
    * Step 2: Batch query ATAs existence (1 RPC call)
    */
-  private async checkMissingATAs(
-    connection: Connection,
-    ataList: ATAInfo[]
-  ): Promise<ATAInfo[]> {
+  private async checkMissingATAs(connection: Connection, ataList: ATAInfo[]): Promise<ATAInfo[]> {
     logger.debug('[SolanaService] Checking for missing ATAs', { ataCount: ataList.length });
 
     const ataAddresses = ataList.map(item => item.ata);
@@ -392,11 +412,11 @@ export class SolanaService {
 
       for (const item of batch) {
         const ix = createAssociatedTokenAccountInstruction(
-          wallet.publicKey,      // payer
-          item.ata,              // associatedToken
-          item.owner,            // owner
-          tokenMint,             // mint
-          tokenInfo.programId,   // programId
+          wallet.publicKey, // payer
+          item.ata, // associatedToken
+          item.owner, // owner
+          tokenMint, // mint
+          tokenInfo.programId, // programId
           ASSOCIATED_TOKEN_PROGRAM_ID
         );
         tx.add(ix);
@@ -427,7 +447,9 @@ export class SolanaService {
       }
     }
 
-    logger.info('[SolanaService] All ATAs created successfully', { totalCreated: missingATAs.length });
+    logger.info('[SolanaService] All ATAs created successfully', {
+      totalCreated: missingATAs.length
+    });
   }
 
   /**
@@ -442,7 +464,12 @@ export class SolanaService {
   ): Promise<{
     transactionHashes: string[];
     totalGasUsed: number;
-    details: Array<{ address: string; amount: string; status: 'success' | 'failed'; error?: string }>;
+    details: Array<{
+      address: string;
+      amount: string;
+      status: 'success' | 'failed';
+      error?: string;
+    }>;
   }> {
     logger.info('[SolanaService] Starting batch token transfer', {
       batchSize,
@@ -450,7 +477,12 @@ export class SolanaService {
     });
 
     const transactionHashes: string[] = [];
-    const details: Array<{ address: string; amount: string; status: 'success' | 'failed'; error?: string }> = [];
+    const details: Array<{
+      address: string;
+      amount: string;
+      status: 'success' | 'failed';
+      error?: string;
+    }> = [];
     let totalGasUsed = 0;
 
     // Sender's ATA (required for SPL tokens)
@@ -494,7 +526,9 @@ export class SolanaService {
           } else {
             // SPL token transfer
             const tokenMint = new PublicKey(tokenInfo.address);
-            const transferAmount = BigInt(Math.floor(parseFloat(item.amount) * Math.pow(10, tokenInfo.decimals)));
+            const transferAmount = BigInt(
+              Math.floor(parseFloat(item.amount) * Math.pow(10, tokenInfo.decimals))
+            );
 
             if (tokenInfo.programId.equals(TOKEN_2022_PROGRAM_ID)) {
               // Token-2022 uses transferChecked
@@ -555,7 +589,6 @@ export class SolanaService {
           signature,
           gasUsed
         });
-
       } catch (error) {
         logger.error('[SolanaService] Transfer batch failed', error as Error, { batchNumber });
 
@@ -591,7 +624,10 @@ export class SolanaService {
   /**
    * Check transaction status
    */
-  async getTransactionStatus(rpcUrl: string, transactionHash: string): Promise<{
+  async getTransactionStatus(
+    rpcUrl: string,
+    transactionHash: string
+  ): Promise<{
     status: 'confirmed' | 'pending' | 'failed';
     blockHeight?: number;
     error?: string;
@@ -686,7 +722,10 @@ export class SolanaService {
 
       return Math.ceil(estimatedFee);
     } catch (error) {
-      logger.error('[SolanaService] Failed to estimate fee', error as Error, { recipientCount, isSPLToken });
+      logger.error('[SolanaService] Failed to estimate fee', error as Error, {
+        recipientCount,
+        isSPLToken
+      });
       return DEFAULTS.SOLANA_FEES.spl_account_creation_fee;
     }
   }

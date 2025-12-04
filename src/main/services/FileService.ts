@@ -4,7 +4,9 @@ import * as path from 'path';
 import { stringify } from 'csv-stringify';
 import { parseCSV } from '../utils/csvValidator';
 import BigNumber from 'bignumber.js';
+import { Logger } from '../utils/logger';
 
+const logger = Logger.getInstance().child('FileService');
 
 export interface CSVRow {
   address: string;
@@ -42,20 +44,27 @@ export class FileService {
 
       return result.sampleData;
     } catch (error) {
-      console.error('Failed to read CSV:', error);
-      throw new Error(`CSV file reading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error('Failed to read CSV:', error as Error);
+      throw new Error(
+        `CSV file reading failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
-  async exportReport(campaignId: string, format: 'csv' = 'csv'): Promise<{ success: boolean; filePath: string }> {
+  async exportReport(
+    campaignId: string,
+    format: 'csv' = 'csv'
+  ): Promise<{ success: boolean; filePath: string }> {
     try {
       const reportData = await this.generateReportData(campaignId);
       const fileName = `campaign_${campaignId}_report.csv`;
       const filePath = await this.exportCSVReport(reportData, fileName);
       return { success: true, filePath };
     } catch (error) {
-      console.error('Failed to export report:', error);
-      throw new Error(`Report export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error('Failed to export report:', error as Error);
+      throw new Error(
+        `Report export failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -68,14 +77,22 @@ export class FileService {
     }
 
     // Get recipient information
-    const recipients = this.db.prepare(`
+    const recipients = this.db
+      .prepare(
+        `
       SELECT * FROM recipients WHERE campaign_id = ? ORDER BY created_at
-    `).all(campaignId);
+    `
+      )
+      .all(campaignId);
 
     // Get transaction records
-    const transactions = this.db.prepare(`
+    const transactions = this.db
+      .prepare(
+        `
       SELECT * FROM transactions WHERE campaign_id = ? ORDER BY created_at
-    `).all(campaignId);
+    `
+      )
+      .all(campaignId);
 
     // Calculate summary information
     const totalRecipients = recipients.length;
@@ -100,21 +117,21 @@ export class FileService {
       sentRecipients,
       failedRecipients,
       pendingRecipients,
-      successRate: totalRecipients > 0 ? (sentRecipients / totalRecipients * 100).toFixed(2) : 0,
+      successRate: totalRecipients > 0 ? ((sentRecipients / totalRecipients) * 100).toFixed(2) : 0,
       totalAmount: totalAmount.toString(),
       sentAmount: sentAmount.toString(),
       totalGasUsed: totalGasUsed.toString(),
       totalGasCost: totalGasCost.toString(),
       campaignStatus: (campaign as any).status || 'unknown',
       createdAt: (campaign as any).created_at || new Date().toISOString(),
-      updatedAt: (campaign as any).updated_at || new Date().toISOString(),
+      updatedAt: (campaign as any).updated_at || new Date().toISOString()
     };
 
     return {
       campaign,
       recipients,
       transactions,
-      summary,
+      summary
     };
   }
 
@@ -146,7 +163,7 @@ export class FileService {
           resolve(filePath);
         });
 
-        writableStream.on('error', (error) => {
+        writableStream.on('error', error => {
           reject(new Error(`Failed to write CSV file: ${error.message}`));
         });
 
@@ -177,7 +194,6 @@ export class FileService {
     });
   }
 
-  
   private getDownloadsDirectory(): string {
     const homeDir = require('os').homedir();
     const platform = require('os').platform();
@@ -243,12 +259,16 @@ export class FileService {
     } catch (error) {
       return {
         valid: false,
-        errors: [`File validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
+        errors: [
+          `File validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        ]
       };
     }
   }
 
-  async getFileStats(filePath: string): Promise<{ size: number; lines: number; validRows: number }> {
+  async getFileStats(
+    filePath: string
+  ): Promise<{ size: number; lines: number; validRows: number }> {
     try {
       if (!fs.existsSync(filePath)) {
         throw new Error('File not found');
@@ -299,4 +319,4 @@ export class FileService {
       throw new Error(`Failed to create backup: ${error}`);
     }
   }
-  }
+}

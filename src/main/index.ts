@@ -17,13 +17,13 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
-      contextIsolation: true,
+      contextIsolation: true
     },
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#0F172A',
-      symbolColor: '#7C3AED',
-    },
+      symbolColor: '#7C3AED'
+    }
   });
 
   // Load Vite server in development environment

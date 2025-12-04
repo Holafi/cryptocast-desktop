@@ -16,8 +16,8 @@ export interface CSVValidationResult {
   validRecords: number;
   invalidRecords: number;
   errors: string[];
-  sampleData: CSVRow[];  // First 5 sample records for preview
-  data: CSVRow[];        // All data
+  sampleData: CSVRow[]; // First 5 sample records for preview
+  data: CSVRow[]; // All data
 }
 
 export interface CSVParseOptions {
@@ -39,7 +39,8 @@ export function validateAddress(address: string): { isValid: boolean; type?: 'ev
   }
 
   // Then try Solana address validation
-  if (ChainUtils.isValidAddress(trimmedAddress, '501')) { // Use Solana chain ID
+  if (ChainUtils.isValidAddress(trimmedAddress, '501')) {
+    // Use Solana chain ID
     return { isValid: true, type: 'solana' };
   }
 
@@ -63,15 +64,8 @@ export function validateAmount(amount: string): { isValid: boolean; value?: numb
 /**
  * Parse CSV content
  */
-export function parseCSV(
-  content: string,
-  options: CSVParseOptions = {}
-): CSVValidationResult {
-  const {
-    hasHeaders = false,
-    skipEmptyLines = true,
-    trim = true
-  } = options;
+export function parseCSV(content: string, options: CSVParseOptions = {}): CSVValidationResult {
+  const { hasHeaders = false, skipEmptyLines = true, trim = true } = options;
 
   try {
     const lines = content.split('\n').filter(line => {
@@ -97,12 +91,14 @@ export function parseCSV(
     // Handle header row
     if (hasHeaders) {
       const headerLine = lines[0];
-      headers.push(...headerLine.split(',').map(h => trim ? h.trim() : h));
+      headers.push(...headerLine.split(',').map(h => (trim ? h.trim() : h)));
       startIndex = 1;
 
       // Validate required columns
-      if (!headers.some(h => h.toLowerCase().includes('address')) ||
-          !headers.some(h => h.toLowerCase().includes('amount'))) {
+      if (
+        !headers.some(h => h.toLowerCase().includes('address')) ||
+        !headers.some(h => h.toLowerCase().includes('amount'))
+      ) {
         return {
           isValid: false,
           totalRecords: lines.length - 1,
@@ -127,7 +123,7 @@ export function parseCSV(
         continue;
       }
 
-      const values = line.split(',').map(v => trim ? v.trim() : v);
+      const values = line.split(',').map(v => (trim ? v.trim() : v));
 
       if (values.length < 2) {
         errors.push(`Line ${lineNum}: Format error, must contain address and amount`);
@@ -181,10 +177,9 @@ export function parseCSV(
       validRecords: data.length,
       invalidRecords: lines.length - startIndex - data.length,
       errors,
-      sampleData: data.slice(0, 5),  // First 5 records for preview
-      data: data                      // All data
+      sampleData: data.slice(0, 5), // First 5 records for preview
+      data: data // All data
     };
-
   } catch (error) {
     return {
       isValid: false,
@@ -214,8 +209,9 @@ export async function readCSVFile(filePath: string): Promise<CSVRow[]> {
 
     // Return all data, not just the first 5
     return result.data;
-
   } catch (error) {
-    throw new Error(`CSV file reading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `CSV file reading failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }

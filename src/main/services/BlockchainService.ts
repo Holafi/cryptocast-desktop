@@ -1,8 +1,20 @@
 import { ethers } from 'ethers';
-import { Connection, PublicKey, LAMPORTS_PER_SOL, Keypair, Transaction, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js';
+import {
+  Connection,
+  PublicKey,
+  LAMPORTS_PER_SOL,
+  Keypair,
+  Transaction,
+  SystemProgram,
+  sendAndConfirmTransaction
+} from '@solana/web3.js';
 import { DEFAULTS } from '../config/defaults';
 import { isNativeToken } from '../config/constants';
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createTransferInstruction, getAccount } from '@solana/spl-token';
+import {
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  getAccount
+} from '@solana/spl-token';
 import { PriceService } from './PriceService';
 import { ChainUtils } from '../utils/chain-utils';
 import type { DatabaseManager } from '../database/sqlite-schema';
@@ -74,7 +86,7 @@ export class BlockchainService {
     tokenDecimals?: number,
     rpcUrl?: string
   ): Promise<BalanceData> {
-    const effectiveRpcUrl = rpcUrl || await this.getDefaultRPC(chain);
+    const effectiveRpcUrl = rpcUrl || (await this.getDefaultRPC(chain));
     const provider = new ethers.JsonRpcProvider(effectiveRpcUrl);
 
     // Get native token balance
@@ -83,10 +95,9 @@ export class BlockchainService {
     let tokenBalance: string | undefined;
     if (!isNativeToken(tokenAddress)) {
       try {
-
         // If tokenDecimals is not provided, fetch it dynamically
         if (tokenDecimals === undefined) {
-                    const erc20Abi = [
+          const erc20Abi = [
             'function balanceOf(address owner) view returns (uint256)',
             'function decimals() view returns (uint8)'
           ];
@@ -102,15 +113,12 @@ export class BlockchainService {
           tokenBalance = ethers.formatUnits(balance, Number(decimals));
         } else {
           // Use provided decimals
-          const erc20Abi = [
-            'function balanceOf(address owner) view returns (uint256)'
-          ];
+          const erc20Abi = ['function balanceOf(address owner) view returns (uint256)'];
 
           const contract = new ethers.Contract(tokenAddress!, erc20Abi, provider);
           const balance = await contract.balanceOf(address);
           tokenBalance = ethers.formatUnits(balance, tokenDecimals);
         }
-
       } catch (error) {
         console.error('Failed to get token balance:', {
           error: error instanceof Error ? error.message : error,
@@ -122,11 +130,11 @@ export class BlockchainService {
         tokenBalance = '0';
       }
     } else {
-          }
+    }
 
     return {
       native: ethers.formatEther(nativeBalance),
-      token: tokenBalance,
+      token: tokenBalance
     };
   }
 
@@ -154,7 +162,7 @@ export class BlockchainService {
 
         // Get associated token account address
         const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
-          mint: mintPublicKey,
+          mint: mintPublicKey
         });
 
         if (tokenAccounts.value.length > 0) {
@@ -182,7 +190,7 @@ export class BlockchainService {
 
     return {
       native: nativeBalance,
-      token: tokenBalance,
+      token: tokenBalance
     };
   }
 
@@ -198,10 +206,17 @@ export class BlockchainService {
       if (ChainUtils.isSolanaChain(chain)) {
         return await this.estimateSolanaGas(chain, recipientCount || 1, rpcUrl);
       } else {
-        return await this.estimatEVMGas(chain, fromAddress, toAddress, tokenAddress, recipientCount, rpcUrl);
+        return await this.estimatEVMGas(
+          chain,
+          fromAddress,
+          toAddress,
+          tokenAddress,
+          recipientCount,
+          rpcUrl
+        );
       }
     } catch (error) {
-      console.error('Failed to estimate gas:', error);
+      logger.error('Failed to estimate gas:', error as Error);
       throw new Error('Gas estimation failed');
     }
   }
@@ -214,7 +229,7 @@ export class BlockchainService {
     recipientCount?: number,
     rpcUrl?: string
   ): Promise<GasEstimate> {
-    const provider = new ethers.JsonRpcProvider(rpcUrl || await this.getDefaultRPC(chain));
+    const provider = new ethers.JsonRpcProvider(rpcUrl || (await this.getDefaultRPC(chain)));
 
     // Get current gas price
     const feeData = await provider.getFeeData();
@@ -241,7 +256,7 @@ export class BlockchainService {
       gasLimit: gasLimit.toString(),
       gasPrice: ethers.formatUnits(gasPrice, 'gwei'),
       gasCost: gasCostEth,
-      gasCostUsd,
+      gasCostUsd
     };
   }
 
@@ -249,7 +264,7 @@ export class BlockchainService {
     // Use configured gas estimation
     const gasPerTransfer = BigInt(DEFAULTS.GAS_LIMITS.token);
     const baseGas = BigInt(DEFAULTS.GAS_LIMITS.campaign); // Base gas for contract calls
-    return baseGas + (gasPerTransfer * BigInt(recipientCount));
+    return baseGas + gasPerTransfer * BigInt(recipientCount);
   }
 
   private async estimateSolanaGas(
@@ -282,7 +297,9 @@ export class BlockchainService {
       const signatureFees = baseFeePerSignature * BigInt(transactionCount + 1); // +1 for payer signature
 
       // Additional fees for SPL transfers (creating associated accounts, etc.)
-      const splAccountCreationFee = BigInt(DEFAULTS.SOLANA_FEES.spl_account_creation_fee) * BigInt(Math.min(transactionCount, Math.floor(transactionCount * 0.3))); // Assume 30% need account creation
+      const splAccountCreationFee =
+        BigInt(DEFAULTS.SOLANA_FEES.spl_account_creation_fee) *
+        BigInt(Math.min(transactionCount, Math.floor(transactionCount * 0.3))); // Assume 30% need account creation
 
       const totalLamports = computeFee + signatureFees + splAccountCreationFee;
       const solCost = totalLamports / BigInt(LAMPORTS_PER_SOL);
@@ -292,7 +309,7 @@ export class BlockchainService {
       const solCostUsd = (Number(solCost) * solPriceUsd).toFixed(6);
 
       // Add network congestion buffer (20%)
-      const bufferedLamports = totalLamports * BigInt(12) / BigInt(10);
+      const bufferedLamports = (totalLamports * BigInt(12)) / BigInt(10);
       const bufferedSolCost = bufferedLamports / BigInt(LAMPORTS_PER_SOL);
       const bufferedSolCostUsd = (Number(bufferedSolCost) * solPriceUsd).toFixed(6);
 
@@ -338,50 +355,53 @@ export class BlockchainService {
         const db = this.databaseManager.getDatabase();
 
         // First try to query by name or type
-        let chainData = await db.prepare(
-          'SELECT rpc_url FROM chains WHERE name = ? OR type = ? LIMIT 1'
-        ).get(chain, chain.toLowerCase()) as { rpc_url?: string } | undefined;
+        let chainData = (await db
+          .prepare('SELECT rpc_url FROM chains WHERE name = ? OR type = ? LIMIT 1')
+          .get(chain, chain.toLowerCase())) as { rpc_url?: string } | undefined;
 
         // If not found, try to query by chain_id (for cases where input is a numeric string)
         if (!chainData || !chainData.rpc_url) {
-          chainData = await db.prepare(
-            'SELECT rpc_url FROM chains WHERE chain_id = ? LIMIT 1'
-          ).get(chain) as { rpc_url?: string } | undefined;
+          chainData = (await db
+            .prepare('SELECT rpc_url FROM chains WHERE chain_id = ? LIMIT 1')
+            .get(chain)) as { rpc_url?: string } | undefined;
         }
 
         if (chainData && chainData.rpc_url) {
-                    return chainData.rpc_url;
+          return chainData.rpc_url;
         }
       }
     } catch (error) {
-      logger.warn('Failed to get RPC URL from database', { chain, error: error instanceof Error ? error.message : String(error) });
+      logger.warn('Failed to get RPC URL from database', {
+        chain,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
 
     // Fallback RPC URLs
     const rpcMap: { [key: string]: string } = {
       // Mainnet
       '1': 'https://eth.llamarpc.com',
-      'ethereum': 'https://eth.llamarpc.com',
+      ethereum: 'https://eth.llamarpc.com',
       '137': 'https://polygon.llamarpc.com',
-      'polygon': 'https://polygon.llamarpc.com',
+      polygon: 'https://polygon.llamarpc.com',
       '42161': 'https://arbitrum.llamarpc.com',
-      'arbitrum': 'https://arbitrum.llamarpc.com',
+      arbitrum: 'https://arbitrum.llamarpc.com',
       '10': 'https://optimism.llamarpc.com',
-      'optimism': 'https://optimism.llamarpc.com',
+      optimism: 'https://optimism.llamarpc.com',
       '8453': 'https://base.llamarpc.com',
-      'base': 'https://base.llamarpc.com',
+      base: 'https://base.llamarpc.com',
       '56': 'https://bsc.llamarpc.com',
-      'bsc': 'https://bsc.llamarpc.com',
+      bsc: 'https://bsc.llamarpc.com',
       '43114': 'https://avalanche.llamarpc.com',
-      'avalanche': 'https://avalanche.llamarpc.com',
+      avalanche: 'https://avalanche.llamarpc.com',
       // Testnet
       '11155111': 'https://ethereum-sepolia-rpc.publicnode.com',
       'ethereum sepolia testnet': 'https://ethereum-sepolia-rpc.publicnode.com',
-      'sepolia': 'https://ethereum-sepolia-rpc.publicnode.com',
+      sepolia: 'https://ethereum-sepolia-rpc.publicnode.com'
     };
 
     const rpcUrl = rpcMap[chain.toLowerCase()] || rpcMap[chain] || rpcMap['ethereum'];
-        return rpcUrl;
+    return rpcUrl;
   }
 
   private async getETHPriceUSD(): Promise<number> {
@@ -420,15 +440,12 @@ export class BlockchainService {
         return await this.getEVMTransactionStatus(txHash, rpcUrl);
       }
     } catch (error) {
-      console.error('Failed to get transaction status:', error);
+      logger.error('Failed to get transaction status:', error as Error);
       throw new Error('Transaction status retrieval failed');
     }
   }
 
-  private async getEVMTransactionStatus(
-    txHash: string,
-    rpcUrl?: string
-  ): Promise<TransactionData> {
+  private async getEVMTransactionStatus(txHash: string, rpcUrl?: string): Promise<TransactionData> {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
 
     const receipt = await provider.getTransactionReceipt(txHash);
@@ -436,7 +453,7 @@ export class BlockchainService {
     if (!receipt) {
       return {
         hash: txHash,
-        status: 'pending',
+        status: 'pending'
       };
     }
 
@@ -446,7 +463,7 @@ export class BlockchainService {
       gasUsed: receipt.gasUsed?.toString(),
       effectiveGasPrice: receipt.gasPrice?.toString(),
       blockNumber: receipt.blockNumber,
-      blockHash: receipt.blockHash,
+      blockHash: receipt.blockHash
     };
   }
 
@@ -466,7 +483,7 @@ export class BlockchainService {
     if (!status.value) {
       return {
         hash: txHash,
-        status: 'pending',
+        status: 'pending'
       };
     }
 
@@ -485,7 +502,7 @@ export class BlockchainService {
     return {
       hash: txHash,
       status: confirmed ? 'confirmed' : 'failed',
-      blockNumber,
+      blockNumber
     };
   }
 
@@ -553,10 +570,7 @@ export class BlockchainService {
       const recipientPublicKey = new PublicKey(recipientAddress);
 
       // Get source token account (sender's associated token account)
-      const sourceTokenAccount = await getAssociatedTokenAddress(
-        mintPublicKey,
-        walletPublicKey
-      );
+      const sourceTokenAccount = await getAssociatedTokenAddress(mintPublicKey, walletPublicKey);
 
       // Get destination token account (recipient's associated token account)
       const destinationTokenAccount = await getAssociatedTokenAddress(
@@ -587,26 +601,25 @@ export class BlockchainService {
       );
 
       // Send and confirm transaction
-      const signature = await sendAndConfirmTransaction(
-        connection,
-        transaction,
-        [wallet],
-        {
-          commitment: 'confirmed'
-        }
-      );
+      const signature = await sendAndConfirmTransaction(connection, transaction, [wallet], {
+        commitment: 'confirmed'
+      });
 
       // Convert amount to human-readable format
       const amountFormatted = (Number(balance) / Math.pow(10, decimals)).toString();
 
-      
       return {
         txHash: signature,
         amount: amountFormatted
       };
     } catch (error) {
-      logger.error('Failed to withdraw SPL tokens', error as Error, { tokenMintAddress, recipientAddress });
-      throw new Error(`Failed to withdraw SPL tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error('Failed to withdraw SPL tokens', error as Error, {
+        tokenMintAddress,
+        recipientAddress
+      });
+      throw new Error(
+        `Failed to withdraw SPL tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -655,10 +668,7 @@ export class BlockchainService {
       );
 
       // Get fee for transaction (typically 5000 lamports)
-      const fee = await connection.getFeeForMessage(
-        dummyTransaction.compileMessage(),
-        'confirmed'
-      );
+      const fee = await connection.getFeeForMessage(dummyTransaction.compileMessage(), 'confirmed');
 
       const estimatedFee = fee.value || 5000;
 
@@ -671,7 +681,9 @@ export class BlockchainService {
       const amountToSend = balance - totalReserve;
 
       if (amountToSend <= 0) {
-        throw new Error(`Insufficient SOL balance. Available: ${balance} lamports, Required reserve: ${totalReserve} lamports (fee: ${feeBuffer}, rent: ${rentExemptBalance})`);
+        throw new Error(
+          `Insufficient SOL balance. Available: ${balance} lamports, Required reserve: ${totalReserve} lamports (fee: ${feeBuffer}, rent: ${rentExemptBalance})`
+        );
       }
 
       // Create the actual transfer transaction
@@ -684,26 +696,22 @@ export class BlockchainService {
       );
 
       // Send and confirm transaction
-      const signature = await sendAndConfirmTransaction(
-        connection,
-        transaction,
-        [wallet],
-        {
-          commitment: 'confirmed'
-        }
-      );
+      const signature = await sendAndConfirmTransaction(connection, transaction, [wallet], {
+        commitment: 'confirmed'
+      });
 
       // Convert lamports to SOL
       const amountInSOL = (amountToSend / LAMPORTS_PER_SOL).toString();
 
-      
       return {
         txHash: signature,
         amount: amountInSOL
       };
     } catch (error) {
       logger.error('Failed to withdraw SOL', error as Error, { recipientAddress });
-      throw new Error(`Failed to withdraw SOL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to withdraw SOL: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 }

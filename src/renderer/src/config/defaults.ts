@@ -6,14 +6,14 @@
 export const DEFAULTS = {
   // Form default values
   CAMPAIGN_FORM: {
-    chain: '56',          // Default to BSC
+    chain: '56', // Default to BSC
     batchSize: {
-      evm: 100,           // EVM default 100 transactions per batch
-      solana: 10,         // Solana default 10 transactions per batch (simplified conservative value)
+      evm: 100, // EVM default 100 transactions per batch
+      solana: 10 // Solana default 10 transactions per batch (simplified conservative value)
     },
     sendInterval: {
-      evm: '20000',       // EVM default 20 seconds
-      solana: '5000',     // Solana default 5 seconds
+      evm: '20000', // EVM default 20 seconds
+      solana: '5000' // Solana default 5 seconds
     }
   },
 
@@ -36,10 +36,10 @@ export const DEFAULTS = {
 
   // UI configuration
   UI: {
-    pagination_limit: 10,      // Pagination size
-    refresh_interval: 10000,    // Balance refresh interval 10 seconds
-    auto_copy_timeout: 2000,    // Auto copy notification timeout
-    toast_duration: 3000,       // Toast display duration
+    pagination_limit: 10, // Pagination size
+    refresh_interval: 10000, // Balance refresh interval 10 seconds
+    auto_copy_timeout: 2000, // Auto copy notification timeout
+    toast_duration: 3000 // Toast display duration
   },
 
   // Filter options
@@ -55,10 +55,10 @@ export const DEFAULTS = {
   // Price assumptions (USD) - Used for calculation estimates
   // Update date: 2025-11-26
   PRICE_ASSUMPTIONS: {
-    ETH: 2925.61,  // Ethereum current price ~$2,926
-    SOL: 138.43,   // Solana current price ~$138
-    BNB: 656.84,   // BNB current price ~$657
-    POL: 1.35,     // Polygon current price ~$1.35
-    AVAX: 40.04,   // Avalanche current price ~$40
+    ETH: 2925.61, // Ethereum current price ~$2,926
+    SOL: 138.43, // Solana current price ~$138
+    BNB: 656.84, // BNB current price ~$657
+    POL: 1.35, // Polygon current price ~$1.35
+    AVAX: 40.04 // Avalanche current price ~$40
   }
 } as const;
