@@ -198,6 +198,27 @@ export default function CampaignCreate() {
           : DEFAULTS.CAMPAIGN_FORM.sendInterval.evm
       }));
 
+      // Re-validate CSV with new chain type (if CSV content exists)
+      if (csvContent.trim()) {
+        try {
+          const validation = parseCSV(csvContent, {
+            hasHeaders: false,
+            chainType: selectedChain?.type // Validate with new chain type
+          });
+          setCsvData(validation.data);
+          setCsvValidation(validation);
+        } catch (error) {
+          setCsvValidation({
+            isValid: false,
+            totalRecords: 0,
+            validRecords: 0,
+            invalidRecords: 0,
+            errors: [{ row: 0, field: 'address', value: '', error: t('campaign.csvParseFailed') }],
+            sampleData: []
+          });
+        }
+      }
+
       // Refetch token information
       if (formData.tokenAddress && !tokenAddressError) {
         setTokenInfo(null);
@@ -244,8 +265,15 @@ export default function CampaignCreate() {
 
     if (content.trim()) {
       try {
-        // Use unified CSV validator (no headers expected for textarea input)
-        const validation = parseCSV(content, { hasHeaders: false });
+        // Get selected chain type for validation
+        const selectedChain = availableChains.find(c => c.id === formData.chain);
+        const chainType = selectedChain?.type;
+
+        // Use unified CSV validator with chain type validation
+        const validation = parseCSV(content, {
+          hasHeaders: false,
+          chainType: chainType // Pass chain type to validate address compatibility
+        });
 
         setCsvData(validation.data); // Use all data instead of sampleData
         setCsvValidation(validation);

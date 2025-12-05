@@ -149,7 +149,12 @@ export class CampaignService {
         for (let i = 0; i < data.recipients.length; i++) {
           const recipient = data.recipients[i];
           const batchNumber = Math.floor(i / (data.batchSize || 100)) + 1;
-          await insertRecipient.run(id, recipient.address, recipient.amount, batchNumber, now);
+          // Normalize EVM addresses to lowercase for consistency
+          // Solana addresses are case-sensitive, so keep them as-is
+          const normalizedAddress = chainType === 'evm'
+            ? recipient.address.toLowerCase()
+            : recipient.address;
+          await insertRecipient.run(id, normalizedAddress, recipient.amount, batchNumber, now);
         }
       });
 
@@ -738,10 +743,8 @@ export class CampaignService {
         throw new Error('Only paused campaigns can be resumed');
       }
 
-      // Update status to SENDING
-      await this.updateCampaignStatus(id, 'SENDING');
-
       // Request executor to resume execution
+      // The executor will update the status to SENDING when it starts
       await this.executor.resumeExecution(id);
 
       return { success: true };

@@ -29,6 +29,7 @@ export interface CSVParseOptions {
   hasHeaders?: boolean; // Whether the file contains a header row
   skipEmptyLines?: boolean; // Whether to skip empty lines
   trim?: boolean; // Whether to trim whitespace
+  chainType?: 'evm' | 'solana'; // Target blockchain type - validates addresses match this type
 }
 
 /**
@@ -125,6 +126,7 @@ export function parseCSV(content: string, options: CSVParseOptions = {}): CSVVal
 
     const data: CSVRow[] = [];
     const errors: CSVValidationError[] = [];
+    const seenAddresses = new Set<string>(); // Track addresses to detect duplicates
 
     // Parse data rows
     for (let i = startIndex; i < lines.length; i++) {
@@ -185,6 +187,37 @@ export function parseCSV(content: string, options: CSVParseOptions = {}): CSVVal
         continue;
       }
 
+      // Validate address type matches target chain (if chainType is specified)
+      if (options.chainType && addressValidation.type !== options.chainType) {
+        const expectedType = options.chainType.toUpperCase();
+        const actualType = addressValidation.type?.toUpperCase() || 'UNKNOWN';
+        errors.push({
+          row: lineNum,
+          field: 'address',
+          value: address,
+          error: `Address type mismatch: expected ${expectedType} address, but got ${actualType} address`
+        });
+        continue;
+      }
+
+      // Normalize address for duplicate detection
+      // EVM addresses are case-insensitive, so normalize to lowercase
+      // Solana addresses are case-sensitive, so keep as-is
+      const normalizedAddress = addressValidation.type === 'evm'
+        ? address.toLowerCase()
+        : address.trim();
+
+      // Check for duplicate addresses
+      if (seenAddresses.has(normalizedAddress)) {
+        errors.push({
+          row: lineNum,
+          field: 'address',
+          value: address,
+          error: 'Duplicate address found in CSV'
+        });
+        continue;
+      }
+
       // Validate amount
       const amountValidation = validateAmount(amount);
       if (!amountValidation.isValid) {
@@ -196,6 +229,9 @@ export function parseCSV(content: string, options: CSVParseOptions = {}): CSVVal
         });
         continue;
       }
+
+      // Add to seen addresses set
+      seenAddresses.add(normalizedAddress);
 
       data.push({
         address: address.trim(),

@@ -483,7 +483,6 @@ export class CampaignExecutor {
    * Resume paused campaign execution
    */
   async resumeExecution(campaignId: string): Promise<void> {
-    this.pauseMap.set(campaignId, false);
     logger.info(`Resume requested for campaign ${campaignId}`);
 
     // Check if campaign is actually paused and has pending recipients
@@ -510,6 +509,9 @@ export class CampaignExecutor {
     logger.info(
       `Resuming campaign ${campaignId} with ${pendingRecipients.length} pending recipients`
     );
+
+    // Clear pause flag before resuming
+    this.pauseMap.set(campaignId, false);
 
     // Re-execute the campaign with remaining recipients
     // This will continue from where it left off since we only get pending recipients
