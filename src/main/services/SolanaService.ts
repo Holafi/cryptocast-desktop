@@ -29,6 +29,51 @@ import { Logger } from '../utils/logger';
 
 const logger = Logger.getInstance().child('SolanaService');
 
+/**
+ * Safely convert amount string to lamports/atomic units using BigNumber
+ */
+function safeAmountToAtomic(amount: string, decimals: number): bigint {
+  try {
+    // Validate input
+    if (!amount || amount.trim() === '') {
+      throw new Error('Amount cannot be empty');
+    }
+
+    // Use BigNumber for precise decimal calculations
+    const amountBN = new BigNumber(amount);
+
+    // Check for negative amounts
+    if (amountBN.isNegative()) {
+      throw new Error('Amount cannot be negative');
+    }
+
+    // Check for invalid number
+    if (!amountBN.isFinite()) {
+      throw new Error('Amount must be a valid number');
+    }
+
+    // Convert to atomic units (lamports for SOL, smallest unit for tokens)
+    const multiplier = new BigNumber(10).pow(decimals);
+    const atomicAmount = amountBN.multipliedBy(multiplier);
+
+    // Check if it exceeds safe integer range
+    if (atomicAmount.isGreaterThan(new BigNumber(Number.MAX_SAFE_INTEGER))) {
+      throw new Error('Amount too large');
+    }
+
+    // Convert to BigInt and ensure it's an integer
+    const atomicBigInt = BigInt(atomicAmount.integerValue().toString());
+
+    return atomicBigInt;
+  } catch (error) {
+    logger.error('[SolanaService] Failed to convert amount to atomic units', error as Error, {
+      amount,
+      decimals
+    });
+    throw new Error(`Invalid amount: ${amount}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export interface SolanaBatchTransferResult {
   transactionHash: string;
   totalAmount: string;
@@ -59,21 +104,82 @@ interface ATAInfo {
 
 export class SolanaService {
   private connection: Connection | null = null;
+  private connectionPromise: Promise<Connection> | null = null;
+  private processedSignatures = new Map<string, { timestamp: number; confirmed: boolean }>();
+  private readonly SIGNATURE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes TTL
 
   /**
-   * Initialize Solana connection
+   * Clean up expired signature cache entries
    */
-  private initializeConnection(rpcUrl: string): Connection {
-    if (!this.connection) {
-      this.connection = new Connection(rpcUrl, {
-        commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 60000, // 60秒超时 - shorter to detect issues faster
-        httpHeaders: {
-          'Connection': 'keep-alive'
-        }
-      });
+  private cleanupSignatureCache(): void {
+    const now = Date.now();
+    for (const [signature, data] of this.processedSignatures.entries()) {
+      if (now - data.timestamp > this.SIGNATURE_CACHE_TTL) {
+        this.processedSignatures.delete(signature);
+      }
     }
-    return this.connection;
+  }
+
+  /**
+   * Check if a signature has been processed before
+   */
+  private isSignatureProcessed(signature: string): { processed: boolean; confirmed: boolean } {
+    this.cleanupSignatureCache();
+    const cached = this.processedSignatures.get(signature);
+    if (cached) {
+      return { processed: true, confirmed: cached.confirmed };
+    }
+    return { processed: false, confirmed: false };
+  }
+
+  /**
+   * Mark a signature as processed
+   */
+  private markSignatureProcessed(signature: string, confirmed: boolean = false): void {
+    this.processedSignatures.set(signature, {
+      timestamp: Date.now(),
+      confirmed
+    });
+  }
+
+  /**
+   * Initialize Solana connection with race condition protection
+   */
+  private async initializeConnection(rpcUrl: string): Promise<Connection> {
+    // If connection already exists, return it immediately
+    if (this.connection) {
+      return this.connection;
+    }
+
+    // If connection is being created, wait for it
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    // Create connection and store the promise
+    this.connectionPromise = (async () => {
+      try {
+        const newConnection = new Connection(rpcUrl, {
+          commitment: 'confirmed',
+          confirmTransactionInitialTimeout: 60000, // 60秒超时 - shorter to detect issues faster
+          httpHeaders: {
+            'Connection': 'keep-alive'
+          }
+        });
+
+        // Test the connection
+        await newConnection.getLatestBlockhash('confirmed');
+
+        this.connection = newConnection;
+        return newConnection;
+      } catch (error) {
+        // If connection fails, reset the promise so it can be retried
+        this.connectionPromise = null;
+        throw error;
+      }
+    })();
+
+    return this.connectionPromise;
   }
 
   /**
@@ -113,7 +219,7 @@ export class SolanaService {
    */
   async getTokenInfo(rpcUrl: string, tokenAddress: string): Promise<SolanaTokenInfo> {
     try {
-      const connection = this.initializeConnection(rpcUrl);
+      const connection = await this.initializeConnection(rpcUrl);
 
       // Check if it's native SOL
       if (tokenAddress.toLowerCase() === 'sol' || tokenAddress.toLowerCase() === 'native') {
@@ -170,7 +276,7 @@ export class SolanaService {
     tokenAddress?: string
   ): Promise<string> {
     try {
-      const connection = this.initializeConnection(rpcUrl);
+      const connection = await this.initializeConnection(rpcUrl);
       const publicKey = new PublicKey(walletPublicKey);
 
       if (!tokenAddress || tokenAddress.toLowerCase() === 'sol') {
@@ -222,7 +328,7 @@ export class SolanaService {
     batchSize: number = DEFAULTS.BATCH_SIZES.solana // Read default batch size from config file
   ): Promise<SolanaBatchTransferResult> {
     try {
-      const connection = this.initializeConnection(rpcUrl);
+      const connection = await this.initializeConnection(rpcUrl);
       const wallet = this.createKeypairFromBase64(privateKeyBase64);
 
       // Get token information
@@ -562,18 +668,41 @@ export class SolanaService {
     // Sign transaction
     transaction.sign(...signers);
 
+    // Get signature from transaction
+    const signature = bs58.encode(transaction.signature!);
+
+    // CRITICAL: Check if this signature has been processed before to prevent double-spending
+    const signatureCheck = this.isSignatureProcessed(signature);
+    if (signatureCheck.processed) {
+      if (signatureCheck.confirmed) {
+        logger.warn('[SolanaService] Transaction already confirmed, returning cached result', {
+          signature: signature.substring(0, 20) + '...'
+        });
+        return { signature, gasUsed: 0 };
+      } else {
+        logger.warn('[SolanaService] Transaction already sent but not confirmed, waiting for confirmation', {
+          signature: signature.substring(0, 20) + '...'
+        });
+        // Continue to confirmation logic below
+      }
+    } else {
+      // Mark as processed immediately after signing to prevent duplicate sends
+      this.markSignatureProcessed(signature, false);
+    }
+
     // Serialize transaction once (will be reused for replay)
     const rawTransaction = transaction.serialize();
 
-    // Send transaction initially with detailed error handling
-    let signature: TransactionSignature;
-    try {
-      signature = await connection.sendRawTransaction(rawTransaction, {
-        skipPreflight: false,
-        maxRetries: 0, // We handle retries ourselves
-        preflightCommitment: 'processed'
-      });
-    } catch (sendError) {
+    // Only send if this signature hasn't been sent before
+    let shouldSend = !signatureCheck.processed;
+    if (shouldSend) {
+      try {
+        await connection.sendRawTransaction(rawTransaction, {
+          skipPreflight: false,
+          maxRetries: 0, // We handle retries ourselves
+          preflightCommitment: 'processed'
+        });
+      } catch (sendError) {
       // Parse and enhance send error
       const errorMsg = sendError instanceof Error ? sendError.message : String(sendError);
       logger.error('[SolanaService] Failed to send transaction', new Error(`Send failed: ${errorMsg}`), {
@@ -595,11 +724,18 @@ export class SolanaService {
       }
     }
 
-    logger.debug('[SolanaService] Transaction sent', {
-      signature: signature.substring(0, 20) + '...',
-      blockhash: blockhash.substring(0, 20) + '...',
-      lastValidBlockHeight
-    });
+    if (shouldSend) {
+      logger.debug('[SolanaService] Transaction sent', {
+        signature: signature.substring(0, 20) + '...',
+        blockhash: blockhash.substring(0, 20) + '...',
+        lastValidBlockHeight
+      });
+    } else {
+      logger.debug('[SolanaService] Using existing transaction, skipping broadcast', {
+        signature: signature.substring(0, 20) + '...'
+      });
+    }
+    }
 
     // Confirm transaction with retry and replay mechanism
     let confirmed = false;
@@ -644,6 +780,9 @@ export class SolanaService {
         }
 
         confirmed = true;
+
+        // CRITICAL: Mark signature as confirmed in our cache
+        this.markSignatureProcessed(signature, true);
 
         // Get gas used
         try {
@@ -739,6 +878,9 @@ export class SolanaService {
                 signature: signature.substring(0, 20) + '...',
                 confirmationStatus
               });
+
+              // CRITICAL: Mark signature as confirmed in our cache
+              this.markSignatureProcessed(signature, true);
 
               // Get gas used
               try {
@@ -1032,9 +1174,14 @@ export class SolanaService {
       if (!item.owner || !item.ata || !item.amount) {
         throw new Error('Invalid recipient data: missing required fields');
       }
-      const amount = parseFloat(item.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error(`Invalid transfer amount: ${item.amount}`);
+      // Validate amount using safe conversion
+      try {
+        const atomicAmount = safeAmountToAtomic(item.amount, tokenInfo.isNativeSOL ? 9 : tokenInfo.decimals);
+        if (atomicAmount <= 0n) {
+          throw new Error(`Amount must be greater than 0: ${item.amount}`);
+        }
+      } catch (error) {
+        throw new Error(`Invalid transfer amount: ${item.amount}. ${error instanceof Error ? error.message : 'Invalid format'}`);
       }
     }
 
@@ -1123,8 +1270,8 @@ export class SolanaService {
 
         for (const item of validRecipients) {
           if (tokenInfo.isNativeSOL) {
-            // Native SOL transfer
-            const lamports = Math.floor(parseFloat(item.amount) * LAMPORTS_PER_SOL);
+            // Native SOL transfer - use safe amount conversion
+            const lamports = Number(safeAmountToAtomic(item.amount, 9));
             const solTransferIx = SystemProgram.transfer({
               fromPubkey: wallet.publicKey,
               toPubkey: item.owner,
@@ -1132,11 +1279,9 @@ export class SolanaService {
             });
             transferInstructions.push(solTransferIx);
           } else {
-            // SPL token transfer
+            // SPL token transfer - use safe amount conversion
             const tokenMint = new PublicKey(tokenInfo.address);
-            const transferAmount = BigInt(
-              Math.floor(parseFloat(item.amount) * Math.pow(10, tokenInfo.decimals))
-            );
+            const transferAmount = safeAmountToAtomic(item.amount, tokenInfo.decimals);
 
             let tokenTransferIx;
             if (tokenInfo.programId.equals(TOKEN_2022_PROGRAM_ID)) {
@@ -1263,7 +1408,7 @@ export class SolanaService {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const connection = this.initializeConnection(rpcUrl);
+        const connection = await this.initializeConnection(rpcUrl);
 
         // Use more efficient query method
         const [transaction, signatureStatuses] = await Promise.all([
@@ -1332,7 +1477,7 @@ export class SolanaService {
     isSPLToken: boolean
   ): Promise<number> {
     try {
-      const connection = this.initializeConnection(rpcUrl);
+      const connection = await this.initializeConnection(rpcUrl);
 
       // Base transaction fee
       let baseFee = DEFAULTS.SOLANA_FEES.base_fee_per_signature;
