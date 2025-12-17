@@ -104,82 +104,21 @@ interface ATAInfo {
 
 export class SolanaService {
   private connection: Connection | null = null;
-  private connectionPromise: Promise<Connection> | null = null;
-  private processedSignatures = new Map<string, { timestamp: number; confirmed: boolean }>();
-  private readonly SIGNATURE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes TTL
 
   /**
-   * Clean up expired signature cache entries
+   * Initialize Solana connection (simplified version)
    */
-  private cleanupSignatureCache(): void {
-    const now = Date.now();
-    for (const [signature, data] of this.processedSignatures.entries()) {
-      if (now - data.timestamp > this.SIGNATURE_CACHE_TTL) {
-        this.processedSignatures.delete(signature);
-      }
+  private initializeConnection(rpcUrl: string): Connection {
+    if (!this.connection) {
+      this.connection = new Connection(rpcUrl, {
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 60000,
+        httpHeaders: {
+          'Connection': 'keep-alive'
+        }
+      });
     }
-  }
-
-  /**
-   * Check if a signature has been processed before
-   */
-  private isSignatureProcessed(signature: string): { processed: boolean; confirmed: boolean } {
-    this.cleanupSignatureCache();
-    const cached = this.processedSignatures.get(signature);
-    if (cached) {
-      return { processed: true, confirmed: cached.confirmed };
-    }
-    return { processed: false, confirmed: false };
-  }
-
-  /**
-   * Mark a signature as processed
-   */
-  private markSignatureProcessed(signature: string, confirmed: boolean = false): void {
-    this.processedSignatures.set(signature, {
-      timestamp: Date.now(),
-      confirmed
-    });
-  }
-
-  /**
-   * Initialize Solana connection with race condition protection
-   */
-  private async initializeConnection(rpcUrl: string): Promise<Connection> {
-    // If connection already exists, return it immediately
-    if (this.connection) {
-      return this.connection;
-    }
-
-    // If connection is being created, wait for it
-    if (this.connectionPromise) {
-      return this.connectionPromise;
-    }
-
-    // Create connection and store the promise
-    this.connectionPromise = (async () => {
-      try {
-        const newConnection = new Connection(rpcUrl, {
-          commitment: 'confirmed',
-          confirmTransactionInitialTimeout: 60000, // 60秒超时 - shorter to detect issues faster
-          httpHeaders: {
-            'Connection': 'keep-alive'
-          }
-        });
-
-        // Test the connection
-        await newConnection.getLatestBlockhash('confirmed');
-
-        this.connection = newConnection;
-        return newConnection;
-      } catch (error) {
-        // If connection fails, reset the promise so it can be retried
-        this.connectionPromise = null;
-        throw error;
-      }
-    })();
-
-    return this.connectionPromise;
+    return this.connection;
   }
 
   /**
@@ -219,7 +158,7 @@ export class SolanaService {
    */
   async getTokenInfo(rpcUrl: string, tokenAddress: string): Promise<SolanaTokenInfo> {
     try {
-      const connection = await this.initializeConnection(rpcUrl);
+      const connection = this.initializeConnection(rpcUrl);
 
       // Check if it's native SOL
       if (tokenAddress.toLowerCase() === 'sol' || tokenAddress.toLowerCase() === 'native') {
@@ -276,7 +215,7 @@ export class SolanaService {
     tokenAddress?: string
   ): Promise<string> {
     try {
-      const connection = await this.initializeConnection(rpcUrl);
+      const connection = this.initializeConnection(rpcUrl);
       const publicKey = new PublicKey(walletPublicKey);
 
       if (!tokenAddress || tokenAddress.toLowerCase() === 'sol') {
@@ -328,7 +267,7 @@ export class SolanaService {
     batchSize: number = DEFAULTS.BATCH_SIZES.solana // Read default batch size from config file
   ): Promise<SolanaBatchTransferResult> {
     try {
-      const connection = await this.initializeConnection(rpcUrl);
+      const connection = this.initializeConnection(rpcUrl);
       const wallet = this.createKeypairFromBase64(privateKeyBase64);
 
       // Get token information
@@ -675,38 +614,23 @@ export class SolanaService {
     // Get signature from transaction
     const signature = bs58.encode(transaction.signature!);
 
-    // CRITICAL: Check if this signature has been processed before to prevent double-spending
-    const signatureCheck = this.isSignatureProcessed(signature);
-    if (signatureCheck.processed) {
-      if (signatureCheck.confirmed) {
-        logger.warn('[SolanaService] Transaction already confirmed, returning cached result', {
-          signature: signature.substring(0, 20) + '...'
-        });
-        return { signature, gasUsed: 0 };
-      } else {
-        logger.warn('[SolanaService] Transaction already sent but not confirmed, waiting for confirmation', {
-          signature: signature.substring(0, 20) + '...'
-        });
-        // Continue to confirmation logic below
-      }
-    } else {
-      // Mark as processed immediately after signing to prevent duplicate sends
-      this.markSignatureProcessed(signature, false);
-    }
-
-    // Serialize transaction once (will be reused for replay)
+    // Serialize transaction once
     const rawTransaction = transaction.serialize();
 
-    // Only send if this signature hasn't been sent before
-    let shouldSend = !signatureCheck.processed;
-    if (shouldSend) {
-      try {
-        await connection.sendRawTransaction(rawTransaction, {
-          skipPreflight: false,
-          maxRetries: 0, // We handle retries ourselves
-          preflightCommitment: 'processed'
-        });
-      } catch (sendError) {
+    // Send transaction
+    try {
+      await connection.sendRawTransaction(rawTransaction, {
+        skipPreflight: false,
+        maxRetries: 0,
+        preflightCommitment: 'processed'
+      });
+
+      logger.debug('[SolanaService] Transaction sent', {
+        signature: signature.substring(0, 20) + '...',
+        blockhash: blockhash.substring(0, 20) + '...',
+        lastValidBlockHeight
+      });
+    } catch (sendError) {
       // Parse and enhance send error
       const errorMsg = sendError instanceof Error ? sendError.message : String(sendError);
       logger.error('[SolanaService] Failed to send transaction', new Error(`Send failed: ${errorMsg}`), {
@@ -726,19 +650,6 @@ export class SolanaService {
       } else {
         throw new Error(`Transaction broadcast failed: ${errorMsg}`);
       }
-    }
-
-    if (shouldSend) {
-      logger.debug('[SolanaService] Transaction sent', {
-        signature: signature.substring(0, 20) + '...',
-        blockhash: blockhash.substring(0, 20) + '...',
-        lastValidBlockHeight
-      });
-    } else {
-      logger.debug('[SolanaService] Using existing transaction, skipping broadcast', {
-        signature: signature.substring(0, 20) + '...'
-      });
-    }
     }
 
     // Confirm transaction with retry and replay mechanism
@@ -785,9 +696,7 @@ export class SolanaService {
 
         confirmed = true;
 
-        // CRITICAL: Mark signature as confirmed in our cache
-        this.markSignatureProcessed(signature, true);
-
+        
         // Get gas used
         try {
           const txDetails = await connection.getTransaction(signature, {
@@ -883,9 +792,7 @@ export class SolanaService {
                 confirmationStatus
               });
 
-              // CRITICAL: Mark signature as confirmed in our cache
-              this.markSignatureProcessed(signature, true);
-
+              
               // Get gas used
               try {
                 const txDetails = await connection.getTransaction(signature, {
@@ -971,62 +878,31 @@ export class SolanaService {
 
   /**
    * Calculate compute unit limit based on operation type and batch size
-   * With overflow protection and bounds checking
+   * Simplified version with basic safety checks
    */
   private calculateComputeUnitLimit(
     operationType: 'ata_creation' | 'transfer',
     batchSize: number,
     isNativeSOL: boolean
   ): number {
-    // Validate and bounds check batchSize to prevent overflow
+    // Basic validation
     if (!Number.isInteger(batchSize) || batchSize < 1) {
-      logger.warn('[SolanaService] Invalid batchSize, using default', { batchSize });
       batchSize = 1;
     }
 
-    // Maximum reasonable batch size to prevent overflow
-    const MAX_SAFE_BATCH_SIZE = 10000;
-    if (batchSize > MAX_SAFE_BATCH_SIZE) {
-      logger.warn('[SolanaService] BatchSize too large, capping for safety', {
-        originalBatchSize: batchSize,
-        cappedBatchSize: MAX_SAFE_BATCH_SIZE
-      });
-      batchSize = MAX_SAFE_BATCH_SIZE;
-    }
-
-    let computeUnits: number;
+    // Simple calculation with reasonable limits
     if (operationType === 'ata_creation') {
-      // ATA creation is more expensive: ~40,000 per ATA
-      // Use safe arithmetic to prevent overflow
-      const perAtaCost = 45000;
-      const baseCost = 50000;
-      computeUnits = Math.min(Number(batchSize) * perAtaCost + baseCost, 1400000);
+      // ATA creation: ~45,000 per ATA + base
+      return Math.min(batchSize * 45000 + 50000, 1400000);
     } else {
-      // Transfer operations
       if (isNativeSOL) {
-        // Native SOL transfers are cheap: ~300 per transfer
-        const perTransferCost = 1000;
-        const baseCost = 20000;
-        computeUnits = Math.min(Number(batchSize) * perTransferCost + baseCost, 400000);
+        // Native SOL transfers: ~1,000 per transfer + base
+        return Math.min(batchSize * 1000 + 20000, 400000);
       } else {
-        // SPL token transfers: ~25,000 per transfer
-        const perTransferCost = 30000;
-        const baseCost = 50000;
-        computeUnits = Math.min(Number(batchSize) * perTransferCost + baseCost, 1400000);
+        // SPL token transfers: ~30,000 per transfer + base
+        return Math.min(batchSize * 30000 + 50000, 1400000);
       }
     }
-
-    // Final safety check
-    if (!Number.isFinite(computeUnits) || computeUnits <= 0) {
-      logger.error('[SolanaService] Invalid compute units calculated, using fallback', new Error(`Invalid compute units: ${computeUnits}`), {
-        computeUnits,
-        batchSize,
-        operationType
-      });
-      return operationType === 'ata_creation' ? 200000 : 100000;
-    }
-
-    return computeUnits;
   }
 
   /**
@@ -1197,7 +1073,7 @@ export class SolanaService {
     batchSize: number
   ): Promise<{
     transactionHashes: string[];
-    totalGasUsed: bigint; // Use bigint to prevent overflow
+    totalGasUsed: number;
     details: Array<{
       address: string;
       amount: string;
@@ -1238,7 +1114,7 @@ export class SolanaService {
       status: 'success' | 'failed';
       error?: string;
     }> = [];
-    let totalGasUsed = 0n; // Use bigint for overflow protection
+    let totalGasUsed = 0;
 
     // Sender's ATA (required for SPL tokens)
     let senderATA: PublicKey | undefined;
@@ -1381,7 +1257,7 @@ export class SolanaService {
           10 // Max 10 retries (increased for better success rate)
         );
 
-        totalGasUsed += BigInt(gasUsed); // Convert to bigint for safe accumulation
+        totalGasUsed += gasUsed;
         transactionHashes.push(signature);
 
         // Mark all valid addresses as successful
@@ -1449,7 +1325,7 @@ export class SolanaService {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const connection = await this.initializeConnection(rpcUrl);
+        const connection = this.initializeConnection(rpcUrl);
 
         // Use more efficient query method
         const [transaction, signatureStatuses] = await Promise.all([
@@ -1518,7 +1394,7 @@ export class SolanaService {
     isSPLToken: boolean
   ): Promise<number> {
     try {
-      const connection = await this.initializeConnection(rpcUrl);
+      const connection = this.initializeConnection(rpcUrl);
 
       // Base transaction fee
       let baseFee = DEFAULTS.SOLANA_FEES.base_fee_per_signature;
