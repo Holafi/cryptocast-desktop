@@ -404,6 +404,8 @@ export class SolanaService {
     });
 
     // Step 4: Rebuild transaction with priority fee (following official pattern)
+    // Clear existing instructions and rebuild in correct order
+    const originalInstructions = [...tx.instructions];
     tx.instructions = [];
 
     // Add priority fee instruction first
@@ -422,7 +424,7 @@ export class SolanaService {
     }));
 
     // Re-add all original instructions
-    tx.add(...instructions);
+    tx.add(...originalInstructions);
 
     // Step 5: Update blockhash before sending
     const freshBlockhash = await connection.getLatestBlockhash('confirmed');
