@@ -30,9 +30,10 @@ export const DEFAULTS = {
 
   SOLANA_FEES: {
     // Solana fee configuration
-    base_fee_per_signature: 5000,
-    compute_unit_limit: 200000,
-    spl_account_creation_fee: 2039280,
+    base_fee_per_signature: 5000, // Base transaction signature fee (lamports)
+    compute_unit_limit: 200000, // Default compute unit limit for estimation
+    priority_fee_micro_lamports: 5000, // Default priority fee (5000 micro lamports = 0.005 lamports per CU)
+    spl_account_creation_fee: 2039280, // Rent-exempt minimum for SPL token account
     ata_creation_fee_sol: 0.0021 // ATA creation fee in SOL (fixed per address)
   },
 

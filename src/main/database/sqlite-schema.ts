@@ -458,28 +458,36 @@ export class DatabaseManager {
 
     for (const chain of allDefaultChains) {
       try {
-        await this.db.run(
-          `
-          INSERT OR REPLACE INTO chains (
-            type, chain_id, name, rpc_url, rpc_backup, explorer_url, symbol, decimals,
-            color, badge_color, is_custom, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-          [
-            chain.type,
-            chain.chain_id,
-            chain.name,
-            chain.rpc_url,
-            chain.rpc_backup,
-            chain.explorer_url,
-            chain.symbol,
-            chain.decimals,
-            chain.color,
-            chain.badge_color,
-            0, // is_custom (default chains are built-in)
-            new Date().toISOString()
-          ]
+        // Check if chain already exists and is not custom
+        const existingChain = await this.db.get(
+          'SELECT * FROM chains WHERE type = ? AND chain_id = ? AND is_custom = 0',
+          [chain.type, chain.chain_id]
         );
+
+        if (!existingChain) {
+          await this.db.run(
+            `
+            INSERT OR IGNORE INTO chains (
+              type, chain_id, name, rpc_url, rpc_backup, explorer_url, symbol, decimals,
+              color, badge_color, is_custom, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+            [
+              chain.type,
+              chain.chain_id,
+              chain.name,
+              chain.rpc_url,
+              chain.rpc_backup,
+              chain.explorer_url,
+              chain.symbol,
+              chain.decimals,
+              chain.color,
+              chain.badge_color,
+              0, // is_custom (default chains are built-in)
+              new Date().toISOString()
+            ]
+          );
+        }
       } catch (error) {
         console.error(`[Database] Failed to insert chain ${chain.name}:`, error);
       }

@@ -283,16 +283,19 @@ export class BlockchainService {
       // Use configured Solana fees
       const baseFeePerSignature = BigInt(DEFAULTS.SOLANA_FEES.base_fee_per_signature);
 
+      // Get recommended priority fee (use default estimate value)
+      // In production, this value comes from dynamic network fee detection
+      const computeUnitPrice = BigInt(DEFAULTS.SOLANA_FEES.priority_fee_micro_lamports);
+
       // Typical component fee estimation for Solana transactions
       const computeUnitsPerInstruction = DEFAULTS.SOLANA_FEES.compute_unit_limit;
-      const computeUnitPrice = BigInt(0); // Default to 0
 
       // For batch transfers, each transaction contains multiple instructions
       const instructionsPerTransfer = 5; // Transfer + possible account creation + other instructions
       const totalInstructions = transactionCount * instructionsPerTransfer;
       const totalComputeUnits = computeUnitsPerInstruction * totalInstructions;
 
-      // Calculate total fees
+      // Calculate total fees (including priority fees)
       const computeFee = BigInt(totalComputeUnits) * computeUnitPrice;
       const signatureFees = baseFeePerSignature * BigInt(transactionCount + 1); // +1 for payer signature
 
