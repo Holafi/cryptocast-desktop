@@ -7,7 +7,8 @@ import {
   SystemProgram,
   ComputeBudgetProgram,
   TransactionSignature,
-  Commitment
+  Commitment,
+  TransactionInstruction
 } from '@solana/web3.js';
 // import { TokenService } from './TokenService';
 // import { ChainUtils } from '../utils/chain-utils';
@@ -23,6 +24,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
 import BigNumber from 'bignumber.js';
+import bs58 from 'bs58';
 import { Logger } from '../utils/logger';
 
 const logger = Logger.getInstance().child('SolanaService');
@@ -65,7 +67,7 @@ export class SolanaService {
     if (!this.connection) {
       this.connection = new Connection(rpcUrl, {
         commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 120000, // 120秒超时 (increased from 60s for better success rate)
+        confirmTransactionInitialTimeout: 60000, // 60秒超时 - shorter to detect issues faster
         httpHeaders: {
           'Connection': 'keep-alive'
         }
@@ -298,13 +300,153 @@ export class SolanaService {
   }
 
   /**
-   * Get recommended priority fee based on recent network activity
+   * Build transaction with Helius priority fee estimation (following official pattern)
+   */
+  private async buildTransactionWithPriorityFee(
+    connection: Connection,
+    instructions: any[],
+    wallet: Keypair,
+    operationType: 'ata_creation' | 'transfer',
+    extraOptions?: {
+      computeUnitLimit?: number;
+      priorityMultiplier?: number;
+      maxPriorityFee?: number;
+    }
+  ): Promise<Transaction> {
+    // Step 1: Build transaction with all instructions
+    const tx = new Transaction();
+    tx.add(...instructions);
+
+    // Step 2: Set required fields and serialize for Helius API
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = wallet.publicKey;
+
+    const serializedTransaction = bs58.encode(tx.serialize());
+
+    logger.info(`[SolanaService] Built ${operationType} transaction for Helius API`, {
+      instructionCount: instructions.length,
+      hasFeePayer: !!wallet.publicKey,
+      operationType
+    });
+
+    // Step 3: Get priority fee estimate from Helius API
+    const priorityFee = await this.getPriorityFeeEstimate(connection, serializedTransaction);
+
+    // Apply operation-specific priority multiplier
+    const multiplier = extraOptions?.priorityMultiplier ?? 1.5;
+    const maxFee = extraOptions?.maxPriorityFee ?? (operationType === 'ata_creation' ? 2000000 : 1000000);
+    const fallbackFee = await this.getRecommendedPriorityFee(connection);
+
+    let computeUnitPrice: number;
+    if (priorityFee > 0) {
+      computeUnitPrice = Math.min(Math.floor(priorityFee * multiplier), maxFee);
+    } else {
+      computeUnitPrice = Math.min(Math.floor(fallbackFee * multiplier), operationType === 'ata_creation' ? 1000000 : 500000);
+    }
+
+    logger.info(`[SolanaService] ${operationType} priority fee determined`, {
+      priorityFee,
+      computeUnitPrice,
+      source: priorityFee > 0 ? 'Helius API' : 'Recent fees',
+      costInSOL: (computeUnitPrice / 1000000).toFixed(6),
+      multiplier,
+      operationType
+    });
+
+    // Step 4: Rebuild transaction with priority fee (following official pattern)
+    tx.instructions = [];
+
+    // Add priority fee instruction first
+    tx.add(ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: computeUnitPrice
+    }));
+
+    // Set compute unit limit
+    const computeUnitLimit = extraOptions?.computeUnitLimit ?? this.calculateComputeUnitLimit(
+      operationType,
+      instructions.length,
+      false // We'll calculate based on instruction count if not provided
+    );
+    tx.add(ComputeBudgetProgram.setComputeUnitLimit({
+      units: computeUnitLimit
+    }));
+
+    // Re-add all original instructions
+    tx.add(...instructions);
+
+    // Step 5: Update blockhash before sending
+    const freshBlockhash = await connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = freshBlockhash.blockhash;
+
+    logger.info(`[SolanaService] Rebuilt ${operationType} transaction with priority fee`, {
+      instructionCount: tx.instructions.length,
+      computeUnitPrice,
+      computeUnitLimit,
+      estimatedCost: (computeUnitPrice * computeUnitLimit) / 1000000,
+      feeSource: priorityFee > 0 ? 'Helius API' : 'Recent fees',
+      operationType
+    });
+
+    return tx;
+  }
+
+  /**
+   * Get priority fee estimate for a transaction (following official Helius pattern)
+   */
+  private async getPriorityFeeEstimate(connection: Connection, serializedTransaction: string): Promise<number> {
+    try {
+      logger.info('[SolanaService] Calling Helius API for priority fee estimation', {
+        rpcEndpoint: connection.rpcEndpoint.replace(/api-key=[^&]+/, 'api-key=***')
+      });
+
+      const response = await fetch(connection.rpcEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "1",
+          method: "getPriorityFeeEstimate",
+          params: [{
+            transaction: serializedTransaction,
+            options: {
+              priorityLevel: "High",
+              recommended: true
+            }
+          }]
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.error) {
+        throw new Error(`Helius API error: ${result.error.message}`);
+      }
+
+      const priorityFee = result.result?.priorityFeeEstimate || 0;
+      logger.info('[SolanaService] Helius API response received', {
+        priorityFee,
+        costInSOL: (priorityFee / 1000000).toFixed(6)
+      });
+
+      return priorityFee;
+    } catch (error) {
+      logger.warn('[SolanaService] Helius API call failed, using fallback', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return 0;
+    }
+  }
+
+  /**
+   * Get recommended priority fee using recent network activity (fallback)
    */
   private async getRecommendedPriorityFee(connection: Connection): Promise<number> {
+    // Fallback to recent priority fees
     try {
       const recentFees = await connection.getRecentPrioritizationFees();
       if (recentFees && recentFees.length > 0) {
-        // Use 95th percentile for maximum confirmation rate (increased from 90th)
+        // Use 95th percentile for good confirmation rate
         const sorted = recentFees
           .map(f => f.prioritizationFee)
           .filter(fee => fee > 0)
@@ -313,29 +455,71 @@ export class SolanaService {
         if (sorted.length > 0) {
           const index = Math.floor(sorted.length * 0.95);
           const recommendedFee = sorted[index];
-          // Increased minimum to 10000, maximum to 500000 for guaranteed confirmation
-          // 500000 micro-lamports = 0.0005 SOL per transaction
+          // Reasonable clamping: min 10k, max 500k
           const clampedFee = Math.min(Math.max(recommendedFee, 10000), 500000);
 
-          logger.debug('[SolanaService] Dynamic priority fee calculated', {
+          logger.info('[SolanaService] Using recent priority fee calculation', {
             recommendedFee,
             clampedFee,
             sampleSize: sorted.length,
             percentile: '95th',
-            costInSOL: (clampedFee / 1000000).toFixed(6)
+            costInSOL: (clampedFee / 1000000).toFixed(6),
+            source: 'Recent fees'
           });
 
           return clampedFee;
         }
       }
     } catch (error) {
-      logger.warn('[SolanaService] Failed to get priority fees, using default', {
+      logger.warn('[SolanaService] Failed to get recent fees, using default', {
         error: error instanceof Error ? error.message : String(error)
       });
     }
 
-    // Fallback to higher default value for better success rate
+    // Conservative fallback
     return 20000;
+  }
+
+  
+  /**
+   * Simulate transaction before broadcasting to catch errors early
+   */
+  private async simulateTransaction(
+    connection: Connection,
+    transaction: Transaction,
+    signers: Keypair[]
+  ): Promise<{ success: boolean; error?: string; logs?: string[] }> {
+    try {
+      // Use confirmed blockhash for simulation to ensure consistency
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = signers[0].publicKey;
+
+      // Simulate transaction (no need to sign for simulation)
+      const simulation = await connection.simulateTransaction(transaction);
+
+      logger.debug('[SolanaService] Transaction simulation result', {
+        value: simulation.value,
+        err: simulation.value.err,
+        logs: simulation.value.logs
+      });
+
+      if (simulation.value.err) {
+        return {
+          success: false,
+          error: `Simulation failed: ${JSON.stringify(simulation.value.err)}`,
+          logs: simulation.value.logs || []
+        };
+      }
+
+      return { success: true, logs: simulation.value.logs || undefined };
+    } catch (error) {
+      logger.error('[SolanaService] Transaction simulation error', error as Error);
+      return {
+        success: false,
+        error: `Simulation error: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
   }
 
   /**
@@ -349,6 +533,26 @@ export class SolanaService {
     commitment: Commitment = 'confirmed',
     maxRetries: number = 10 // Increased from 5 to 10 for better success rate
   ): Promise<{ signature: TransactionSignature; gasUsed: number }> {
+    // Pre-simulate transaction to catch errors before broadcast
+    logger.info('[SolanaService] Pre-simulating transaction to catch errors early', {
+      instructionCount: transaction.instructions.length,
+      signersCount: signers.length
+    });
+    const simulationResult = await this.simulateTransaction(connection, transaction, signers);
+
+    if (!simulationResult.success) {
+      const errorMsg = `Transaction simulation failed: ${simulationResult.error}`;
+      logger.error('[SolanaService] Transaction failed simulation', new Error(errorMsg), {
+        logs: simulationResult.logs
+      });
+      throw new Error(errorMsg);
+    }
+
+    logger.info('[SolanaService] Transaction simulation passed, proceeding to broadcast', {
+      logCount: simulationResult.logs?.length || 0,
+      hasLogs: !!simulationResult.logs
+    });
+
     // Get latest blockhash with 'confirmed' commitment for better performance
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
     transaction.recentBlockhash = blockhash;
@@ -361,12 +565,35 @@ export class SolanaService {
     // Serialize transaction once (will be reused for replay)
     const rawTransaction = transaction.serialize();
 
-    // Send transaction initially
-    const signature = await connection.sendRawTransaction(rawTransaction, {
-      skipPreflight: false,
-      maxRetries: 0, // We handle retries ourselves
-      preflightCommitment: 'processed'
-    });
+    // Send transaction initially with detailed error handling
+    let signature: TransactionSignature;
+    try {
+      signature = await connection.sendRawTransaction(rawTransaction, {
+        skipPreflight: false,
+        maxRetries: 0, // We handle retries ourselves
+        preflightCommitment: 'processed'
+      });
+    } catch (sendError) {
+      // Parse and enhance send error
+      const errorMsg = sendError instanceof Error ? sendError.message : String(sendError);
+      logger.error('[SolanaService] Failed to send transaction', new Error(`Send failed: ${errorMsg}`), {
+        transactionSize: rawTransaction.length,
+        instructionCount: transaction.instructions.length
+      });
+
+      // Check for specific known errors
+      if (errorMsg.includes('account not found')) {
+        throw new Error(`Account not found: ${errorMsg}. Please ensure all accounts exist and are funded.`);
+      } else if (errorMsg.includes('insufficient funds')) {
+        throw new Error(`Insufficient funds: ${errorMsg}. Please check wallet balance.`);
+      } else if (errorMsg.includes('compute budget')) {
+        throw new Error(`Compute budget exceeded: ${errorMsg}. Transaction is too complex.`);
+      } else if (errorMsg.includes('blockhash')) {
+        throw new Error(`Blockhash error: ${errorMsg}. Please retry with fresh blockhash.`);
+      } else {
+        throw new Error(`Transaction broadcast failed: ${errorMsg}`);
+      }
+    }
 
     logger.debug('[SolanaService] Transaction sent', {
       signature: signature.substring(0, 20) + '...',
@@ -715,9 +942,7 @@ export class SolanaService {
   }
 
   /**
-   * Step 3: Batch create ATAs
-   * ATA creation instructions are large, recommended not to exceed 15 per batch
-   * But we use user-set batchSize, maximum not exceeding 15
+   * Step 3: Batch create ATAs (single transaction for all missing ATAs in the batch)
    */
   private async batchCreateATAs(
     connection: Connection,
@@ -726,173 +951,55 @@ export class SolanaService {
     tokenInfo: SolanaTokenInfo,
     userBatchSize: number
   ): Promise<void> {
+    if (missingATAs.length === 0) return;
+
     logger.info('[SolanaService] Starting batch ATA creation', { ataCount: missingATAs.length });
 
     const tokenMint = new PublicKey(tokenInfo.address);
-    // ATA creation is more expensive and complex than transfers
-    // Use a smaller batch size (max 5) to improve confirmation rate
-    // This reduces transaction size and increases success probability
-    const CREATE_BATCH_SIZE = Math.min(userBatchSize, 5);
 
-    logger.debug('[SolanaService] ATA creation batch size', {
-      batchSize: CREATE_BATCH_SIZE,
-      userBatchSize,
-      note: 'Using smaller batch size for ATA creation to improve success rate'
-    });
-
-    // Get recommended priority fee once for all ATA creation batches
-    // Use 1.5x higher priority fee for ATA creation to improve confirmation rate
-    const basePriorityFee = await this.getRecommendedPriorityFee(connection);
-    const computeUnitPrice = Math.min(Math.floor(basePriorityFee * 1.5), 500000); // Cap at 500k
-
-    logger.debug('[SolanaService] ATA creation priority fee boosted', {
-      baseFee: basePriorityFee,
-      boostedFee: computeUnitPrice,
-      multiplier: 1.5
-    });
-
-    // Batch create
-    for (let i = 0; i < missingATAs.length; i += CREATE_BATCH_SIZE) {
-      const batch = missingATAs.slice(i, Math.min(i + CREATE_BATCH_SIZE, missingATAs.length));
-      let tx = new Transaction(); // Use 'let' to allow reassignment in retry logic
-
-      // Calculate appropriate compute unit limit based on batch size
-      const computeUnitLimit = this.calculateComputeUnitLimit(
-        'ata_creation',
-        batch.length,
-        tokenInfo.isNativeSOL
-      );
-
-      logger.debug('[SolanaService] ATA creation compute budget', {
-        batchSize: batch.length,
-        computeUnitPrice,
-        computeUnitLimit,
-        estimatedCost: (computeUnitPrice * computeUnitLimit) / 1000000 // lamports
-      });
-
-      tx.add(
-        ComputeBudgetProgram.setComputeUnitPrice({
-          microLamports: computeUnitPrice
-        })
-      );
-      tx.add(
-        ComputeBudgetProgram.setComputeUnitLimit({
-          units: computeUnitLimit
-        })
-      );
-
-      for (const item of batch) {
-        const ix = createAssociatedTokenAccountInstruction(
-          wallet.publicKey, // payer
-          item.ata, // associatedToken
-          item.owner, // owner
-          tokenMint, // mint
-          tokenInfo.programId, // programId
-          ASSOCIATED_TOKEN_PROGRAM_ID
-        );
-        tx.add(ix);
-      }
-
-      let lastError: Error | null = null;
-      let retryCount = 0;
-      const maxRetries = 2; // Retry ATA creation up to 2 times with fresh blockhash
-
-      while (retryCount <= maxRetries) {
-        try {
-          // Use new retry-based confirmation method
-          const { signature, gasUsed } = await this.sendAndConfirmTransactionWithRetry(
-            connection,
-            tx,
-            [wallet],
-            'confirmed',
-            10 // Max 10 retries (increased for better success rate)
-          );
-
-          logger.info('[SolanaService] ATA batch created successfully', {
-            batchNumber: Math.floor(i / CREATE_BATCH_SIZE) + 1,
-            signature,
-            ataCount: batch.length,
-            gasUsed,
-            retryCount
-          });
-
-          lastError = null;
-          break; // Success, exit retry loop
-        } catch (error) {
-          lastError = error as Error;
-          const isExpiredError = lastError.message.includes('expired') ||
-                                 lastError.message.includes('block height exceeded');
-
-          if (isExpiredError && retryCount < maxRetries) {
-            // Blockhash expired, retry with fresh transaction
-            logger.warn('[SolanaService] ATA creation expired, retrying with fresh blockhash', {
-              batchNumber: Math.floor(i / CREATE_BATCH_SIZE) + 1,
-              ataCount: batch.length,
-              retryCount: retryCount + 1,
-              maxRetries
-            });
-
-            // Recreate transaction with fresh blockhash
-            tx = new Transaction();
-
-            // Re-add compute budget instructions
-            tx.add(
-              ComputeBudgetProgram.setComputeUnitPrice({
-                microLamports: computeUnitPrice
-              })
-            );
-            tx.add(
-              ComputeBudgetProgram.setComputeUnitLimit({
-                units: computeUnitLimit
-              })
-            );
-
-            // Re-add ATA creation instructions
-            for (const item of batch) {
-              const ix = createAssociatedTokenAccountInstruction(
-                wallet.publicKey,
-                item.ata,
-                item.owner,
-                tokenMint,
-                tokenInfo.programId,
-                ASSOCIATED_TOKEN_PROGRAM_ID
-              );
-              tx.add(ix);
-            }
-
-            retryCount++;
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-          } else {
-            // Non-expiry error or max retries reached, throw immediately
-            logger.error('[SolanaService] ATA batch creation failed', lastError, {
-              batchNumber: Math.floor(i / CREATE_BATCH_SIZE) + 1,
-              ataCount: batch.length,
-              retryCount,
-              isExpiredError
-            });
-            throw lastError;
-          }
-        }
-      }
-
-      // If we exhausted retries, throw the last error
-      if (lastError !== null) {
-        logger.error('[SolanaService] ATA batch creation failed after all retries', lastError, {
-          batchNumber: Math.floor(i / CREATE_BATCH_SIZE) + 1,
-          ataCount: batch.length,
-          maxRetries
-        });
-        throw lastError;
-      }
-
-      // Reduced delay between batches (from 3s to 500ms)
-      if (i + CREATE_BATCH_SIZE < missingATAs.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+    // Build ATA creation instructions array
+    const ataInstructions = [];
+    for (const item of missingATAs) {
+      ataInstructions.push(createAssociatedTokenAccountInstruction(
+        wallet.publicKey, // payer
+        item.ata, // associatedToken
+        item.owner, // owner
+        tokenMint, // mint
+        tokenInfo.programId, // programId
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      ));
     }
 
-    logger.info('[SolanaService] All ATAs created successfully', {
-      totalCreated: missingATAs.length
+    // Build transaction with priority fee using unified method
+    const tx = await this.buildTransactionWithPriorityFee(
+      connection,
+      ataInstructions,
+      wallet,
+      'ata_creation',
+      {
+        computeUnitLimit: this.calculateComputeUnitLimit(
+          'ata_creation',
+          missingATAs.length,
+          tokenInfo.isNativeSOL
+        ),
+        priorityMultiplier: 1.5,
+        maxPriorityFee: 2000000
+      }
+    );
+
+    // Send and confirm the single ATA creation transaction (NO RETRY to prevent double spending)
+    const { signature, gasUsed } = await this.sendAndConfirmTransactionWithRetry(
+      connection,
+      tx,
+      [wallet],
+      'confirmed',
+      5 // Only use internal retry mechanism
+    );
+
+    logger.info('[SolanaService] All ATAs created successfully in single transaction', {
+      signature,
+      ataCount: missingATAs.length,
+      gasUsed
     });
   }
 
@@ -915,6 +1022,22 @@ export class SolanaService {
       error?: string;
     }>;
   }> {
+    // Input validation
+    if (!ataList || ataList.length === 0) {
+      throw new Error('No recipients provided for transfer');
+    }
+
+    // Validate amounts and addresses
+    for (const item of ataList) {
+      if (!item.owner || !item.ata || !item.amount) {
+        throw new Error('Invalid recipient data: missing required fields');
+      }
+      const amount = parseFloat(item.amount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error(`Invalid transfer amount: ${item.amount}`);
+      }
+    }
+
     logger.info('[SolanaService] Starting batch token transfer', {
       batchSize,
       totalRecipients: ataList.length
@@ -942,8 +1065,7 @@ export class SolanaService {
       );
     }
 
-    // Get recommended priority fee once for all transfer batches
-    const computeUnitPrice = await this.getRecommendedPriorityFee(connection);
+    // Note: We'll get transaction-specific priority fees for each batch
 
     // Batch process
     for (let i = 0; i < ataList.length; i += batchSize) {
@@ -996,45 +1118,19 @@ export class SolanaService {
       }
 
       try {
-        const tx = new Transaction();
-
-        // Calculate appropriate compute unit limit based on operation and batch size
-        const computeUnitLimit = this.calculateComputeUnitLimit(
-          'transfer',
-          validRecipients.length,
-          tokenInfo.isNativeSOL
-        );
-
-        logger.debug('[SolanaService] Transfer compute budget', {
-          batchSize: validRecipients.length,
-          computeUnitPrice,
-          computeUnitLimit,
-          isNativeSOL: tokenInfo.isNativeSOL,
-          estimatedCost: (computeUnitPrice * computeUnitLimit) / 1000000 // lamports
-        });
-
-        tx.add(
-          ComputeBudgetProgram.setComputeUnitPrice({
-            microLamports: computeUnitPrice
-          })
-        );
-        tx.add(
-          ComputeBudgetProgram.setComputeUnitLimit({
-            units: computeUnitLimit
-          })
-        );
+        // Step 1: Build transfer instructions
+        const transferInstructions: TransactionInstruction[] = [];
 
         for (const item of validRecipients) {
           if (tokenInfo.isNativeSOL) {
             // Native SOL transfer
             const lamports = Math.floor(parseFloat(item.amount) * LAMPORTS_PER_SOL);
-            tx.add(
-              SystemProgram.transfer({
-                fromPubkey: wallet.publicKey,
-                toPubkey: item.owner,
-                lamports
-              })
-            );
+            const solTransferIx = SystemProgram.transfer({
+              fromPubkey: wallet.publicKey,
+              toPubkey: item.owner,
+              lamports
+            });
+            transferInstructions.push(solTransferIx);
           } else {
             // SPL token transfer
             const tokenMint = new PublicKey(tokenInfo.address);
@@ -1042,37 +1138,55 @@ export class SolanaService {
               Math.floor(parseFloat(item.amount) * Math.pow(10, tokenInfo.decimals))
             );
 
+            let tokenTransferIx;
             if (tokenInfo.programId.equals(TOKEN_2022_PROGRAM_ID)) {
               // Token-2022 uses transferChecked
-              tx.add(
-                createTransferCheckedInstruction(
-                  senderATA!,
-                  tokenMint,
-                  item.ata,
-                  wallet.publicKey,
-                  transferAmount,
-                  tokenInfo.decimals,
-                  [],
-                  tokenInfo.programId
-                )
+              tokenTransferIx = createTransferCheckedInstruction(
+                senderATA!,
+                tokenMint,
+                item.ata,
+                wallet.publicKey,
+                transferAmount,
+                tokenInfo.decimals,
+                [],
+                tokenInfo.programId
               );
             } else {
               // Token Program v1
-              tx.add(
-                createTransferInstruction(
-                  senderATA!,
-                  item.ata,
-                  wallet.publicKey,
-                  transferAmount,
-                  [],
-                  tokenInfo.programId
-                )
+              tokenTransferIx = createTransferInstruction(
+                senderATA!,
+                item.ata,
+                wallet.publicKey,
+                transferAmount,
+                [],
+                tokenInfo.programId
               );
             }
+            transferInstructions.push(tokenTransferIx);
           }
         }
 
-        // Use new retry-based confirmation method
+        logger.info('[SolanaService] Built transfer instructions', {
+          instructionCount: transferInstructions.length,
+          isNativeSOL: tokenInfo.isNativeSOL
+        });
+
+        // Step 2: Use unified method to build transaction with priority fee
+        const tx = await this.buildTransactionWithPriorityFee(
+          connection,
+          transferInstructions,
+          wallet,
+          'transfer',
+          {
+            computeUnitLimit: this.calculateComputeUnitLimit(
+              'transfer',
+              validRecipients.length,
+              tokenInfo.isNativeSOL
+            )
+          }
+        );
+
+        // Step 3: Send transaction with retry
         const { signature, gasUsed } = await this.sendAndConfirmTransactionWithRetry(
           connection,
           tx,
