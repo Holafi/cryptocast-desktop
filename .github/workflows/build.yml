@@ -16,15 +16,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2025
             platform: win32
             arch: x64
             build-script: build:win
-          - os: macos-13
+          - os: macos-15-intel
             platform: darwin
             arch: x64
             build-script: build:mac-intel
-          - os: macos-14
+          - os: macos-15
             platform: darwin
             arch: arm64
             build-script: build:mac-arm
