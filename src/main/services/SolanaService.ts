@@ -162,8 +162,13 @@ export class SolanaService {
     try {
       const connection = this.initializeConnection(rpcUrl);
 
-      // Check if it's native SOL
-      if (tokenAddress.toLowerCase() === 'sol' || tokenAddress.toLowerCase() === 'native') {
+      // Check if it's native SOL (keywords or wrapped SOL address)
+      const lowerAddress = tokenAddress.toLowerCase();
+      if (
+        lowerAddress === 'sol' ||
+        lowerAddress === 'native' ||
+        tokenAddress === 'So11111111111111111111111111111111111111112'
+      ) {
         return {
           address: 'So11111111111111111111111111111111111111112',
           decimals: 9,

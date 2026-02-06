@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-02-06
+
+### Fixed
+- **Wrapped SOL Address Support**: Enhanced native SOL token detection to recognize wrapped SOL address (So11111111111111111111111111111111111111112)
+  - Added explicit check for wrapped SOL mint address in token info retrieval
+  - Ensures consistent handling of native SOL whether specified as 'sol', 'native', or wrapped SOL address
+  - Improves compatibility with various token input formats
+
+### Technical Details
+- **SolanaService**: Updated `getTokenInfo` method to include wrapped SOL address check
+- **Token Detection**: Enhanced native SOL detection logic with three recognition patterns
+
+---
+
 ## [1.7.0] - 2025-12-18
 
 ### Added
